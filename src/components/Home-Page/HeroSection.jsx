@@ -101,7 +101,7 @@ export default function HeroSection() {
             "
           >
             <img
-              src="public/Home-Page/hero-img.png"
+              src="/hero-img.png"
               alt="Alaa Eldien App Preview"
               className="
                 w-[360px] sm:w-[360px] md:w-[480px] lg:w-[605px]
