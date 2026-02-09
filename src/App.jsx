@@ -6,7 +6,7 @@ import HomePage from "./pages/HomePage";
 import ServicesPage from "./pages/ServicePage";
 import MarketplacePage from "./pages/MarketplacePage";
 import StorePage from "./pages/StorePage";
-import ContactPage from "./pages/ContactUSPage";
+import ContactUsPage from "./pages/ContactUSPage";
 import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
 
@@ -24,7 +24,7 @@ export default function App() {
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/store" element={<StorePage />} />
-          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/contact" element={<ContactUsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/overview" element={<OverviewPage />} />
         </Routes>
