@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 export default function Navbar() {
   // ===== Typography =====
   const baseText =
-    "font-['Roboto'] font-medium text-[16px] lg:text-[24px] whitespace-nowrap";
+    "font-['Roboto'] font-medium text-[16px] lg:text-[20px] whitespace-nowrap";
 
   // ===== Desktop + Mobile Link Style =====
   const navLink = ({ isActive }) =>
