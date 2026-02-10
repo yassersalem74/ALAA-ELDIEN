@@ -18,8 +18,7 @@ export default function TestimonialsSection() {
       date: "12 May 2022",
       rating: 4,
       img: "/testHome.png",
-      text:
-        "Amazing experience! I found everything I needed quickly.",
+      text: "Amazing experience! I found everything I needed quickly.",
     },
     {
       name: "Omar A.",
@@ -27,8 +26,7 @@ export default function TestimonialsSection() {
       date: "8 Jan 2023",
       rating: 4,
       img: "/testHome.png",
-      text:
-        "Very smooth platform and reliable.",
+      text: "Very smooth platform and reliable.",
     },
     {
       name: "Lina R.",
@@ -36,8 +34,7 @@ export default function TestimonialsSection() {
       date: "3 March 2023",
       rating: 4,
       img: "/testHome.png",
-      text:
-        "Secure and easy to use.",
+      text: "Secure and easy to use.",
     },
   ];
 
@@ -45,7 +42,10 @@ export default function TestimonialsSection() {
   const current = testimonials[active];
 
   const Star = ({ filled }) => (
-    <svg viewBox="0 0 24 24" className="w-5 h-5">
+    <svg
+      viewBox="0 0 24 24"
+      className="w-9 h-9" // 36px
+    >
       <path
         fill={filled ? "#EECE42" : "#CCD2DF"}
         d="M11.48 3.5l2.1 5.1 5.5.4-4.2 3.6 1.3 5.4-4.7-2.9-4.7 2.9 1.3-5.4-4.2-3.6 5.5-.4 2.1-5.1z"
@@ -59,15 +59,15 @@ export default function TestimonialsSection() {
 
         {/* HEADER */}
         <header className="text-center mb-16 space-y-6">
-          <h3 className="font-bold text-[28px] text-[#EECE42]">
+          <h3 className="font-medium text-[28px] text-[#EECE42]">
             TESTIMONIALS
           </h3>
 
-          <h2 className="font-bold text-[32px] md:text-[42px] text-[#011C60]">
+          <h2 className="font-medium text-[32px] md:text-[42px] text-[#011C60]">
             What Our Users Say
           </h2>
 
-          <p className="text-[#99A4BF] text-[18px] max-w-3xl mx-auto">
+          <p className="text-[#99A4BF] text-[18px] max-w-3xl mx-auto font-medium">
             Real experiences from people who use our platform.
           </p>
         </header>
@@ -84,24 +84,24 @@ export default function TestimonialsSection() {
                 onClick={() => setActive(i)}
                 className={`
                   flex items-center justify-between
-                  cursor-pointer
-                  py-4 border-b
+                  cursor-pointer py-4 border-b
+                  transition
                   ${active === i ? "opacity-100" : "opacity-40"}
                 `}
               >
 
-                {/* LEFT */}
+                {/* LEFT SIDE */}
                 <div>
                   <h4 className="text-[22px] font-medium text-[#011C60]">
                     {t.name}
                   </h4>
 
-                  <p className="text-[16px] text-[#99A4BF]">
+                  <p className="text-[16px] text-[#99A4BF] font-medium">
                     {t.date}
                   </p>
                 </div>
 
-                {/* RIGHT */}
+                {/* RIGHT SIDE */}
                 <div className="text-right">
                   <p className="text-[#011C60] font-medium">
                     {t.role}
@@ -115,7 +115,7 @@ export default function TestimonialsSection() {
                       />
                     ))}
 
-                    <span className="ml-2 text-[#011C60]">
+                    <span className="ml-2 text-[#011C60] font-medium">
                       (4.8)
                     </span>
                   </div>
@@ -126,7 +126,7 @@ export default function TestimonialsSection() {
 
           </aside>
 
-          {/* RIGHT ACTIVE */}
+          {/* RIGHT SIDE */}
           <article className="flex flex-col justify-between h-full">
 
             <div className="flex items-center gap-4">
@@ -139,7 +139,8 @@ export default function TestimonialsSection() {
                 <h4 className="text-[24px] font-medium text-[#011C60]">
                   {current.name}
                 </h4>
-                <p className="text-[#011C60]">
+
+                <p className="text-[#011C60] font-medium">
                   {current.role}
                 </p>
               </div>
@@ -148,14 +149,12 @@ export default function TestimonialsSection() {
             <blockquote
               className="
                 bg-[#EECE42]
-                p-6
-                rounded-2xl
+                p-6 rounded-2xl
                 text-[#011C60]
                 text-[20px]
                 font-medium
                 leading-relaxed
-                mt-6
-                flex-grow
+                mt-6 flex-grow
               "
             >
               “{current.text}”
