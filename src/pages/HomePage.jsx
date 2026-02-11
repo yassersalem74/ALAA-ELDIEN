@@ -4,6 +4,7 @@ import AboutSection from "../components/Home-Page/AboutSection";
 import ServiceSection from "../components/Home-Page/ServiceSection";
 import PlatformSection from "../components/Home-Page/PlatformSection";
 import TestimonialsSection from "../components/Home-Page/TestimonialsSection";
+import ContactUsSection from "../components/Home-Page/ContactUsSection";
 
 export default function HomePage() {
   return (
@@ -13,6 +14,7 @@ export default function HomePage() {
       <ServiceSection></ServiceSection>
       <PlatformSection></PlatformSection>
       <TestimonialsSection></TestimonialsSection>
+      <ContactUsSection></ContactUsSection>
     </div>
   );
 }

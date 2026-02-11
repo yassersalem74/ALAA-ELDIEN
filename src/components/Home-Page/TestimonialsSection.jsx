@@ -139,19 +139,19 @@ export default function TestimonialsSection() {
 
             <blockquote
               className="
-  bg-[#EECE42]
-  p-6 rounded-2xl
-  text-[#011C60]
-  text-[20px]
-  font-medium
-  leading-relaxed
-  mt-6 flex-grow
-  transition-all duration-300
+                bg-[#EECE42]
+                p-6 rounded-2xl
+                text-[#011C60]
+                text-[20px]
+                font-medium
+                leading-relaxed
+                mt-6 flex-grow
+                transition-all duration-300
 
-  hover:bg-[linear-gradient(270deg,#F5E28E_0%,#FDFAEC_72.6%,#FFFFFF_86.3%)]
-  hover:shadow-lg
-  hover:scale-[1.02]
-"
+                hover:bg-[linear-gradient(270deg,#F5E28E_0%,#FDFAEC_72.6%,#FFFFFF_86.3%)]
+                hover:shadow-lg
+                hover:scale-[1.02]
+              "
             >
               “{current.text}”
             </blockquote>
