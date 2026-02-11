@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 
 export default function TestimonialsSection() {
-
   const testimonials = [
     {
       name: "Ahmed K.",
@@ -9,8 +8,7 @@ export default function TestimonialsSection() {
       date: "30 November 2021",
       rating: 4,
       img: "/testHome.png",
-      text:
-        "This platform made my daily life so much easier. I can book services, shop for products, and explore the marketplace without switching between different apps. Everything feels simple, reliable, and well-organized.",
+      text: "This platform made my daily life so much easier. I can book services, shop for products, and explore the marketplace without switching between different apps. Everything feels simple, reliable, and well-organized.",
     },
     {
       name: "Sarah M.",
@@ -53,7 +51,6 @@ export default function TestimonialsSection() {
   return (
     <section className="py-16 lg:py-24 bg-white">
       <div className="max-w-[1200px] mx-auto px-6">
-
         {/* HEADER */}
         <header className="text-center mb-16 space-y-6">
           <h3 className="font-medium text-[28px] text-[#EECE42]">
@@ -71,10 +68,8 @@ export default function TestimonialsSection() {
 
         {/* CONTENT */}
         <div className="grid md:grid-cols-2 gap-12 items-stretch">
-
           {/* LEFT LIST */}
           <aside className="flex flex-col justify-between">
-
             {testimonials.map((t, i) => (
               <div
                 key={i}
@@ -86,7 +81,6 @@ export default function TestimonialsSection() {
                   ${active === i ? "opacity-100" : "opacity-70"}
                 `}
               >
-
                 {/* LEFT */}
                 <div>
                   <h4 className="text-[22px] font-medium text-[#011C60]">
@@ -100,28 +94,18 @@ export default function TestimonialsSection() {
 
                 {/* RIGHT */}
                 <div className="text-right">
-                  <p className="text-[#011C60] font-medium">
-                    {t.role}
-                  </p>
+                  <p className="text-[#011C60] font-medium">{t.role}</p>
 
                   <div className="flex items-center gap-1 justify-end mt-1">
-
-                    {[1,2,3,4,5].map((s) => {
-
+                    {[1, 2, 3, 4, 5].map((s) => {
                       let color;
 
                       if (active === i) {
                         // ACTIVE row
-                        color =
-                          s <= t.rating
-                            ? "#EECE42"
-                            : "#CCD2DF";
+                        color = s <= t.rating ? "#EECE42" : "#CCD2DF";
                       } else {
                         // INACTIVE rows
-                        color =
-                          s <= t.rating
-                            ? "#99A4BF"
-                            : "#CCD2DF";
+                        color = s <= t.rating ? "#99A4BF" : "#CCD2DF";
                       }
 
                       return <Star key={s} color={color} />;
@@ -132,15 +116,12 @@ export default function TestimonialsSection() {
                     </span>
                   </div>
                 </div>
-
               </div>
             ))}
-
           </aside>
 
           {/* RIGHT SIDE */}
           <article className="flex flex-col justify-between h-full">
-
             <div className="flex items-center gap-4">
               <img
                 src={current.img}
@@ -152,30 +133,30 @@ export default function TestimonialsSection() {
                   {current.name}
                 </h4>
 
-                <p className="text-[#011C60] font-medium">
-                  {current.role}
-                </p>
+                <p className="text-[#011C60] font-medium">{current.role}</p>
               </div>
             </div>
 
             <blockquote
               className="
-                bg-[#EECE42]
-                p-6 rounded-2xl
-                text-[#011C60]
-                text-[20px]
-                font-medium
-                leading-relaxed
-                mt-6 flex-grow
-              "
+  bg-[#EECE42]
+  p-6 rounded-2xl
+  text-[#011C60]
+  text-[20px]
+  font-medium
+  leading-relaxed
+  mt-6 flex-grow
+  transition-all duration-300
+
+  hover:bg-[linear-gradient(270deg,#F5E28E_0%,#FDFAEC_72.6%,#FFFFFF_86.3%)]
+  hover:shadow-lg
+  hover:scale-[1.02]
+"
             >
               “{current.text}”
             </blockquote>
-
           </article>
-
         </div>
-
       </div>
     </section>
   );
