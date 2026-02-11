@@ -16,7 +16,7 @@ export default function TestimonialsSection() {
       name: "Sarah M.",
       role: "Marketplace Seller",
       date: "12 May 2022",
-      rating: 4,
+      rating: 3,
       img: "/testHome.png",
       text: "Amazing experience! I found everything I needed quickly.",
     },
@@ -32,7 +32,7 @@ export default function TestimonialsSection() {
       name: "Lina R.",
       role: "Marketplace Seller",
       date: "3 March 2023",
-      rating: 4,
+      rating: 2,
       img: "/testHome.png",
       text: "Secure and easy to use.",
     },
@@ -41,13 +41,10 @@ export default function TestimonialsSection() {
   const [active, setActive] = useState(0);
   const current = testimonials[active];
 
-  const Star = ({ filled }) => (
-    <svg
-      viewBox="0 0 24 24"
-      className="w-9 h-9" // 36px
-    >
+  const Star = ({ color }) => (
+    <svg viewBox="0 0 24 24" className="w-9 h-9">
       <path
-        fill={filled ? "#EECE42" : "#CCD2DF"}
+        fill={color}
         d="M11.48 3.5l2.1 5.1 5.5.4-4.2 3.6 1.3 5.4-4.7-2.9-4.7 2.9 1.3-5.4-4.2-3.6 5.5-.4 2.1-5.1z"
       />
     </svg>
@@ -84,13 +81,13 @@ export default function TestimonialsSection() {
                 onClick={() => setActive(i)}
                 className={`
                   flex items-center justify-between
-                  cursor-pointer py-4 border-b
+                  cursor-pointer 
                   transition
-                  ${active === i ? "opacity-100" : "opacity-40"}
+                  ${active === i ? "opacity-100" : "opacity-70"}
                 `}
               >
 
-                {/* LEFT SIDE */}
+                {/* LEFT */}
                 <div>
                   <h4 className="text-[22px] font-medium text-[#011C60]">
                     {t.name}
@@ -101,19 +98,34 @@ export default function TestimonialsSection() {
                   </p>
                 </div>
 
-                {/* RIGHT SIDE */}
+                {/* RIGHT */}
                 <div className="text-right">
                   <p className="text-[#011C60] font-medium">
                     {t.role}
                   </p>
 
                   <div className="flex items-center gap-1 justify-end mt-1">
-                    {[1,2,3,4,5].map((s) => (
-                      <Star
-                        key={s}
-                        filled={active === i && s <= t.rating}
-                      />
-                    ))}
+
+                    {[1,2,3,4,5].map((s) => {
+
+                      let color;
+
+                      if (active === i) {
+                        // ACTIVE row
+                        color =
+                          s <= t.rating
+                            ? "#EECE42"
+                            : "#CCD2DF";
+                      } else {
+                        // INACTIVE rows
+                        color =
+                          s <= t.rating
+                            ? "#99A4BF"
+                            : "#CCD2DF";
+                      }
+
+                      return <Star key={s} color={color} />;
+                    })}
 
                     <span className="ml-2 text-[#011C60] font-medium">
                       (4.8)
