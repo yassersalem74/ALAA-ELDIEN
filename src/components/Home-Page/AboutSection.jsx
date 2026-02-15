@@ -29,7 +29,7 @@ export default function AboutSection() {
             <span className="text-[#011C60]">Everyday Life</span>
           </h2>
 
-          <p className="font-['Roboto'] font-medium text-[16px] md:text-[18px] lg:text-[20px] text-[#99A4BF] leading-relaxed">
+          <p className="text-[#99A4BF] text-[18px] max-w-3xl mx-auto font-medium">
             Our platform is built to remove complexity and make accessing
             services and shopping easier, faster, and more reliable.
           </p>

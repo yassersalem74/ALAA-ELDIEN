@@ -80,7 +80,7 @@ export default function ServiceSection() {
             <span className="text-[#EECE42]">Daily Needs</span>
           </h2>
 
-          <p className="text-[#99A4BF] text-[18px] max-w-2xl mx-auto">
+          <p className="text-[#99A4BF] text-[18px] max-w-3xl mx-auto font-medium">
             Reliable services designed to support your daily life.
           </p>
         </header>

@@ -9,6 +9,7 @@ import StorePage from "./pages/StorePage";
 import ContactUsPage from "./pages/ContactUsPage";
 import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
+import Footer from "./components/Footer";
 
 export default function App() {
   return (
@@ -28,7 +29,10 @@ export default function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/overview" element={<OverviewPage />} />
         </Routes>
+
+        <Footer></Footer>
       </main>
     </>
   );
 }
+
