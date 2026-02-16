@@ -1,182 +1,152 @@
-import React from "react";
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
 export default function Footer() {
+  const [animating, setAnimating] = useState(false);
+  const [showThanks, setShowThanks] = useState(false);
+  const [email, setEmail] = useState("");
+
+  const handleSubscribe = () => {
+    if (!email || animating) return;
+
+    setAnimating(true);
+
+    setTimeout(() => setShowThanks(true), 1400);
+
+    setTimeout(() => {
+      setAnimating(false);
+      setShowThanks(false);
+      setEmail("");
+    }, 4000);
+  };
+
   return (
-    <footer
-      className="
-        bg-[#F6E6A0]
-        pt-16 pb-10 px-6
-        rounded-t-[48px]
-      "
-    >
-      <div className="max-w-[1200px] mx-auto">
-        {/* GRID */}
-        <div
-          className="
-          grid
-          grid-cols-1
-          sm:grid-cols-2
-          lg:grid-cols-4
-          gap-12
-        "
-        >
-          {/* ===== SUBSCRIBE ===== */}
+    <footer className="bg-[#F6E6A0] rounded-t-[48px] mt-24">
+      <div className="max-w-7xl mx-auto px-6 py-14 text-[#011C60]">
+
+        {/* ===== GRID ===== */}
+        <div className="grid gap-12 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+
+          {/* ===== Subscribe Section ===== */}
           <div className="space-y-6">
-            <h3
-              className="
-              font-['Epilogue']
-              font-bold
-              text-[24px]
-              text-[#011C60]
-            "
-            >
+            <h3 className="font-bold text-[24px]">
               Subscribe for More News
             </h3>
 
-            {/* SUBSCRIBE FIELD */}
-            <div
-              className="
-                flex items-center
-                w-full
-                bg-white
-                border border-[#011C60]
-                rounded-full
-                overflow-hidden
-                focus-within:ring-2
-                focus-within:ring-[#EECE42]
-                transition
-              "
-            >
+            {/* Animated Subscribe */}
+            <div className="relative w-full max-w-[360px] h-[52px] rounded-full border border-[#011C60] bg-white overflow-hidden">
+
+              {/* Input */}
               <input
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email Address"
-                className="
-                  flex-1
-                  px-6 py-3
+                className={`
+                  absolute left-0 top-0 h-full w-full
+                  px-5 pr-28
+                  outline-none
                   text-[#011C60]
                   placeholder:text-[#99A4BF]
-                  outline-none
                   bg-transparent
-                  text-[16px]
-                "
+                  transition-transform duration-300
+                  ${animating ? "translate-x-[380px]" : ""}
+                `}
               />
 
+              {/* Sliding gray bar */}
+              <span
+                className={`
+                  absolute inset-0 bg-[#CCD2DF]
+                  transition-transform duration-[1000ms]
+                  ${animating ? "translate-x-full" : "-translate-x-full"}
+                `}
+              />
+
+              {/* Button */}
               <button
-                className="
-                  px-7 py-3
-                  bg-[#011C60]
-                  text-white
-                  font-semibold
+                onClick={handleSubscribe}
+                className={`
+                  absolute right-1 top-1/2 -translate-y-1/2
+                  h-[44px] px-6
                   rounded-full
-                  whitespace-nowrap
-                  transition-all duration-300
+                  text-white font-medium
+                  bg-[#011C60]
                   hover:bg-[#023AC6]
-                  hover:shadow-md
-                  active:scale-95
-                "
+                  transition-all duration-500
+                  cursor-pointer
+                  ${animating ? "translate-y-[60px]" : ""}
+                `}
               >
                 Subscribe
               </button>
+
+              {/* Thank You */}
+              <span
+                className={`
+                  absolute left-5 top-[52px]
+                  h-full flex items-center
+                  text-[#011C60] font-medium
+                  transition-transform duration-500
+                  ${showThanks ? "-translate-y-[52px]" : ""}
+                `}
+              >
+                Thank you. You have been subscribed
+              </span>
             </div>
 
-            {/* SOCIALS */}
-            <div className="flex gap-6 pt-4">
-              <img
-                src="/linkedin-png.png"
-                className="w-6 cursor-pointer hover:scale-110 transition"
-              />
-              <img
-                src="/x-icon.png"
-                className="w-6 cursor-pointer hover:scale-110 transition"
-              />
-              <img
-                src="/facebook-icon.png"
-                className="w-6 cursor-pointer hover:scale-110 transition"
-              />
-              <img
-                src="/insta-icon.png"
-                className="w-6 cursor-pointer hover:scale-110 transition"
-              />
+            {/* Social Icons */}
+            <div className="flex gap-5 pt-4">
+              <img src="/linkedin-png.png" className="w-6 h-6 cursor-pointer hover:scale-110 transition" />
+              <img src="/x-icon.png" className="w-6 h-6 cursor-pointer hover:scale-110 transition" />
+              <img src="/facebook-icon.png" className="w-6 h-6 cursor-pointer hover:scale-110 transition" />
+              <img src="/insta-icon.png" className="w-6 h-6 cursor-pointer hover:scale-110 transition" />
             </div>
           </div>
 
-          {/* ===== COMPANY ===== */}
+          {/* ===== Company ===== */}
           <div>
-            <h3 className="footer-title text-[#011C60] font-bold text-[24px] font-['Epilogue']">
-              Company
-            </h3>
-
-            <ul
-              className="
-              space-y-3 mt-4
-              text-[16px]
-              font-['Epilogue']
-              text-[#011C60]
-            "
-            >
-              <li className="hover:underline cursor-pointer">Home</li>
-              <li className="hover:underline cursor-pointer">About Me</li>
-              <li className="hover:underline cursor-pointer">Services</li>
+            <h3 className="font-bold text-[24px] mb-5">Company</h3>
+            <ul className="space-y-3 text-[16px]">
+              <li><Link to="/">Home</Link></li>
+              <li><Link to="/about">About Us</Link></li>
+              <li><Link to="/services">Services</Link></li>
             </ul>
           </div>
 
-          {/* ===== RESOURCES ===== */}
+          {/* ===== Resources ===== */}
           <div>
-            <h3 className="footer-title text-[#011C60] font-bold text-[24px] font-['Epilogue']">
-              Resources
-            </h3>
-
-            <ul
-              className="
-              space-y-3 mt-4
-              text-[16px]
-              font-['Epilogue']
-              text-[#011C60]
-            "
-            >
-              <li className="hover:underline cursor-pointer">Blogs</li>
-              <li className="hover:underline cursor-pointer">Podcasts</li>
-              <li className="hover:underline cursor-pointer">Books</li>
+            <h3 className="font-bold text-[24px] mb-5">Resources</h3>
+            <ul className="space-y-3 text-[16px]">
+              <li>Blogs</li>
+              <li>Podcasts</li>
+              <li>Books</li>
             </ul>
           </div>
 
-          {/* ===== CONTACT ===== */}
+          {/* ===== Contact ===== */}
           <div className="space-y-4">
-            <h3 className="footer-title text-[#011C60] font-bold text-[24px] font-['Epilogue']">
-              Contact
-            </h3>
+            <h3 className="font-bold text-[24px]">Contact</h3>
 
-            <div
-              className="
-              text-[16px]
-              font-['Epilogue']
-              text-[#011C60]
-              space-y-3
-            "
-            >
-              <p>Greyson Lane 6212-648 Palarn.</p>
-              <p>(610) 945-7986</p>
-              <p>hello@Transparent.co</p>
+            <div className="space-y-3 text-[16px]">
+              <p>Cairo, Egypt</p>
+              <a href="mailto:info@alaaeldien.com">
+                info@alaaeldien.com
+              </a>
             </div>
 
-            <button
-              className="
-                mt-4
-                bg-[#011C60]
-                text-white
-                px-6 py-3
-                rounded-full
-                text-[16px]
-                font-medium
-                transition
-                hover:bg-[#023AC6]
-                active:scale-95
-              "
-            >
+            <button className=" cursor-pointer mt-4 bg-[#011C60] text-white px-6 py-3 rounded-full font-medium hover:bg-[#023AC6] transition">
               Free Consultation
             </button>
           </div>
+
         </div>
+
+        {/* ===== Bottom Bar ===== */}
+        <div className="border-t border-[#011C60]/20 mt-12 pt-6 text-center text-[14px]">
+          © {new Date().getFullYear()} ALAA ELDIEN . All Rights Reserved.
+        </div>
+
       </div>
     </footer>
   );
