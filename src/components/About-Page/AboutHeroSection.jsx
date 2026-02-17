@@ -26,8 +26,17 @@ export default function AboutHeroSection() {
 
         <div className="grid lg:grid-cols-2 gap-10 items-center">
 
-          {/* ===== LEFT SIDE ===== */}
-          <div>
+          {/* ===== IMAGE (FIRST ON MOBILE) ===== */}
+          <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
+            <img
+              src="/about-heroGroup.png"
+              alt="Platform preview"
+              className="w-full max-w-[420px] lg:max-w-[480px] object-contain"
+            />
+          </div>
+
+          {/* ===== TEXT SIDE ===== */}
+          <div className="order-2 lg:order-1">
 
             {/* Title */}
             <h2 className="font-bold text-[34px] md:text-[42px] lg:text-[48px] leading-tight mb-6">
@@ -46,30 +55,45 @@ export default function AboutHeroSection() {
 
             {/* Cards */}
             <div className="grid sm:grid-cols-2 gap-5">
-
               {cards.map((c, i) => (
                 <div
                   key={i}
                   className="
+                    group
                     bg-white
                     rounded-[16px]
                     p-5
-                    shadow-[0px_4px_16px_0px_#BEC6DE80]
                     border border-[#E6E8EF59]
+                    shadow-[0px_4px_16px_0px_#BEC6DE80]
+                    transition-all duration-300
+                    hover:bg-[#EECE42]
+                    hover:-translate-y-1
                     hover:shadow-xl
-                    transition
+                    cursor-pointer
                   "
                 >
-                  <h4 className="text-[#344980] font-bold text-[20px] mb-2">
+                  <h4 className="
+                      text-[#344980]
+                      font-bold
+                      text-[20px]
+                      mb-2
+                      transition
+                      group-hover:text-[#011C60]
+                  ">
                     {c.title}
                   </h4>
 
-                  <p className="text-[#808DAF] text-[16px] leading-relaxed">
+                  <p className="
+                      text-[#808DAF]
+                      text-[16px]
+                      leading-relaxed
+                      transition
+                      group-hover:text-[#011C60]
+                  ">
                     {c.desc}
                   </p>
                 </div>
               ))}
-
             </div>
 
             {/* Bottom text */}
@@ -78,37 +102,6 @@ export default function AboutHeroSection() {
               grow your business, our app connects you with the right
               solutions in a simple, secure, and smart way.
             </p>
-
-          </div>
-
-          {/* ===== RIGHT SIDE (FIXED) ===== */}
-          <div className="relative h-[420px] w-full max-w-[420px] mx-auto">
-
-            {/* Image 1 - Top Left */}
-            <img
-              src="/about-hero-1.png"
-              alt=""
-              className="
-                absolute
-                top-0 left-0
-                w-[260px] md:w-[300px]
-                rounded-[16px]
-                shadow-lg
-              "
-            />
-
-            {/* Image 2 - Bottom Right */}
-            <img
-              src="/about-hero-2.png"
-              alt=""
-              className="
-                absolute
-                bottom-0 right-0
-                w-[260px] md:w-[320px]
-                rounded-[16px]
-                shadow-xl
-              "
-            />
 
           </div>
 
