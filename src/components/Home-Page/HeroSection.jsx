@@ -6,7 +6,7 @@ export default function HeroSection() {
       className="w-full bg-[#F8F9FC] pt-12 md:pt-20 pb-12"
       aria-label="Hero Section"
     >
-      <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
+      <div className=" mx-auto px-6 lg:px-24">
 
         {/* ===== Layout Wrapper ===== */}
         <div className="flex flex-col md:grid md:grid-cols-2 gap-10 items-center">
