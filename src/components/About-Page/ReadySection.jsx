@@ -2,7 +2,7 @@ import React from "react";
 
 export default function ReadySection() {
   return (
-    <section className="py-16 bg-[#E9ECF4]">
+    <section className="py-16 mt-16 bg-[#E9ECF4]">
       <div className="px-8 lg:px-20 mx-auto text-center">
         {/* ===== TITLE ===== */}
         <h2
