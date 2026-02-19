@@ -35,10 +35,7 @@ export default function HowItWorks() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 items-center">
 
           {/* ===== IMAGE (FIRST ON MOBILE) ===== */}
-          <div className="
-              flex justify-center lg:justify-end
-              order-1 md:order-2
-            ">
+          <div className="flex justify-center lg:justify-end order-1 md:order-2">
             <img
               src="/howItWorksection.png"
               alt="How it works"
@@ -53,11 +50,7 @@ export default function HowItWorks() {
           </div>
 
           {/* ===== TEXT SIDE ===== */}
-          <div className="
-              space-y-3
-              lg:col-span-2
-              order-2 md:order-1
-            ">
+          <div className="space-y-3 lg:col-span-2 order-2 md:order-1">
 
             {steps.map((item, i) => (
               <div
@@ -71,15 +64,19 @@ export default function HowItWorks() {
                   cursor-pointer
                 "
               >
-                {/* ICON */}
-                <div className="
+                {/* ICON CIRCLE */}
+                <div
+                  className="
                     w-[72px] h-[72px] md:w-[84px] md:h-[84px]
                     min-w-[72px] md:min-w-[84px]
                     rounded-full
                     bg-[#FCF5D9]
+                    group-hover:bg-[#E2E8F3]
+                    transition-colors duration-300
                     flex items-center justify-center
                     p-2
-                  ">
+                  "
+                >
                   <img
                     src={item.icon}
                     alt=""

@@ -23,19 +23,14 @@ export default function Footer() {
   return (
     <footer className="bg-[#F6E6A0] rounded-t-[48px] mt-24">
       <div className="max-w-7xl mx-auto px-6 py-14 text-[#011C60]">
-
         {/* ===== GRID ===== */}
         <div className="grid gap-12 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-
           {/* ===== Subscribe Section ===== */}
           <div className="space-y-6">
-            <h3 className="font-bold text-[24px]">
-              Subscribe for More News
-            </h3>
+            <h3 className="font-bold text-[24px]">Subscribe for More News</h3>
 
             {/* Animated Subscribe */}
             <div className="relative w-full max-w-[360px] h-[52px] rounded-full border border-[#011C60] bg-white overflow-hidden">
-
               {/* Input */}
               <input
                 type="email"
@@ -97,10 +92,22 @@ export default function Footer() {
 
             {/* Social Icons */}
             <div className="flex gap-5 pt-4">
-              <img src="/linkedin-png.png" className="w-6 h-6 cursor-pointer hover:scale-110 transition" />
-              <img src="/x-icon.png" className="w-6 h-6 cursor-pointer hover:scale-110 transition" />
-              <img src="/facebook-icon.png" className="w-6 h-6 cursor-pointer hover:scale-110 transition" />
-              <img src="/insta-icon.png" className="w-6 h-6 cursor-pointer hover:scale-110 transition" />
+              <img
+                src="/linkedin-png.png"
+                className="w-6 h-6 cursor-pointer hover:scale-110 transition"
+              />
+              <img
+                src="/x-icon.png"
+                className="w-6 h-6 cursor-pointer hover:scale-110 transition"
+              />
+              <img
+                src="/facebook-icon.png"
+                className="w-6 h-6 cursor-pointer hover:scale-110 transition"
+              />
+              <img
+                src="/insta-icon.png"
+                className="w-6 h-6 cursor-pointer hover:scale-110 transition"
+              />
             </div>
           </div>
 
@@ -108,9 +115,15 @@ export default function Footer() {
           <div>
             <h3 className="font-bold text-[24px] mb-5">Company</h3>
             <ul className="space-y-3 text-[16px]">
-              <li><Link to="/">Home</Link></li>
-              <li><Link to="/about">About Us</Link></li>
-              <li><Link to="/services">Services</Link></li>
+              <li>
+                <Link to="/">Home</Link>
+              </li>
+              <li>
+                <Link to="/about">About Us</Link>
+              </li>
+              <li>
+                <Link to="/services">Services</Link>
+              </li>
             </ul>
           </div>
 
@@ -130,23 +143,30 @@ export default function Footer() {
 
             <div className="space-y-3 text-[16px]">
               <p>Cairo, Egypt</p>
-              <a href="mailto:info@alaaeldien.com">
-                info@alaaeldien.com
-              </a>
+              <a href="mailto:info@alaaeldien.com">info@alaaeldien.com</a>
             </div>
 
-            <button className=" cursor-pointer mt-4 bg-[#011C60] text-white px-6 py-3 rounded-full font-medium hover:bg-[#023AC6] transition">
+            <button
+              className=" cursor-pointer mt-4 bg-[#011C60] text-white px-6 py-3 rounded-full font-medium   text-white
+              bg-[#011C60]
+              transition-all duration-300 ease-[cubic-bezier(.4,0,.2,1)]
+
+              hover:bg-[linear-gradient(272.92deg,#CCD2DF_6.27%,#EECE42_95.75%)]
+              hover:text-white
+              hover:-translate-y-1
+              hover:shadow-[0px_8px_24px_rgba(1,28,96,0.25)]
+                cursor-pointer
+              active:scale-95"
+            >
               Free Consultation
             </button>
           </div>
-
         </div>
 
         {/* ===== Bottom Bar ===== */}
         <div className="border-t border-[#011C60]/20 mt-12 pt-6 text-center text-[14px]">
           © {new Date().getFullYear()} ALAA ELDIEN . All Rights Reserved.
         </div>
-
       </div>
     </footer>
   );

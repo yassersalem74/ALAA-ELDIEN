@@ -28,7 +28,7 @@ export default function BuildForSection() {
           text-[#011C60]
           font-bold
           text-[28px] md:text-[34px] lg:text-[40px]
-          mb-28
+          mb-32
         ">
           Who It’s Built For ?
         </h2>
@@ -40,7 +40,7 @@ export default function BuildForSection() {
           md:grid-cols-2
           lg:grid-cols-3
           gap-x-12
-          gap-y-24
+          gap-y-36
           justify-items-center
         ">
 
@@ -90,7 +90,7 @@ export default function BuildForSection() {
                 <img
                   src={item.img}
                   alt={item.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-pointer"
                 />
 
                 {/* GLASS TITLE STRIP */}

@@ -24,10 +24,11 @@ export default function AboutHeroSection() {
     <section className="py-12 lg:py-16 bg-white">
       <div className="px-8 lg:px-20 mx-auto">
 
-        <div className="grid lg:grid-cols-2 gap-10 items-center">
+        {/* ===== 3 COLUMN GRID ===== */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-center">
 
-          {/* ===== IMAGE (FIRST ON MOBILE) ===== */}
-          <div className="order-1 lg:order-2 flex justify-center lg:justify-end">
+          {/* ===== IMAGE (1 COL ON LG, FIRST ON MOBILE) ===== */}
+          <div className="order-1 lg:order-2 lg:col-span-1 flex justify-center lg:justify-end">
             <img
               src="/about-heroGroup.png"
               alt="Platform preview"
@@ -35,8 +36,8 @@ export default function AboutHeroSection() {
             />
           </div>
 
-          {/* ===== TEXT SIDE ===== */}
-          <div className="order-2 lg:order-1">
+          {/* ===== TEXT SIDE (2 COLS ON LG) ===== */}
+          <div className="order-2 lg:order-1 lg:col-span-2">
 
             {/* Title */}
             <h2 className="font-bold text-[34px] md:text-[42px] lg:text-[48px] leading-tight mb-6">
