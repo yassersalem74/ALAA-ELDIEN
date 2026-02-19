@@ -26,7 +26,7 @@ export default function PlatformSection() {
 
   return (
     <section className="py-16 lg:py-24 bg-white">
-      <div className="max-w-[1200px] mx-auto px-6">
+      <div className="px-8 lg:px-20 mx-auto">
         {/* ===== HEADER ===== */}
         <header className="text-center mb-16 space-y-6">
           <h3 className="font-bold text-[28px] text-[#EECE42]">OUR SERVICES</h3>

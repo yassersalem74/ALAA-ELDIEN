@@ -10,7 +10,7 @@ export default function ContactUsSection() {
 
   return (
     <section className=" bg-white">
-      <div className="max-w-[1200px] mx-auto px-6">
+      <div className="px-8 lg:px-20 mx-auto">
         {/* HEADER */}
         <header className="text-center mb-16 space-y-6">
           <h3 className="font-medium text-[28px] text-[#EECE42]">

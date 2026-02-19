@@ -22,7 +22,7 @@ export default function AboutHeroSection() {
 
   return (
     <section className="py-12 lg:py-16 bg-white">
-      <div className="max-w-[1200px] mx-auto px-6">
+      <div className="px-8 lg:px-20 mx-auto">
 
         <div className="grid lg:grid-cols-2 gap-10 items-center">
 

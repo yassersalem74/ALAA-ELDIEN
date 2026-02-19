@@ -24,17 +24,40 @@ export default function HowItWorks() {
 
   return (
     <section className="py-12 lg:py-16 bg-white">
-      <div className="max-w-[1200px] mx-auto px-6">
+      <div className="px-8 lg:px-20 mx-auto">
 
         {/* ===== TITLE ===== */}
-        <h2 className="text-[#011C60] font-bold text-[32px] md:text-[36px] lg:text-[40px] mb-10">
+        <h2 className="text-[#011C60] font-bold text-[28px] md:text-[34px] lg:text-[40px] mb-10">
           How It Work ?
         </h2>
 
-        <div className="grid lg:grid-cols-2 gap-10 items-center">
+        {/* ===== MAIN GRID ===== */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 items-center">
 
-          {/* ===== LEFT SIDE ===== */}
-          <div className="space-y-8">
+          {/* ===== IMAGE (FIRST ON MOBILE) ===== */}
+          <div className="
+              flex justify-center lg:justify-end
+              order-1 md:order-2
+            ">
+            <img
+              src="/howItWorksection.png"
+              alt="How it works"
+              className="
+                w-full
+                max-w-[320px] md:max-w-[380px] lg:max-w-[444px]
+                rounded-[16px]
+                object-contain
+                shadow-lg
+              "
+            />
+          </div>
+
+          {/* ===== TEXT SIDE ===== */}
+          <div className="
+              space-y-3
+              lg:col-span-2
+              order-2 md:order-1
+            ">
 
             {steps.map((item, i) => (
               <div
@@ -48,10 +71,10 @@ export default function HowItWorks() {
                   cursor-pointer
                 "
               >
-                {/* ICON CIRCLE */}
+                {/* ICON */}
                 <div className="
-                    w-[84px] h-[84px]
-                    min-w-[84px]
+                    w-[72px] h-[72px] md:w-[84px] md:h-[84px]
+                    min-w-[72px] md:min-w-[84px]
                     rounded-full
                     bg-[#FCF5D9]
                     flex items-center justify-center
@@ -60,41 +83,38 @@ export default function HowItWorks() {
                   <img
                     src={item.icon}
                     alt=""
-                    className="w-10 h-10 object-contain"
+                    className="w-8 h-8 md:w-10 md:h-10 object-contain"
                   />
                 </div>
 
                 {/* TEXT */}
-                <div className="flex-1 relative">
+                <div className="flex-1">
 
                   <div className="flex items-center justify-between">
-
                     <h3 className="
                         font-bold
-                        text-[24px] md:text-[28px] lg:text-[36px]
+                        text-[18px] md:text-[22px] lg:text-[28px]
                         text-[#011C60]
                       ">
                       {item.title}
                     </h3>
 
-                    {/* STEP (SHOW ON HOVER ONLY) */}
                     <span className="
                         text-[#011C60]
                         font-medium
-                        text-[18px]
+                        text-[16px] md:text-[18px]
                         opacity-0
                         group-hover:opacity-100
                         transition
                       ">
                       {item.step}
                     </span>
-
                   </div>
 
                   <p className="
                       text-[#808DAF]
                       font-medium
-                      text-[18px] md:text-[20px] lg:text-[24px]
+                      text-[14px] md:text-[16px] lg:text-[20px]
                       mt-2
                       leading-relaxed
                     ">
@@ -105,21 +125,6 @@ export default function HowItWorks() {
               </div>
             ))}
 
-          </div>
-
-          {/* ===== RIGHT IMAGE ===== */}
-          <div className="flex justify-center lg:justify-end">
-            <img
-              src="/howItWorksection.png"
-              alt="How it works"
-              className="
-                w-full
-                max-w-[444px]
-                rounded-[16px]
-                object-contain
-                shadow-lg
-              "
-            />
           </div>
 
         </div>

@@ -17,7 +17,7 @@ export default function AboutSection() {
 
   return (
     <section className="py-16 lg:py-20 bg-white">
-      <div className="max-w-[1200px] mx-auto px-6">
+      <div className=" mx-auto px-8 lg:px-20">
         {/* ===== TOP TEXT ===== */}
         <header className="text-center mx-auto mb-12 space-y-4">
           <h3 className="font-['Roboto'] font-bold text-[22px] md:text-[28px] lg:text-[32px] text-[#EECE42]">
@@ -38,7 +38,7 @@ export default function AboutSection() {
         {/* ===== CONTENT ===== */}
         <div className="grid md:grid-cols-2 gap-10 items-center">
           {/* ===== IMAGE SLIDER ===== */}
-          <figure className="w-full max-w-[565px] h-[376px] overflow-hidden rounded-[16px]">
+          <figure className="w-full max-w-[565px] h-[376px] overflow-hidden rounded-[16px] flex justify-center">
             <img
               src={images[currentIndex]}
               className="w-full h-full object-cover"
