@@ -10,13 +10,13 @@ import ContactUsPage from "./pages/ContactUsPage";
 import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
 import Footer from "./components/Footer";
+import SocialSidebar from "./components/SocialLinks";
 
 export default function App() {
   return (
     <>
-  
       <Navbar />
-
+      <SocialSidebar />
       <main role="main" className="min-h-screen bg-[#ffffff]">
         <ScrollToTop />
 
@@ -35,4 +35,3 @@ export default function App() {
     </>
   );
 }
-
