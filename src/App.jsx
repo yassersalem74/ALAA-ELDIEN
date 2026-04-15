@@ -1,5 +1,7 @@
 import "./App.css";
-import { Routes, Route } from "react-router-dom";
+import "./index.css";
+import { Routes, Route, useLocation } from "react-router-dom";
+
 import Navbar from "./components/Navbar";
 import ScrollToTop from "./components/ScrollToTop";
 import HomePage from "./pages/HomePage";
@@ -11,16 +13,23 @@ import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
 import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
+import LoginForm from "./components/auth/forms/LoginForm";
 
 export default function App() {
+  const location = useLocation();
+
+  const isAuthPage = ["/login"].includes(location.pathname);
+
   return (
     <>
       <Navbar />
       <SocialSidebar />
+
       <main role="main" className="min-h-screen bg-[#ffffff]">
         <ScrollToTop />
 
         <Routes>
+          <Route path="/login" element={<LoginForm />} />
           <Route path="/" element={<HomePage />} />
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
@@ -30,7 +39,7 @@ export default function App() {
           <Route path="/overview" element={<OverviewPage />} />
         </Routes>
 
-        <Footer></Footer>
+        {!isAuthPage && <Footer />}
       </main>
     </>
   );
