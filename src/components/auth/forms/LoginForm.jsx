@@ -14,7 +14,7 @@ export default function LoginForm() {
   return (
     <div className="min-h-screen flex items-start justify-center bg-[#E6E8EF] px-4">
       {/* ===== CARD ===== */}
-      <div className=" w-3/4 bg-white rounded-[32px] shadow-[0px_8px_24px_rgba(23,26,30,0.15)] overflow-hidden flex my-6">
+      <div className="w-full md:w-3/4 bg-white rounded-[32px] shadow-[0px_8px_24px_rgba(23,26,30,0.15)] overflow-hidden flex my-6">
         {/* ===== LEFT IMAGE ===== */}
         <div className="hidden lg:flex w-1/2 items-center justify-start">
           <img src={loginImage} alt="login" className="h-full w-3/4" />
