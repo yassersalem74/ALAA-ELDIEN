@@ -8,7 +8,7 @@ export default function SocialSidebar() {
   ];
 
   return (
-    <div className="fixed left-4 top-1/3 -translate-y-1/2 z-50">
+    <div className="fixed left-4 top-1/3 -translate-y-1/2 z-50 hidden md:block">
       
       <div
         className="
