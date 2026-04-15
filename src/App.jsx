@@ -1,5 +1,4 @@
 import "./App.css";
-import "./index.css";
 import { Routes, Route, useLocation } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
@@ -14,11 +13,12 @@ import OverviewPage from "./pages/OverviewPage";
 import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
 import LoginForm from "./components/auth/forms/LoginForm";
+import SignupForm from "./components/auth/forms/SignupForm";
 
 export default function App() {
   const location = useLocation();
 
-  const isAuthPage = ["/login"].includes(location.pathname);
+  const isAuthPage = ["/login" , "/signup"].includes(location.pathname);
 
   return (
     <>
@@ -30,6 +30,7 @@ export default function App() {
 
         <Routes>
           <Route path="/login" element={<LoginForm />} />
+          <Route path="/signup" element={<SignupForm />} />
           <Route path="/" element={<HomePage />} />
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
