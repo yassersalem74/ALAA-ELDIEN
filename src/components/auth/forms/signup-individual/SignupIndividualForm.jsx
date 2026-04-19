@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
-import PasswordToggle from "../../common/PasswordToggle";
-import emailIcon from "../../../assets/images/auth/email.png";
+import PasswordToggle from "../../../common/PasswordToggle";
+import emailIcon from "../../../../assets/images/auth/email.png";
 
 export default function SignupIndividualForm({ onNext, navigate }) {
   const { register, handleSubmit } = useForm();

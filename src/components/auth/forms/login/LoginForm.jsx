@@ -1,12 +1,13 @@
 import { useForm } from "react-hook-form";
-import PasswordToggle from "../../common/PasswordToggle";
+import { useNavigate } from "react-router-dom";
+import PasswordToggle from "../../../common/PasswordToggle";
 
-import loginImage from "../../../assets/images/auth/login.png";
-import emailIcon from "../../../assets/images/auth/email.png";
-import { Navigate } from "react-router";
+import loginImage from "../../../../assets/images/auth/login.png";
+import emailIcon from "../../../../assets/images/auth/email.png";
 
 export default function LoginForm() {
   const { register, handleSubmit } = useForm();
+  const navigate = useNavigate();
 
   const onSubmit = (data) => {
     console.log(data);
@@ -107,7 +108,7 @@ export default function LoginForm() {
               <p className="text-center text-[18px] leading-[24px] text-[#808DAF]">
                 Don’t have an account?{" "}
                 <span
-                 onClick={() => Navigate("signup")}
+                 onClick={() => navigate("/signup")}
                   className="
                         text-[#011C60] font-semibold cursor-pointer
                         

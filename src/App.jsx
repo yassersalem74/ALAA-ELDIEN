@@ -12,8 +12,8 @@ import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
 import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
-import LoginForm from "./components/auth/forms/LoginForm";
-import SignupForm from "./components/auth/forms/SignupForm";
+import LoginForm from "./components/auth/forms/login/LoginForm";
+import SignupForm from "./components/auth/forms/signup-individual/SignupForm";
 
 export default function App() {
   const location = useLocation();
