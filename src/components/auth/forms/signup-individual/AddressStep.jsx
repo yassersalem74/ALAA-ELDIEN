@@ -37,7 +37,7 @@ export default function AddressStep({ onNext }) {
         placeholder="Governorate"
         className="
           w-full h-[56px] rounded-[16px] px-4
-          text-[18px] text-[#011C60]
+          text-[14px] text-[#011C60]
           placeholder:text-[#808DAF]
           border border-gray-200
           focus:border-[#011C60] outline-none
@@ -48,7 +48,7 @@ export default function AddressStep({ onNext }) {
       <select
         className="
           w-full h-[56px] rounded-[16px] px-4
-          text-[18px] text-[#011C60]
+          text-[14px] text-[#011C60]
           border border-gray-200
           focus:border-[#011C60] outline-none
         "
@@ -64,7 +64,7 @@ export default function AddressStep({ onNext }) {
         placeholder="Street Name"
         className="
           w-full h-[56px] rounded-[16px] px-4
-          text-[18px] text-[#011C60]
+          text-[14px] text-[#011C60]
           placeholder:text-[#808DAF]
           border border-gray-200
           focus:border-[#011C60] outline-none
@@ -77,7 +77,7 @@ export default function AddressStep({ onNext }) {
           placeholder="Building Number"
           className="
             w-1/2 h-[56px] rounded-[16px] px-4
-            text-[18px] text-[#011C60]
+            text-[14px] text-[#011C60]
             placeholder:text-[#808DAF]
             border border-gray-200
             focus:border-[#011C60] outline-none
@@ -88,7 +88,7 @@ export default function AddressStep({ onNext }) {
           placeholder="Floor Number"
           className="
             w-1/2 h-[56px] rounded-[16px] px-4
-            text-[18px] text-[#011C60]
+            text-[14px] text-[#011C60]
             placeholder:text-[#808DAF]
             border border-gray-200
             focus:border-[#011C60] outline-none
@@ -102,7 +102,7 @@ export default function AddressStep({ onNext }) {
           placeholder="Apartment"
           className="
             w-1/2 h-[56px] rounded-[16px] px-4
-            text-[18px] text-[#011C60]
+            text-[14px] text-[#011C60]
             placeholder:text-[#808DAF]
             border border-gray-200
             focus:border-[#011C60] outline-none
@@ -113,7 +113,7 @@ export default function AddressStep({ onNext }) {
           placeholder="Floor Number"
           className="
             w-1/2 h-[56px] rounded-[16px] px-4
-            text-[18px] text-[#011C60]
+            text-[14px] text-[#011C60]
             placeholder:text-[#808DAF]
             border border-gray-200
             focus:border-[#011C60] outline-none
@@ -126,7 +126,7 @@ export default function AddressStep({ onNext }) {
         placeholder="Additional Details (optional)"
         className="
           w-full h-[56px] rounded-[16px] px-4
-          text-[18px] text-[#011C60]
+          text-[14px] text-[#011C60]
           placeholder:text-[#808DAF]
           border border-gray-200
           focus:border-[#011C60] outline-none

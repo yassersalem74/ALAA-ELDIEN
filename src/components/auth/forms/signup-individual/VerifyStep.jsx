@@ -1,8 +1,8 @@
 import { useRef } from "react";
 
-import nationalFront from "../../../assets/images/auth/nationalFront.png";
-import nationalBack from "../../../assets/images/auth/nationalBack.png";
-import selfie from "../../../assets/images/auth/selfie.png";
+import nationalFront from "../../../../assets/images/auth/nationalFront.png";
+import nationalBack from "../../../../assets/images/auth/nationalBack.png";
+import selfie from "../../../../assets/images/auth/selfie.png";
 
 export default function VerifyStep({ onNext }) {
   // refs لكل upload
@@ -36,7 +36,7 @@ export default function VerifyStep({ onNext }) {
         placeholder="ID Number"
         className="
           w-full h-[56px] rounded-[16px] px-4
-          text-[18px] text-[#011C60]
+          text-[16px] text-[#011C60]
           border border-gray-200
           focus:border-[#011C60] outline-none
         "
@@ -74,10 +74,10 @@ export default function VerifyStep({ onNext }) {
             </div>
 
             <div>
-              <h3 className="text-[20px] font-medium text-[#011C60]">
+              <h3 className="text-[16px] font-medium text-[#011C60]">
                 {item.title}
               </h3>
-              <p className="text-[16px] text-[#6777A0]">
+              <p className="text-[14px] text-[#6777A0]">
                 {item.desc}
               </p>
             </div>

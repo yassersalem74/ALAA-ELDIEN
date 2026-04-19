@@ -3,12 +3,12 @@ import { useNavigate } from "react-router-dom";
 
 import SignupIndividualForm from "./SignupIndividualForm";
 import SignupCompanyForm from "../signup-company/SignupCompanyForm";
-import VerifyStep from "../VerifyStep";
 import AddressStep from "./AddressStep";
 
 import signupImage from "../../../../assets/images/auth/signup.png";
 import verifyImage from "../../../../assets/images/auth/veri.jpg";
 import locationImage from "../../../../assets/images/auth/loca.jpg";
+import VerifyStep from './VerifyStep';
 
 export default function SignupForm() {
   const [type, setType] = useState("individual");
