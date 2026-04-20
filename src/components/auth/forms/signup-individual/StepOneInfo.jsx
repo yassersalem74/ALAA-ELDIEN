@@ -3,9 +3,19 @@ import PasswordToggle from "../../../common/PasswordToggle";
 import emailIcon from "../../../../assets/images/auth/email.png";
 
 export default function StepOneInfo({ onNext, navigate }) {
-  const { register, handleSubmit } = useForm();
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm({
+    mode: "onChange",
+  });
+
+  const password = watch("password");
 
   const onSubmit = (data) => {
+    console.log("STEP 1 DATA ✅", data);
     onNext(data);
   };
 
@@ -14,46 +24,125 @@ export default function StepOneInfo({ onNext, navigate }) {
 
       {/* Names */}
       <div className="flex gap-3">
-        <input
-          placeholder="First name"
-          {...register("firstName")}
-          className="w-1/2 h-12 sm:h-14 rounded-[14px]
-           px-4  text-[12px] sm:text-[16px]
-          placeholder:text-[#808DAF] text-[#011C60]
-          border border-gray-200 focus:border-[#011C60] outline-none"
-        />
+        <div className="w-1/2">
+          <input
+            placeholder="First name"
+            {...register("firstName", {
+              required: "First name is required",
+            })}
+            className={`w-full h-12 sm:h-14 rounded-[14px]
+            px-4 text-[12px] sm:text-[16px]
+            placeholder:text-[#808DAF] text-[#011C60]
+            border ${
+              errors.firstName
+                ? "border-red-500 focus:border-red-500"
+                : "border-gray-200 focus:border-[#011C60]"
+            }
+            outline-none`}
+          />
+          {errors.firstName && (
+            <span className="text-red-500 text-xs">
+              {errors.firstName.message}
+            </span>
+          )}
+        </div>
 
-        <input
-          placeholder="Last name"
-          {...register("lastName")}
-          className="w-1/2 h-12 sm:h-14 rounded-[14px]
-           px-4 text-[12px] sm:text-[16px]
-          placeholder:text-[#808DAF] text-[#011C60]
-          border border-gray-200 focus:border-[#011C60] outline-none"
-        />
+        <div className="w-1/2">
+          <input
+            placeholder="Last name"
+            {...register("lastName", {
+              required: "Last name is required",
+            })}
+            className={`w-full h-12 sm:h-14 rounded-[14px]
+            px-4 text-[12px] sm:text-[16px]
+            placeholder:text-[#808DAF] text-[#011C60]
+            border ${
+              errors.lastName
+                ? "border-red-500 focus:border-red-500"
+                : "border-gray-200 focus:border-[#011C60]"
+            }
+            outline-none`}
+          />
+          {errors.lastName && (
+            <span className="text-red-500 text-xs">
+              {errors.lastName.message}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Identifier */}
+      {/* Email */}
       <div className="relative">
         <input
-          placeholder="Username or Email or Phone Number"
-          {...register("identifier")}
-          className="w-full h-12 sm:h-14 rounded-[14px] px-12
+          placeholder="Email"
+          {...register("email", {
+            required: "Email is required",
+            pattern: {
+              value: /^\S+@\S+\.\S+$/,
+              message: "Invalid email format",
+            },
+          })}
+          className={`w-full h-12 sm:h-14 rounded-[14px] px-12
           text-[12px] sm:text-[16px]
           placeholder:text-[#808DAF] text-[#011C60]
-          border border-gray-200 focus:border-[#011C60] outline-none"
+          border ${
+            errors.email
+              ? "border-red-500 focus:border-red-500"
+              : "border-gray-200 focus:border-[#011C60]"
+          }
+          outline-none`}
         />
         <img
           src={emailIcon}
           className="w-4 absolute left-4 top-1/2 -translate-y-1/2"
         />
+
+        {errors.email && (
+          <span className="text-red-500 text-xs">
+            {errors.email.message}
+          </span>
+        )}
       </div>
 
       {/* Password */}
-      <PasswordToggle register={register} name="password"  className="w-12"/>
+      <div>
+        <PasswordToggle
+          register={register}
+          name="password"
+          validation={{
+            required: "Password is required",
+            minLength: {
+              value: 6,
+              message: "Min 6 characters",
+            },
+          }}
+          error={errors.password}
+        />
+        {errors.password && (
+          <span className="text-red-500 text-xs">
+            {errors.password.message}
+          </span>
+        )}
+      </div>
 
-      {/* Confirm */}
-      <PasswordToggle register={register} name="confirmPassword" className="w-12" />
+      {/* Confirm Password */}
+      <div>
+        <PasswordToggle
+          register={register}
+          name="confirmPassword"
+          validation={{
+            required: "Confirm password is required",
+            validate: (value) =>
+              value === password || "Passwords do not match",
+          }}
+          error={errors.confirmPassword}
+        />
+        {errors.confirmPassword && (
+          <span className="text-red-500 text-xs">
+            {errors.confirmPassword.message}
+          </span>
+        )}
+      </div>
 
       {/* Button */}
       <button
@@ -77,8 +166,7 @@ export default function StepOneInfo({ onNext, navigate }) {
         Already have an account?{" "}
         <span
           onClick={() => navigate("/login")}
-          className="text-[#011C60] font-semibold cursor-pointer
-          hover:underline"
+          className="text-[#011C60] font-semibold cursor-pointer hover:underline"
         >
           Sign in
         </span>
