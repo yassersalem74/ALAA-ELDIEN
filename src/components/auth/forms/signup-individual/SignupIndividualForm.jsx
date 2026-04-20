@@ -17,8 +17,8 @@ export default function SignupIndividualForm({ onNext, navigate }) {
         <input
           placeholder="First name"
           {...register("firstName")}
-          className="w-1/2 h-[48px] rounded-[14px]
-           px-4 text-[16px]
+          className="w-1/2 h-12 sm:h-14 rounded-[14px]
+           px-4  text-[12px] sm:text-[16px]
           placeholder:text-[#808DAF] text-[#011C60]
           border border-gray-200 focus:border-[#011C60] outline-none"
         />
@@ -26,8 +26,8 @@ export default function SignupIndividualForm({ onNext, navigate }) {
         <input
           placeholder="Last name"
           {...register("lastName")}
-          className="w-1/2 h-[48px] rounded-[14px]
-           px-4 text-[16px]
+          className="w-1/2 h-12 sm:h-14 rounded-[14px]
+           px-4 text-[12px] sm:text-[16px]
           placeholder:text-[#808DAF] text-[#011C60]
           border border-gray-200 focus:border-[#011C60] outline-none"
         />
@@ -38,8 +38,8 @@ export default function SignupIndividualForm({ onNext, navigate }) {
         <input
           placeholder="Username or Email or Phone Number"
           {...register("identifier")}
-          className="w-full h-[48px] rounded-[14px] px-12
-          text-[16px]
+          className="w-full h-12 sm:h-14 rounded-[14px] px-12
+          text-[12px] sm:text-[16px]
           placeholder:text-[#808DAF] text-[#011C60]
           border border-gray-200 focus:border-[#011C60] outline-none"
         />
@@ -50,22 +50,22 @@ export default function SignupIndividualForm({ onNext, navigate }) {
       </div>
 
       {/* Password */}
-      <PasswordToggle register={register} name="password"  className="w-[48px]"/>
+      <PasswordToggle register={register} name="password"  className="w-12"/>
 
       {/* Confirm */}
-      <PasswordToggle register={register} name="confirmPassword" className="w-[48px]" />
+      <PasswordToggle register={register} name="confirmPassword" className="w-12" />
 
       {/* Button */}
       <button
         type="submit"
         className="
-          w-full h-[56px]
+          w-full h-12 sm:h-16
           rounded-[14px]
           bg-[#011C60] text-white
-          text-[18px] font-semibold
+          text-[16px] sm:text-[20px] font-semibold
           shadow-[4px_8px_12px_0px_rgba(23,26,30,0.25)]
           transition-all duration-300
-          hover:-translate-y-[2px]
+          hover:-translate-y-0.5
           hover:bg-[#02237a]
         "
       >
@@ -73,7 +73,7 @@ export default function SignupIndividualForm({ onNext, navigate }) {
       </button>
 
       {/* Footer */}
-      <p className="text-center text-[16px] text-[#808DAF]">
+      <p className="text-center text-[12px] sm:text-[16px] text-[#808DAF]">
         Already have an account?{" "}
         <span
           onClick={() => navigate("/login")}

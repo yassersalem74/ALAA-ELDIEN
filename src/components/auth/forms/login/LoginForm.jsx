@@ -16,7 +16,7 @@ export default function LoginForm() {
   return (
     <div className="min-h-screen flex items-start justify-center bg-[#E6E8EF] px-4">
       {/* ===== CARD ===== */}
-      <div className="w-full md:w-3/4 bg-white rounded-[32px] shadow-[0px_8px_24px_rgba(23,26,30,0.15)] overflow-hidden flex my-6">
+      <div className="w-full md:w-3/4 bg-white rounded-4xl shadow-[0px_8px_24px_rgba(23,26,30,0.15)] overflow-hidden flex my-6">
         {/* ===== LEFT IMAGE ===== */}
         <div className="hidden lg:flex w-1/2 items-center justify-start">
           <img src={loginImage} alt="login" className="h-full w-3/4" />
@@ -27,10 +27,10 @@ export default function LoginForm() {
           <div className="w-full max-w-md">
             {/* ===== HEADER ===== */}
             <div className="text-center mb-8">
-              <h1 className="font-bold text-[32px] leading-[48px] text-[#011C60]">
+              <h1 className="font-bold text-[32px] leading-12 text-[#011C60]">
                 Welcome Back
               </h1>
-              <p className="text-[24px] leading-[40px] text-[#808DAF]">
+              <p className="text-[24px] leading-10 text-[#808DAF]">
                 sign in to continue
               </p>
             </div>
@@ -44,9 +44,9 @@ export default function LoginForm() {
                   placeholder="Username or Email or Phone Number"
                   {...register("identifier")}
                   className="
-                    w-full h-[64px] rounded-[16px]
+                    w-full h-12 sm:h-16 rounded-2xl
                      px-12
-                    text-[18px] leading-[24px]
+                    text-[14px] sm:text-[18px] leading-6
                       placeholder:text-[#808DAF] text-[#011C60]
                     border border-gray-200
                     focus:border-[#011C60] outline-none
@@ -65,14 +65,14 @@ export default function LoginForm() {
               <div className="text-right">
                 <span
                   className="
-                                text-[18px] leading-[24px] text-[#011C60] cursor-pointer
+                                text-[14px] sm:text-[18px] leading-6 text-[#011C60] cursor-pointer
                                 
                                 relative inline-block
                                 transition-all duration-300
                                 
                                 after:content-['']
                                 after:absolute after:left-0 after:bottom-0
-                                after:w-0 after:h-[2px]
+                                after:w-0 after:h-0.5
                                 after:bg-[#011C60]
                                 after:transition-all after:duration-300
                                 
@@ -87,15 +87,15 @@ export default function LoginForm() {
               <button
                 type="submit"
                 className="
-                                w-full h-[64px]
-                                rounded-[16px]
+                                w-full h-12 sm:h-16
+                                rounded-2xl
                                 bg-[#011C60] text-white
-                                text-[20px] font-semibold
+                                text-[16px] sm:text-[20px] font-semibold
                                 shadow-[4px_8px_12px_0px_rgba(23,26,30,0.25)]
                                 
                                 transition-all duration-300 ease-in-out
                                 hover:shadow-[0px_12px_24px_rgba(23,26,30,0.35)]
-                                hover:-translate-y-[2px]
+                                hover:-translate-y-0.5
                                 hover:bg-[#02237a]
                                 active:scale-[0.98]
                                 cursor-pointer
@@ -105,7 +105,7 @@ export default function LoginForm() {
               </button>
 
               {/* Footer */}
-              <p className="text-center text-[18px] leading-[24px] text-[#808DAF]">
+              <p className="text-center text-[14px] sm:text-[18px] leading-6 text-[#808DAF]">
                 Don’t have an account?{" "}
                 <span
                  onClick={() => navigate("/signup")}
@@ -117,7 +117,7 @@ export default function LoginForm() {
                         
                         after:content-['']
                         after:absolute after:left-0 after:bottom-0
-                        after:w-0 after:h-[2px]
+                        after:w-0 after:h-0.5
                         after:bg-[#011C60]
                         after:transition-all after:duration-300
                         

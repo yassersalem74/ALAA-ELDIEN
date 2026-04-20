@@ -5,7 +5,7 @@ import nationalBack from "../../../../assets/images/auth/nationalBack.png";
 import selfie from "../../../../assets/images/auth/selfie.png";
 
 export default function VerifyStep({ onNext }) {
-  // refs لكل upload
+
   const frontRef = useRef(null);
   const backRef = useRef(null);
   const selfieRef = useRef(null);
@@ -25,9 +25,8 @@ export default function VerifyStep({ onNext }) {
 
   return (
     <div className="space-y-2">
-
       {/* Subtitle */}
-      <p className="text-[18px] text-[#808DAF] text-center">
+      <p className="text-[12px] sm:text-[16px] text-[#808DAF] text-center">
         Enter your national ID number as shown on your card
       </p>
 
@@ -35,8 +34,8 @@ export default function VerifyStep({ onNext }) {
       <input
         placeholder="ID Number"
         className="
-          w-full h-[56px] rounded-[16px] px-4
-          text-[16px] text-[#011C60]
+          w-full h-14 rounded-xl sm:rounded-2xl px-4
+          text-[12px] sm:text-[16px] text-[#011C60]
           border border-gray-200
           focus:border-[#011C60] outline-none
         "
@@ -46,12 +45,12 @@ export default function VerifyStep({ onNext }) {
       {[
         {
           title: "National ID (Front side)",
-          desc: "Make sure the image is clear and not blurry",
+          desc: "Ensure the image is clear",
           img: nationalFront,
         },
         {
           title: "National ID (Back side)",
-          desc: "Ensure all four corners are visible",
+          desc: "Ensure four corners are visible",
           img: nationalBack,
         },
         {
@@ -65,19 +64,19 @@ export default function VerifyStep({ onNext }) {
           className="
             flex items-center justify-between
             border-2 border-dashed border-[#D6DAE6]
-            rounded-[24px] px-6 py-4
+            rounded-xl sm:rounded-3xl px-3 py-2 sm:px-6 sm:py-4
           "
         >
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-[#E6E8EF] flex justify-center items-center">
-              <img src={item.img} className="w-6" />
+            <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-[#E6E8EF] flex justify-center items-center">
+              <img src={item.img} className="w-4 sm:w-6" />
             </div>
 
             <div>
-              <h3 className="text-[16px] font-medium text-[#011C60]">
+              <h3 className="text-[12px] sm:text-[16px] font-medium text-[#011C60]">
                 {item.title}
               </h3>
-              <p className="text-[14px] text-[#6777A0]">
+              <p className="text-[10px] sm:text-[12px] text-[#6777A0]">
                 {item.desc}
               </p>
             </div>
@@ -101,7 +100,7 @@ export default function VerifyStep({ onNext }) {
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
               fill="#011C60"
-              className="w-8 h-8"
+              className="w-6 h-6 sm:w-8 sm:h-8 "
             >
               <path
                 fillRule="evenodd"
@@ -118,13 +117,13 @@ export default function VerifyStep({ onNext }) {
         <button
           onClick={onNext}
           className="
-            w-full h-[56px]
+            w-full h-12 sm:h-16
+            rounded-xl sm:rounded-2xl
             bg-[#011C60] text-white
-            rounded-[16px]
-            text-[20px] font-medium
+            text-[14px] sm:text-[20px] font-semibold
             shadow-[4px_8px_12px_rgba(23,26,30,0.25)]
             transition-all duration-300
-            hover:-translate-y-[2px]
+            hover:-translate-y-0.5
             hover:bg-[#02237a]
           "
         >
@@ -135,10 +134,11 @@ export default function VerifyStep({ onNext }) {
         <button
           onClick={onNext}
           className="
-            w-full h-[56px]
+          
+           w-full h-12 sm:h-16
             bg-[#E6E8EF]
-            rounded-[16px]
-            text-[20px] font-medium text-[#011C60]
+             rounded-xl sm:rounded-2xl
+            text-[14px] sm:text-[20px] font-medium text-[#011C60]
             transition-all duration-300
             hover:bg-gray-300
           "

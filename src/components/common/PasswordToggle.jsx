@@ -12,9 +12,9 @@ export default function PasswordToggle({ register, name }) {
         placeholder="Password"
         {...register(name)}
         className="
-          w-full h-[64px] rounded-[16px]
+          w-full h-12 sm:h-14 rounded-2xl
           px-12 pr-12
-          text-[18px] leading-[24px]
+           text-[12px] sm:text-[16px] leading-6
           text-[#011C60]
           placeholder:text-[#808DAF]
           border border-gray-200
@@ -27,7 +27,7 @@ export default function PasswordToggle({ register, name }) {
         <img
           src={passwordIcon}
           alt="password"
-          className="w-5 h-5"
+          className="w-3 h-3 sm:w-5 sm:h-5"
         />
       </span>
 
@@ -48,7 +48,7 @@ export default function PasswordToggle({ register, name }) {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="w-5 h-5"
+            className="w-4 h-4 sm:w-5 sm:h-5"
           >
             <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
             <path
@@ -63,7 +63,7 @@ export default function PasswordToggle({ register, name }) {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="w-5 h-5"
+            className="w-4 h-4 sm:w-5 sm:h-5"
           >
             <path d="M3.53 2.47a.75.75 0 0 0-1.06 1.06l18 18a.75.75 0 1 0 1.06-1.06l-18-18Z" />
             <path d="M22.676 12.553a11.249 11.249 0 0 1-2.631 4.31l-3.099-3.099a5.25 5.25 0 0 0-6.71-6.71L7.759 4.577a11.217 11.217 0 0 1 4.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113Z" />

@@ -28,17 +28,17 @@ export default function SignupForm() {
 
   return (
     <div className="h-screen flex items-center justify-center bg-[#E6E8EF] px-4 overflow-hidden">
-      <div className="w-full max-w-6xl h-[85vh] bg-white rounded-[32px] shadow-xl flex overflow-hidden">
+      <div className="w-full max-w-6xl h-[85vh] bg-white rounded-4xl shadow-xl flex overflow-hidden">
         {/* LEFT */}
-        <div className="w-full lg:w-1/2 px-8 flex flex-col justify-center">
-          <h1 className="text-[28px] font-bold text-[#011C60] mb-4 text-center">
+        <div className="w-full lg:w-1/2 px-2 sm:px-8 flex flex-col justify-center">
+          <h1 className="text-[22px] sm:text-[28px] font-bold text-[#011C60] mb-4 text-center">
             {step === 1 && "Create Your Account"}
             {step === 2 && "Verify Your Identity"}
             {step === 3 && "Add Address"}
           </h1>
 
           {/* STEPS */}
-<div className="flex justify-center mb-8">
+<div className="flex justify-center mb-4">
 
   <div className="flex items-center gap-6 mx-auto">
 
@@ -56,7 +56,7 @@ export default function SignupForm() {
           <div
             className={`
               relative flex items-center justify-center
-              w-12 h-12 rounded-full
+              w-8 h-8 sm:w-12 sm:h-12 rounded-full
               text-sm font-bold
               transition-all duration-500
 
@@ -74,7 +74,7 @@ export default function SignupForm() {
 
           {/* LINE */}
           {index !== 2 && (
-            <div className="w-16 h-[2px] mx-2 border-t-2 border-dotted border-gray-300 relative">
+            <div className="w-16 h-0.5 mx-2 border-t-2 border-dotted border-gray-300 relative">
               
               {/* active line */}
               <div
@@ -96,7 +96,7 @@ export default function SignupForm() {
           {/* STEP 1 SWITCH */}
           {step === 1 && (
             <div className="flex justify-center">
-              <div className="flex bg-[#E6E8EF] rounded-[12px] p-1 mb-6">
+              <div className="flex bg-[#E6E8EF] rounded-xl p-1 mb-6 text-sm sm:text-lg">
                 <button
                   onClick={() => setType("individual")}
                   className={`px-6 py-1.5 rounded-[10px] ${
