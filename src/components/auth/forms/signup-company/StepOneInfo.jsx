@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import PasswordToggle from "../../../common/PasswordToggle";
 import emailIcon from "../../../../assets/images/auth/email.png";
 
-export default function StepOneInfo({ onNext, navigate }) {
+export default function StepOneInfo({ onNext, navigate, onError }) {
   const {
     register,
     handleSubmit,
@@ -31,8 +31,18 @@ export default function StepOneInfo({ onNext, navigate }) {
     onNext(data);
   };
 
+  const handleInvalidSubmit = (formErrors) => {
+    const firstError = Object.values(formErrors)[0];
+    const message = firstError?.message || "Please complete the required fields.";
+
+    onError?.(message);
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form
+      onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)}
+      className="space-y-4"
+    >
 
       {/* Company Details */}
       <div className="flex gap-3">

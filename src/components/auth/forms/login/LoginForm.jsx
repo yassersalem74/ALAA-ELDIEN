@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import PasswordToggle from "../../../common/PasswordToggle";
+import Toast from "../../../common/Toast";
 import { loginUser } from "../../../../api/auth/auth.api";
 
 import loginImage from "../../../../assets/images/auth/login.png";
@@ -52,6 +53,7 @@ const getAuthUser = (data) => data?.user || data?.data?.user;
 export default function LoginForm() {
   const [accountType, setAccountType] = useState("individual");
   const [apiError, setApiError] = useState("");
+  const [toast, setToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const {
     register,
@@ -64,6 +66,21 @@ export default function LoginForm() {
 
   const handleAccountTypeChange = (type) => {
     setAccountType(type);
+  };
+
+  const showToast = (type, message) => {
+    setToast({
+      id: Date.now(),
+      type,
+      message,
+    });
+  };
+
+  const handleInvalidSubmit = (formErrors) => {
+    const firstError = Object.values(formErrors)[0];
+    const message = firstError?.message || "Please complete the required fields.";
+
+    showToast("error", message);
   };
 
   const onSubmit = async (data) => {
@@ -82,13 +99,24 @@ export default function LoginForm() {
       const user = getAuthUser(res);
 
       localStorage.setItem("accountType", accountType);
+      localStorage.setItem("loggedInAs", accountType);
       if (token) localStorage.setItem("token", token);
       if (user) localStorage.setItem("user", JSON.stringify(user));
 
-      navigate("/");
+      showToast(
+        "success",
+        `Logged in successfully as ${accountType} with email: ${data.email}.`
+      );
+
+      setTimeout(() => {
+        navigate("/");
+      }, 1000);
     } catch (error) {
       console.error("LOGIN API ERROR", error?.response?.data || error);
-      setApiError(getApiErrorMessage(error));
+      const message = getApiErrorMessage(error);
+
+      setApiError(message);
+      showToast("error", message);
     } finally {
       setIsSubmitting(false);
     }
@@ -96,6 +124,13 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-screen flex items-start justify-center bg-[#E6E8EF] px-4">
+      <Toast
+        key={toast?.id}
+        type={toast?.type}
+        message={toast?.message}
+        onClose={() => setToast(null)}
+      />
+
       {/* ===== CARD ===== */}
       <div className="w-full md:w-3/4 bg-white rounded-4xl shadow-[0px_8px_24px_rgba(23,26,30,0.15)] overflow-hidden flex my-6">
         {/* ===== LEFT IMAGE ===== */}
@@ -117,7 +152,10 @@ export default function LoginForm() {
             </div>
 
             {/* ===== FORM ===== */}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <form
+              onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)}
+              className="space-y-6"
+            >
               {/* Account Type */}
               <div className="flex justify-center">
                 <div className="flex bg-[#E6E8EF] rounded-xl p-1 text-sm sm:text-lg">

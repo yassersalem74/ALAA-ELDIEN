@@ -4,7 +4,7 @@ import nationalFront from "../../../../assets/images/auth/nationalFront.png";
 import nationalBack from "../../../../assets/images/auth/nationalBack.png";
 import selfie from "../../../../assets/images/auth/selfie.png";
 
-export default function StepTwoVerify({ onNext }) {
+export default function StepTwoVerify({ onNext, onError }) {
   const frontRef = useRef(null);
   const backRef = useRef(null);
   const selfieRef = useRef(null);
@@ -55,7 +55,10 @@ export default function StepTwoVerify({ onNext }) {
 
     setErrors(newErrors);
 
-    if (Object.keys(newErrors).length > 0) return;
+    if (Object.keys(newErrors).length > 0) {
+      onError?.(Object.values(newErrors)[0]);
+      return;
+    }
 
     console.log("STEP 2 DATA ✅", {
       idNumber,

@@ -29,7 +29,7 @@ const getOptionName = (item) =>
 const getErrorMessage = (error, fallback) =>
   error?.response?.data?.message || error?.message || fallback;
 
-export default function StepThreeAddress({ onNext, isSubmitting }) {
+export default function StepThreeAddress({ onNext, isSubmitting, onError }) {
   const [governorates, setGovernorates] = useState([]);
   const [neighborhoods, setNeighborhoods] = useState([]);
   const [selectedGovernorateId, setSelectedGovernorateId] = useState("");
@@ -131,8 +131,18 @@ export default function StepThreeAddress({ onNext, isSubmitting }) {
     onNext(data);
   };
 
+  const handleInvalidSubmit = (formErrors) => {
+    const firstError = Object.values(formErrors)[0];
+    const message = firstError?.message || "Please complete the required fields.";
+
+    onError?.(message);
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+    <form
+      onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)}
+      className="space-y-2"
+    >
       {locationError && (
         <p className="text-center text-xs text-red-500">{locationError}</p>
       )}

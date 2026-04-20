@@ -7,6 +7,7 @@ import IndividualStepTwoVerify from "./StepTwoVerify";
 import CompanyStepOneInfo from "../signup-company/StepOneInfo";
 import CompanyStepThreeAddress from "../signup-company/StepThreeAddress";
 import CompanyStepTwoVerify from "../signup-company/StepTwoVerify";
+import Toast from "../../../common/Toast";
 
 import { registerUser, verifyOtp } from "../../../../api/auth/auth.api";
 
@@ -49,6 +50,14 @@ const getApiErrorMessage = (error) => {
   return error?.message || "Something went wrong. Please try again.";
 };
 
+const getAccountName = (data, type) => {
+  if (type === "company") {
+    return data.firstName || "company account";
+  }
+
+  return [data.firstName, data.lastName].filter(Boolean).join(" ");
+};
+
 export default function SignupForm() {
   const [type, setType] = useState("individual");
   const [step, setStep] = useState(1);
@@ -59,6 +68,7 @@ export default function SignupForm() {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [apiError, setApiError] = useState("");
   const [apiSuccess, setApiSuccess] = useState("");
+  const [toast, setToast] = useState(null);
 
   const navigate = useNavigate();
 
@@ -105,6 +115,18 @@ export default function SignupForm() {
     return form;
   };
 
+  const showToast = (type, message) => {
+    setToast({
+      id: Date.now(),
+      type,
+      message,
+    });
+  };
+
+  const handleStepError = (message) => {
+    showToast("error", message);
+  };
+
   const handleRegister = async (allData) => {
     setIsSubmitting(true);
     setApiError("");
@@ -116,11 +138,19 @@ export default function SignupForm() {
       console.log("REGISTER RESPONSE", res);
       setRegisteredEmail(allData.email);
       localStorage.setItem("pendingSignupAccountType", type);
-      setApiSuccess("Account created. Enter the OTP sent to your email.");
+
+      const accountName = getAccountName(allData, type);
+      const message = `Signed up successfully as ${type} with name: ${accountName}. Enter the OTP sent to ${allData.email}.`;
+
+      setApiSuccess(message);
+      showToast("success", message);
       setStep(4);
     } catch (error) {
       console.error("REGISTER API ERROR", error?.response?.data || error);
-      setApiError(getApiErrorMessage(error));
+      const message = getApiErrorMessage(error);
+
+      setApiError(message);
+      showToast("error", message);
     } finally {
       setIsSubmitting(false);
     }
@@ -156,7 +186,10 @@ export default function SignupForm() {
     event.preventDefault();
 
     if (!otp.trim()) {
-      setApiError("OTP is required");
+      const message = "OTP is required.";
+
+      setApiError(message);
+      showToast("error", message);
       return;
     }
 
@@ -171,11 +204,22 @@ export default function SignupForm() {
       });
 
       console.log("VERIFY OTP RESPONSE", res);
-      setApiSuccess("Email verified successfully.");
-      navigate("/login");
+      const message = `Email verified successfully for ${
+        registeredEmail || formData.email
+      }. You can sign in now.`;
+
+      setApiSuccess(message);
+      showToast("success", message);
+
+      setTimeout(() => {
+        navigate("/login");
+      }, 1000);
     } catch (error) {
-      console.error("VERIFY OTP API ERROR", error);
-      setApiError(getApiErrorMessage(error));
+      console.error("VERIFY OTP API ERROR", error?.response?.data || error);
+      const message = getApiErrorMessage(error);
+
+      setApiError(message);
+      showToast("error", message);
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -183,6 +227,13 @@ export default function SignupForm() {
 
   return (
     <div className="h-screen flex items-center justify-center bg-[#E6E8EF] px-4 overflow-hidden">
+      <Toast
+        key={toast?.id}
+        type={toast?.type}
+        message={toast?.message}
+        onClose={() => setToast(null)}
+      />
+
       <div className="w-full max-w-6xl h-[85vh] bg-white rounded-4xl shadow-xl flex overflow-hidden">
         {/* LEFT */}
         <div className="w-full lg:w-1/2 px-2 sm:px-8 flex flex-col justify-center">
@@ -238,20 +289,31 @@ export default function SignupForm() {
           <div key={step}>
             {step === 1 && (
               type === "company" ? (
-                <CompanyStepOneInfo onNext={handleNext} navigate={navigate} />
+                <CompanyStepOneInfo
+                  onNext={handleNext}
+                  navigate={navigate}
+                  onError={handleStepError}
+                />
               ) : (
                 <IndividualStepOneInfo
                   onNext={handleNext}
                   navigate={navigate}
+                  onError={handleStepError}
                 />
               )
             )}
 
             {step === 2 &&
               (type === "company" ? (
-                <CompanyStepTwoVerify onNext={handleNext} />
+                <CompanyStepTwoVerify
+                  onNext={handleNext}
+                  onError={handleStepError}
+                />
               ) : (
-                <IndividualStepTwoVerify onNext={handleNext} />
+                <IndividualStepTwoVerify
+                  onNext={handleNext}
+                  onError={handleStepError}
+                />
               ))}
 
             {step === 3 && (
@@ -259,11 +321,13 @@ export default function SignupForm() {
                 <CompanyStepThreeAddress
                   onNext={handleNext}
                   isSubmitting={isSubmitting}
+                  onError={handleStepError}
                 />
               ) : (
                 <IndividualStepThreeAddress
                   onNext={handleNext}
                   isSubmitting={isSubmitting}
+                  onError={handleStepError}
                 />
               )
             )}
