@@ -2,26 +2,96 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import PasswordToggle from "../../../common/PasswordToggle";
+import { loginUser } from "../../../../api/auth/auth.api";
 
 import loginImage from "../../../../assets/images/auth/login.png";
 import emailIcon from "../../../../assets/images/auth/email.png";
 
+const getApiErrorMessage = (error) => {
+  const data = error?.response?.data;
+
+  const formatValidationError = (item) => {
+    if (typeof item === "string") return item;
+
+    const message = item?.message || item?.msg || item?.error;
+    const field = item?.path || item?.field || item?.param;
+
+    if (message && field) return `${field}: ${message}`;
+    if (message) return message;
+    if (field) return `${field} is invalid`;
+
+    return JSON.stringify(item);
+  };
+
+  if (Array.isArray(data)) {
+    return data.map(formatValidationError).join(", ");
+  }
+
+  if (typeof data?.message === "string") return data.message;
+  if (typeof data?.error === "string") return data.error;
+  if (Array.isArray(data?.errors)) {
+    return data.errors.map(formatValidationError).join(", ");
+  }
+
+  if (error?.response?.status === 403) return "Please verify your email first.";
+  if (error?.response?.status === 401) return "Invalid email or password.";
+  if (error?.response?.status === 404) return "User not found.";
+
+  return error?.message || "Something went wrong. Please try again.";
+};
+
+const getAuthToken = (data) =>
+  data?.token ||
+  data?.accessToken ||
+  data?.data?.token ||
+  data?.data?.accessToken ||
+  data?.user?.token;
+
+const getAuthUser = (data) => data?.user || data?.data?.user;
+
 export default function LoginForm() {
   const [accountType, setAccountType] = useState("individual");
-  const { register, handleSubmit, setValue } = useForm({
-    defaultValues: {
-      accountType: "individual",
-    },
+  const [apiError, setApiError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    mode: "onChange",
   });
   const navigate = useNavigate();
 
   const handleAccountTypeChange = (type) => {
     setAccountType(type);
-    setValue("accountType", type, { shouldDirty: true });
   };
 
-  const onSubmit = (data) => {
-    console.log(data);
+  const onSubmit = async (data) => {
+    setIsSubmitting(true);
+    setApiError("");
+
+    try {
+      const res = await loginUser({
+        email: data.email,
+        password: data.password,
+      });
+
+      console.log("LOGIN RESPONSE", res);
+
+      const token = getAuthToken(res);
+      const user = getAuthUser(res);
+
+      localStorage.setItem("accountType", accountType);
+      if (token) localStorage.setItem("token", token);
+      if (user) localStorage.setItem("user", JSON.stringify(user));
+
+      navigate("/");
+    } catch (error) {
+      console.error("LOGIN API ERROR", error?.response?.data || error);
+      setApiError(getApiErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -48,8 +118,6 @@ export default function LoginForm() {
 
             {/* ===== FORM ===== */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <input type="hidden" {...register("accountType")} />
-
               {/* Account Type */}
               <div className="flex justify-center">
                 <div className="flex bg-[#E6E8EF] rounded-xl p-1 text-sm sm:text-lg">
@@ -81,29 +149,66 @@ export default function LoginForm() {
                 </div>
               </div>
 
-              {/* Identifier */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Username or Email or Phone Number"
-                  {...register("identifier")}
-                  className="
+              {apiError && (
+                <p className="text-center text-xs sm:text-sm text-red-500">
+                  {apiError}
+                </p>
+              )}
+
+              {/* Email */}
+              <div>
+                <div className="relative">
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    {...register("email", {
+                      required: "Email is required",
+                      pattern: {
+                        value: /^\S+@\S+\.\S+$/,
+                        message: "Invalid email format",
+                      },
+                    })}
+                    className={`
                     w-full h-12 sm:h-16 rounded-2xl
                      px-12
-                    text-[12px] sm:text-[16px] leading-6
+                    text-[14px] sm:text-[18px] leading-6
                       placeholder:text-[#808DAF] text-[#011C60]
-                    border border-gray-200
-                    focus:border-[#011C60] outline-none
-                  "
-                />
+                    border ${
+                      errors.email
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-gray-200 focus:border-[#011C60]"
+                    }
+                    outline-none
+                  `}
+                  />
 
-                <span className="absolute left-4 top-1/2 -translate-y-1/2">
-                  <img src={emailIcon} alt="email" className="w-5 h-4" />
-                </span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2">
+                    <img src={emailIcon} alt="email" className="w-5 h-4" />
+                  </span>
+                </div>
+
+                {errors.email && (
+                  <span className="text-red-500 text-xs">
+                    {errors.email.message}
+                  </span>
+                )}
               </div>
 
               {/* Password */}
-              <PasswordToggle register={register} name="password" />
+              <div>
+                <PasswordToggle
+                  register={register}
+                  name="password"
+                  validation={{
+                    required: "Password is required",
+                  }}
+                />
+                {errors.password && (
+                  <span className="text-red-500 text-xs">
+                    {errors.password.message}
+                  </span>
+                )}
+              </div>
 
               {/* Forget Password */}
               <div className="text-right">
@@ -130,6 +235,7 @@ export default function LoginForm() {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="
                                 w-full h-12 sm:h-16
                                 rounded-2xl
@@ -142,10 +248,11 @@ export default function LoginForm() {
                                 hover:-translate-y-0.5
                                 hover:bg-[#02237a]
                                 active:scale-[0.98]
+                                disabled:cursor-not-allowed disabled:opacity-70
                                 cursor-pointer
                             "
               >
-                Sign in
+                {isSubmitting ? "Signing in..." : "Sign in"}
               </button>
 
               {/* Footer */}

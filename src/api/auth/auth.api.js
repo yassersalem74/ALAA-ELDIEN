@@ -13,6 +13,12 @@ export const verifyOtp = async (data) => {
   return res.data;
 };
 
+export const loginUser = async (data) => {
+  const res = await api.post(AUTH_ENDPOINTS.LOGIN, data);
+
+  return res.data;
+};
+
 export const getGovernorates = async (language = "en") => {
   const res = await api.get(AUTH_ENDPOINTS.GOVERNORATES(language));
 
