@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useEffect } from "react";
 import PasswordToggle from "../../../common/PasswordToggle";
 import emailIcon from "../../../../assets/images/auth/email.png";
@@ -7,14 +7,17 @@ export default function StepOneInfo({ onNext, navigate }) {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     trigger,
     formState: { errors },
   } = useForm({
     mode: "onChange",
   });
 
-  const password = watch("password");
+  const password = useWatch({
+    control,
+    name: "password",
+  });
 
   // 🔥 revalidate confirm password when password changes
   useEffect(() => {
@@ -80,6 +83,34 @@ export default function StepOneInfo({ onNext, navigate }) {
         </div>
       </div>
 
+      {/* Phone */}
+      <div>
+        <input
+          placeholder="Phone Number"
+          {...register("phone", {
+            required: "Phone number is required",
+            pattern: {
+              value: /^01[0-9]{9}$/,
+              message: "Phone number must be 11 digits and start with 01",
+            },
+          })}
+          className={`w-full h-12 sm:h-14 rounded-[14px] px-4
+          text-[12px] sm:text-[16px]
+          placeholder:text-[#808DAF] text-[#011C60]
+          border ${
+            errors.phone
+              ? "border-red-500 focus:border-red-500"
+              : "border-gray-200 focus:border-[#011C60]"
+          }
+          outline-none`}
+        />
+        {errors.phone && (
+          <span className="text-red-500 text-xs">
+            {errors.phone.message}
+          </span>
+        )}
+      </div>
+
       {/* Email */}
       <div className="relative">
         <input
@@ -121,8 +152,14 @@ export default function StepOneInfo({ onNext, navigate }) {
           validation={{
             required: "Password is required",
             minLength: {
-              value: 6,
-              message: "Min 6 characters",
+              value: 8,
+              message: "Password must be at least 8 characters",
+            },
+            pattern: {
+              value:
+                /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/,
+              message:
+                "Password must include uppercase, lowercase, number, and symbol",
             },
           }}
         />
@@ -138,6 +175,7 @@ export default function StepOneInfo({ onNext, navigate }) {
         <PasswordToggle
           register={register}
           name="confirmPassword"
+          placeholder="Confirm Password"
           validation={{
             required: "Confirm password is required",
             validate: (value) => {

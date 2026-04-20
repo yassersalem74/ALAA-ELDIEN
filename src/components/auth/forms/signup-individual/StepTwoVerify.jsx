@@ -46,6 +46,9 @@ export default function StepTwoVerify({ onNext }) {
     const newErrors = {};
 
     if (!idNumber) newErrors.idNumber = "ID number is required";
+    else if (!/^[0-9]{14}$/.test(idNumber)) {
+      newErrors.idNumber = "ID number must be exactly 14 digits";
+    }
     if (!files.front) newErrors.front = "Front ID is required";
     if (!files.back) newErrors.back = "Back ID is required";
     if (!files.selfie) newErrors.selfie = "Selfie is required";
@@ -199,8 +202,9 @@ export default function StepTwoVerify({ onNext }) {
       ))}
 
       {/* Buttons */}
-      <div className="flex gap-4 pt-2">
+      <div className="pt-2">
         <button
+          type="button"
           onClick={handleNextClick}
           className="
             w-full h-12 sm:h-16
@@ -215,21 +219,6 @@ export default function StepTwoVerify({ onNext }) {
           "
         >
           Next
-        </button>
-
-        <button
-          onClick={onNext}
-          className="
-           w-full h-12 sm:h-16
-            bg-[#E6E8EF]
-             rounded-xl sm:rounded-2xl
-            text-[14px] sm:text-[20px] font-medium text-[#011C60]
-            transition-all duration-300
-            hover:bg-gray-300
-            cursor-pointer
-          "
-        >
-          Skip for now
         </button>
       </div>
     </div>

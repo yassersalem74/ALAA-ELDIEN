@@ -1,7 +1,12 @@
 import { useState } from "react";
 import passwordIcon from "../../assets/images/auth/password.png";
 
-export default function PasswordToggle({ register, name }) {
+export default function PasswordToggle({
+  register,
+  name,
+  validation,
+  placeholder = "Password",
+}) {
   const [show, setShow] = useState(false);
 
   return (
@@ -9,8 +14,8 @@ export default function PasswordToggle({ register, name }) {
 
       <input
         type={show ? "text" : "password"}
-        placeholder="Password"
-        {...register(name)}
+        placeholder={placeholder}
+        {...register(name, validation)}
         className="
           w-full h-12 sm:h-14 rounded-2xl
           px-12 pr-12
