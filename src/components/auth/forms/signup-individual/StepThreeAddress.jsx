@@ -28,7 +28,7 @@ const egyptCities = [
   "Sohag",
 ];
 
-export default function AddressStep({ onNext }) {
+export default function StepThreeAddress({ onNext }) {
   return (
     <div className="space-y-2">
 

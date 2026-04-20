@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import SignupIndividualForm from "./SignupIndividualForm";
+import StepOneInfo from "./StepOneInfo";
 import SignupCompanyForm from "../signup-company/SignupCompanyForm";
-import AddressStep from "./AddressStep";
+import StepThreeAddress from "./StepThreeAddress";
+import StepTwoVerify from './StepTwoVerify';
 
 import signupImage from "../../../../assets/images/auth/signup.png";
 import verifyImage from "../../../../assets/images/auth/veri.jpg";
 import locationImage from "../../../../assets/images/auth/loca.jpg";
-import VerifyStep from './VerifyStep';
 
 export default function SignupForm() {
   const [type, setType] = useState("individual");
@@ -132,13 +132,13 @@ export default function SignupForm() {
           >
             {step === 1 &&
               (type === "individual" ? (
-                <SignupIndividualForm onNext={handleNext} navigate={navigate} />
+                <StepOneInfo onNext={handleNext} navigate={navigate} />
               ) : (
                 <SignupCompanyForm onNext={handleNext} navigate={navigate} />
               ))}
 
-            {step === 2 && <VerifyStep onNext={handleNext} />}
-            {step === 3 && <AddressStep onNext={handleNext} />}
+            {step === 2 && <StepTwoVerify onNext={handleNext} />}
+            {step === 3 && <StepThreeAddress onNext={handleNext} />}
           </div>
         </div>
 

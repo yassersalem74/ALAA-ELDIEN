@@ -4,7 +4,7 @@ import nationalFront from "../../../../assets/images/auth/nationalFront.png";
 import nationalBack from "../../../../assets/images/auth/nationalBack.png";
 import selfie from "../../../../assets/images/auth/selfie.png";
 
-export default function VerifyStep({ onNext }) {
+export default function StepTwoVerify({ onNext }) {
 
   const frontRef = useRef(null);
   const backRef = useRef(null);

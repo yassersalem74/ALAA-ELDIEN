@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import PasswordToggle from "../../../common/PasswordToggle";
 import emailIcon from "../../../../assets/images/auth/email.png";
 
-export default function SignupIndividualForm({ onNext, navigate }) {
+export default function StepOneInfo({ onNext, navigate }) {
   const { register, handleSubmit } = useForm();
 
   const onSubmit = (data) => {

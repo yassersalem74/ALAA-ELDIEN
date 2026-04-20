@@ -90,7 +90,7 @@ export default function LoginForm() {
                   className="
                     w-full h-12 sm:h-16 rounded-2xl
                      px-12
-                    text-[14px] sm:text-[18px] leading-6
+                    text-[12px] sm:text-[16px] leading-6
                       placeholder:text-[#808DAF] text-[#011C60]
                     border border-gray-200
                     focus:border-[#011C60] outline-none
