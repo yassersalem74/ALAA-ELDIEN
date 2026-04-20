@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import PasswordToggle from "../../../common/PasswordToggle";
 import emailIcon from "../../../../assets/images/auth/email.png";
 
@@ -7,12 +8,20 @@ export default function StepOneInfo({ onNext, navigate }) {
     register,
     handleSubmit,
     watch,
+    trigger,
     formState: { errors },
   } = useForm({
     mode: "onChange",
   });
 
   const password = watch("password");
+
+  // 🔥 revalidate confirm password when password changes
+  useEffect(() => {
+    if (password) {
+      trigger("confirmPassword");
+    }
+  }, [password, trigger]);
 
   const onSubmit = (data) => {
     console.log("STEP 1 DATA ✅", data);
@@ -116,7 +125,6 @@ export default function StepOneInfo({ onNext, navigate }) {
               message: "Min 6 characters",
             },
           }}
-          error={errors.password}
         />
         {errors.password && (
           <span className="text-red-500 text-xs">
@@ -132,10 +140,12 @@ export default function StepOneInfo({ onNext, navigate }) {
           name="confirmPassword"
           validation={{
             required: "Confirm password is required",
-            validate: (value) =>
-              value === password || "Passwords do not match",
+            validate: (value) => {
+              if (!value) return "Confirm password is required";
+              if (value !== password) return "Passwords do not match";
+              return true;
+            },
           }}
-          error={errors.confirmPassword}
         />
         {errors.confirmPassword && (
           <span className="text-red-500 text-xs">
@@ -156,6 +166,7 @@ export default function StepOneInfo({ onNext, navigate }) {
           transition-all duration-300
           hover:-translate-y-0.5
           hover:bg-[#02237a]
+          cursor-pointer
         "
       >
         Next
