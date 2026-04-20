@@ -99,7 +99,7 @@ export default function SignupForm() {
               <div className="flex bg-[#E6E8EF] rounded-xl p-1 mb-6 text-sm sm:text-lg">
                 <button
                   onClick={() => setType("individual")}
-                  className={`px-6 py-1.5 rounded-[10px] ${
+                  className={`px-6 py-1.5 rounded-[10px] cursor-pointer ${
                     type === "individual"
                       ? "bg-white text-[#011C60] shadow"
                       : "text-[#808DAF]"
@@ -110,7 +110,7 @@ export default function SignupForm() {
 
                 <button
                   onClick={() => setType("company")}
-                  className={`px-6 py-1.5 rounded-[10px] ${
+                  className={`px-6 py-1.5 rounded-[10px] cursor-pointer ${
                     type === "company"
                       ? "bg-white text-[#011C60] shadow"
                       : "text-[#808DAF]"

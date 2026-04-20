@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import PasswordToggle from "../../../common/PasswordToggle";
@@ -6,8 +7,18 @@ import loginImage from "../../../../assets/images/auth/login.png";
 import emailIcon from "../../../../assets/images/auth/email.png";
 
 export default function LoginForm() {
-  const { register, handleSubmit } = useForm();
+  const [accountType, setAccountType] = useState("individual");
+  const { register, handleSubmit, setValue } = useForm({
+    defaultValues: {
+      accountType: "individual",
+    },
+  });
   const navigate = useNavigate();
+
+  const handleAccountTypeChange = (type) => {
+    setAccountType(type);
+    setValue("accountType", type, { shouldDirty: true });
+  };
 
   const onSubmit = (data) => {
     console.log(data);
@@ -37,6 +48,39 @@ export default function LoginForm() {
 
             {/* ===== FORM ===== */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <input type="hidden" {...register("accountType")} />
+
+              {/* Account Type */}
+              <div className="flex justify-center">
+                <div className="flex bg-[#E6E8EF] rounded-xl p-1 text-sm sm:text-lg">
+                  <button
+                    type="button"
+                    aria-pressed={accountType === "individual"}
+                    onClick={() => handleAccountTypeChange("individual")}
+                    className={`px-6 py-1.5 rounded-[10px] transition-all duration-300 cursor-pointer ${
+                      accountType === "individual"
+                        ? "bg-white text-[#011C60] shadow"
+                        : "text-[#808DAF]"
+                    }`}
+                  >
+                    Individual
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-pressed={accountType === "company"}
+                    onClick={() => handleAccountTypeChange("company")}
+                    className={`px-6 py-1.5 rounded-[10px] transition-all duration-300 cursor-pointer ${
+                      accountType === "company"
+                        ? "bg-white text-[#011C60] shadow"
+                        : "text-[#808DAF]"
+                    }`}
+                  >
+                    Company
+                  </button>
+                </div>
+              </div>
+
               {/* Identifier */}
               <div className="relative">
                 <input
