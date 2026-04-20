@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import StepOneInfo from "./StepOneInfo";
-import StepThreeAddress from "./StepThreeAddress";
-import StepTwoVerify from "./StepTwoVerify";
+import IndividualStepOneInfo from "./StepOneInfo";
+import IndividualStepThreeAddress from "./StepThreeAddress";
+import IndividualStepTwoVerify from "./StepTwoVerify";
+import CompanyStepOneInfo from "../signup-company/StepOneInfo";
+import CompanyStepThreeAddress from "../signup-company/StepThreeAddress";
+import CompanyStepTwoVerify from "../signup-company/StepTwoVerify";
 
 import { registerUser, verifyOtp } from "../../../../api/auth/auth.api";
 
@@ -47,6 +50,7 @@ const getApiErrorMessage = (error) => {
 };
 
 export default function SignupForm() {
+  const [type, setType] = useState("individual");
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({});
   const [registeredEmail, setRegisteredEmail] = useState("");
@@ -66,7 +70,7 @@ export default function SignupForm() {
   };
 
   const titles = {
-    1: "Create Your Account",
+    1: type === "company" ? "Create Company Account" : "Create Your Account",
     2: "Verify Your Identity",
     3: "Add Address",
     4: "Verify Email",
@@ -84,7 +88,7 @@ export default function SignupForm() {
     appendIfPresent(form, "idNumber", allData.idNumber);
 
     form.append("lang", "en");
-    form.append("permission", "service");
+    form.append("permission", allData.permission || "service");
 
     appendIfPresent(form, "idImageFront", allData.front);
     appendIfPresent(form, "idImageBack", allData.back);
@@ -111,6 +115,7 @@ export default function SignupForm() {
 
       console.log("REGISTER RESPONSE", res);
       setRegisteredEmail(allData.email);
+      localStorage.setItem("pendingSignupAccountType", type);
       setApiSuccess("Account created. Enter the OTP sent to your email.");
       setStep(4);
     } catch (error) {
@@ -138,6 +143,13 @@ export default function SignupForm() {
     }
 
     handleRegister(nextData);
+  };
+
+  const handleAccountTypeChange = (nextType) => {
+    setType(nextType);
+    setFormData({});
+    setApiError("");
+    setApiSuccess("");
   };
 
   const handleVerifyOtp = async (event) => {
@@ -185,15 +197,24 @@ export default function SignupForm() {
               <div className="flex bg-[#E6E8EF] rounded-xl p-1 mb-6 text-sm sm:text-lg">
                 <button
                   type="button"
-                  className="px-6 py-1.5 rounded-[10px] bg-white text-[#011C60] shadow cursor-pointer"
+                  onClick={() => handleAccountTypeChange("individual")}
+                  className={`px-6 py-1.5 rounded-[10px] transition-all duration-300 cursor-pointer ${
+                    type === "individual"
+                      ? "bg-white text-[#011C60] shadow"
+                      : "text-[#808DAF]"
+                  }`}
                 >
                   Individual
                 </button>
 
                 <button
                   type="button"
-                  disabled
-                  className="px-6 py-1.5 rounded-[10px] text-[#808DAF] opacity-60 cursor-not-allowed"
+                  onClick={() => handleAccountTypeChange("company")}
+                  className={`px-6 py-1.5 rounded-[10px] transition-all duration-300 cursor-pointer ${
+                    type === "company"
+                      ? "bg-white text-[#011C60] shadow"
+                      : "text-[#808DAF]"
+                  }`}
                 >
                   Company
                 </button>
@@ -216,16 +237,35 @@ export default function SignupForm() {
           {/* STEPS */}
           <div key={step}>
             {step === 1 && (
-              <StepOneInfo onNext={handleNext} navigate={navigate} />
+              type === "company" ? (
+                <CompanyStepOneInfo onNext={handleNext} navigate={navigate} />
+              ) : (
+                <IndividualStepOneInfo
+                  onNext={handleNext}
+                  navigate={navigate}
+                />
+              )
             )}
 
-            {step === 2 && <StepTwoVerify onNext={handleNext} />}
+            {step === 2 &&
+              (type === "company" ? (
+                <CompanyStepTwoVerify onNext={handleNext} />
+              ) : (
+                <IndividualStepTwoVerify onNext={handleNext} />
+              ))}
 
             {step === 3 && (
-              <StepThreeAddress
-                onNext={handleNext}
-                isSubmitting={isSubmitting}
-              />
+              type === "company" ? (
+                <CompanyStepThreeAddress
+                  onNext={handleNext}
+                  isSubmitting={isSubmitting}
+                />
+              ) : (
+                <IndividualStepThreeAddress
+                  onNext={handleNext}
+                  isSubmitting={isSubmitting}
+                />
+              )
             )}
 
             {step === 4 && (

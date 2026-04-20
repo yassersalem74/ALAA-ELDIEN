@@ -1,7 +1,5 @@
-import React from 'react'
+import StepOneInfo from "./StepOneInfo";
 
-export default function SignupCompanyForm() {
-  return (
-    <div>SignupCompanyForm</div>
-  )
+export default function SignupCompanyForm({ onNext, navigate }) {
+  return <StepOneInfo onNext={onNext} navigate={navigate} />;
 }
