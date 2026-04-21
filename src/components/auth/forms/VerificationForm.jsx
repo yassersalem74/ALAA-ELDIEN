@@ -97,7 +97,7 @@ export default function VerificationForm({
       style={{
         backgroundImage: `url(${verifyBackgroundImage})`,
         backgroundSize: "cover",
-        backgroundPosition: "center",
+        backgroundPosition: "top",
         backgroundRepeat: "no-repeat",
       }}
     >
