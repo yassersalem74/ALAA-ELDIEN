@@ -7,6 +7,7 @@ import IndividualStepTwoVerify from "./StepTwoVerify";
 import CompanyStepOneInfo from "../signup-company/StepOneInfo";
 import CompanyStepThreeAddress from "../signup-company/StepThreeAddress";
 import CompanyStepTwoVerify from "../signup-company/StepTwoVerify";
+import VerificationForm from "../VerificationForm";
 import Toast from "../../../common/Toast";
 
 import { registerUser, verifyOtp } from "../../../../api/auth/auth.api";
@@ -63,7 +64,6 @@ export default function SignupForm() {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({});
   const [registeredEmail, setRegisteredEmail] = useState("");
-  const [otp, setOtp] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -182,49 +182,6 @@ export default function SignupForm() {
     setApiSuccess("");
   };
 
-  const handleVerifyOtp = async (event) => {
-    event.preventDefault();
-
-    if (!otp.trim()) {
-      const message = "OTP is required.";
-
-      setApiError(message);
-      showToast("error", message);
-      return;
-    }
-
-    setIsVerifyingOtp(true);
-    setApiError("");
-    setApiSuccess("");
-
-    try {
-      const res = await verifyOtp({
-        email: registeredEmail || formData.email,
-        otp: otp.trim(),
-      });
-
-      console.log("VERIFY OTP RESPONSE", res);
-      const message = `Email verified successfully for ${
-        registeredEmail || formData.email
-      }. You can sign in now.`;
-
-      setApiSuccess(message);
-      showToast("success", message);
-
-      setTimeout(() => {
-        navigate("/login");
-      }, 1000);
-    } catch (error) {
-      console.error("VERIFY OTP API ERROR", error?.response?.data || error);
-      const message = getApiErrorMessage(error);
-
-      setApiError(message);
-      showToast("error", message);
-    } finally {
-      setIsVerifyingOtp(false);
-    }
-  };
-
   return (
     <div className="h-screen flex items-center justify-center bg-[#E6E8EF] px-4 overflow-hidden">
       <Toast
@@ -333,43 +290,47 @@ export default function SignupForm() {
             )}
 
             {step === 4 && (
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <p className="text-center text-[12px] sm:text-[16px] text-[#808DAF]">
-                  We sent the OTP to {registeredEmail || formData.email}
-                </p>
+              <VerificationForm
+                isVerifying={isVerifyingOtp}
+                error={apiError}
+                onVerify={async (otpCode) => {
+                  setIsVerifyingOtp(true);
+                  setApiError("");
+                  setApiSuccess("");
 
-                <input
-                  value={otp}
-                  onChange={(event) => setOtp(event.target.value)}
-                  placeholder="OTP Code"
-                  className="
-                    w-full h-12 sm:h-14 rounded-[14px] px-4
-                    text-[12px] sm:text-[16px]
-                    placeholder:text-[#808DAF] text-[#011C60]
-                    border border-gray-200 focus:border-[#011C60]
-                    outline-none
-                  "
-                />
+                  try {
+                    const res = await verifyOtp({
+                      email: registeredEmail || formData.email,
+                      otp: otpCode,
+                    });
 
-                <button
-                  type="submit"
-                  disabled={isVerifyingOtp}
-                  className="
-                    w-full h-12 sm:h-16
-                    rounded-[14px]
-                    bg-[#011C60] text-white
-                    text-[16px] sm:text-[20px] font-semibold
-                    shadow-[4px_8px_12px_0px_rgba(23,26,30,0.25)]
-                    transition-all duration-300
-                    hover:-translate-y-0.5
-                    hover:bg-[#02237a]
-                    disabled:cursor-not-allowed disabled:opacity-70
-                    cursor-pointer
-                  "
-                >
-                  {isVerifyingOtp ? "Verifying..." : "Verify"}
-                </button>
-              </form>
+                    console.log("VERIFY OTP RESPONSE", res);
+                    const message = `Email verified successfully for ${
+                      registeredEmail || formData.email
+                    }. You can sign in now.`;
+
+                    setApiSuccess(message);
+                    showToast("success", message);
+
+                    setTimeout(() => {
+                      navigate("/login");
+                    }, 1000);
+                  } catch (error) {
+                    console.error("VERIFY OTP API ERROR", error?.response?.data || error);
+                    const message = getApiErrorMessage(error);
+
+                    setApiError(message);
+                    showToast("error", message);
+                    throw error;
+                  } finally {
+                    setIsVerifyingOtp(false);
+                  }
+                }}
+                onClose={() => {
+                  // Close logic if needed
+                  navigate("/login");
+                }}
+              />
             )}
           </div>
         </div>
