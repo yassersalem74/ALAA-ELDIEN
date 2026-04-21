@@ -141,7 +141,7 @@ export default function StepThreeAddress({ onNext, isSubmitting, onError }) {
   return (
     <form
       onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)}
-      className="space-y-2"
+      className="space-y-2 overflow-y-auto"
     >
       {locationError && (
         <p className="text-center text-xs text-red-500">{locationError}</p>

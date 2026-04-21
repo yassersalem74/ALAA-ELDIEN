@@ -41,7 +41,7 @@ export default function StepOneInfo({ onNext, navigate, onError }) {
   return (
     <form
       onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)}
-      className="space-y-4"
+      className="space-y-4 overflow-y-auto"
     >
 
       {/* Names */}

@@ -74,7 +74,7 @@ export default function StepTwoVerify({ onNext, onError }) {
   const [idNumber, setIdNumber] = useState("");
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 overflow-y-auto">
       {/* Subtitle */}
       <p className="text-[12px] sm:text-[16px] text-[#808DAF] text-center">
         Enter your national ID number as shown on your card

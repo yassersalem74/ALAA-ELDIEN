@@ -194,7 +194,7 @@ export default function SignupForm() {
 
       <div className="w-full max-w-6xl h-[85vh] bg-white rounded-4xl shadow-xl flex overflow-hidden">
         {/* LEFT */}
-        <div className="w-full lg:w-1/2 px-2 sm:px-8 flex flex-col justify-center">
+        <div className="w-full lg:w-1/2 px-2 sm:px-8 flex flex-col justify-center overflow-y-auto">
           {/* TITLE */}
           <h1 className="text-[22px] sm:text-[28px] font-bold text-[#011C60] mb-4 text-center">
             {titles[step]}
@@ -244,6 +244,7 @@ export default function SignupForm() {
           )}
 
           {/* STEPS */}
+          
           <div key={step}>
             {step === 1 && (
               type === "company" ? (
