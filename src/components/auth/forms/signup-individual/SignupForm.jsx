@@ -98,6 +98,7 @@ export default function SignupForm() {
     appendIfPresent(form, "idNumber", allData.idNumber);
 
     form.append("lang", "en");
+    form.append("accountType", type);
     form.append("permission", allData.permission || "service");
 
     appendIfPresent(form, "idImageFront", allData.front);

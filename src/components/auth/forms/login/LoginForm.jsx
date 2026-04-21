@@ -9,36 +9,16 @@ import loginImage from "../../../../assets/images/auth/login.png";
 import emailIcon from "../../../../assets/images/auth/email.png";
 
 const getApiErrorMessage = (error) => {
-  const data = error?.response?.data;
+  const status = error?.response?.status;
 
-  const formatValidationError = (item) => {
-    if (typeof item === "string") return item;
-
-    const message = item?.message || item?.msg || item?.error;
-    const field = item?.path || item?.field || item?.param;
-
-    if (message && field) return `${field}: ${message}`;
-    if (message) return message;
-    if (field) return `${field} is invalid`;
-
-    return JSON.stringify(item);
-  };
-
-  if (Array.isArray(data)) {
-    return data.map(formatValidationError).join(", ");
+  // For login-specific errors, use generic message
+  if (status === 401 || status === 404 || status === 400) {
+    return "Invalid email or password.";
   }
 
-  if (typeof data?.message === "string") return data.message;
-  if (typeof data?.error === "string") return data.error;
-  if (Array.isArray(data?.errors)) {
-    return data.errors.map(formatValidationError).join(", ");
-  }
+  if (status === 403) return "Please verify your email first.";
 
-  if (error?.response?.status === 403) return "Please verify your email first.";
-  if (error?.response?.status === 401) return "Invalid email or password.";
-  if (error?.response?.status === 404) return "User not found.";
-
-  return error?.message || "Something went wrong. Please try again.";
+  return "Invalid email or password.";
 };
 
 const getAuthToken = (data) =>
@@ -97,6 +77,31 @@ export default function LoginForm() {
 
       const token = getAuthToken(res);
       const user = getAuthUser(res);
+
+      // Validate account type matches
+      const userAccountType = user?.accountType || user?.type || accountType;
+      if (userAccountType && userAccountType !== accountType) {
+        const errorMessage = "Invalid email or password.";
+        
+        console.error("ACCOUNT TYPE MISMATCH", {
+          email: data.email,
+          selectedType: accountType,
+          actualType: userAccountType,
+          timestamp: new Date().toISOString(),
+        });
+
+        setApiError(errorMessage);
+        showToast("error", errorMessage);
+        return;
+      }
+
+      // Log successful login
+      console.log("LOGIN SUCCESSFUL", {
+        email: data.email,
+        accountType: accountType,
+        userType: userAccountType,
+        timestamp: new Date().toISOString(),
+      });
 
       localStorage.setItem("accountType", accountType);
       localStorage.setItem("loggedInAs", accountType);
