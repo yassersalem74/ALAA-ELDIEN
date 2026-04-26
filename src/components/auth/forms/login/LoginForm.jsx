@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import PasswordToggle from "../../../common/PasswordToggle";
 import Toast from "../../../common/Toast";
 import { loginUser } from "../../../../api/auth/auth.api";
+import { useAuth } from "../../../../context/useAuth";
 
 import loginImage from "../../../../assets/images/auth/login.png";
 import emailIcon from "../../../../assets/images/auth/email.png";
@@ -36,6 +37,7 @@ export default function LoginForm() {
   const [apiError, setApiError] = useState("");
   const [toast, setToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login } = useAuth();
   const {
     register,
     handleSubmit,
@@ -44,6 +46,11 @@ export default function LoginForm() {
     mode: "onChange",
   });
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectFrom = location.state?.from;
+  const redirectTo = redirectFrom
+    ? `${redirectFrom.pathname}${redirectFrom.search || ""}${redirectFrom.hash || ""}`
+    : "/";
 
   const handleAccountTypeChange = (type) => {
     setAccountType(type);
@@ -105,10 +112,11 @@ export default function LoginForm() {
         timestamp: new Date().toISOString(),
       });
 
-      localStorage.setItem("accountType", accountType);
-      localStorage.setItem("loggedInAs", accountType);
-      if (token) localStorage.setItem("token", token);
-      if (user) localStorage.setItem("user", JSON.stringify(user));
+      login({
+        accountType,
+        token,
+        user,
+      });
 
       showToast(
         "success",
@@ -116,7 +124,7 @@ export default function LoginForm() {
       );
 
       setTimeout(() => {
-        navigate("/");
+        navigate(redirectTo, { replace: true });
       }, 1000);
     } catch (error) {
       console.error("LOGIN API ERROR", error?.response?.data || error);

@@ -14,9 +14,13 @@ import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
 import LoginForm from "./components/auth/forms/login/LoginForm";
 import SignupForm from "./components/auth/forms/signup-individual/SignupForm";
+import ProtectedRoute from "./routes/ProtectedRoute";
+import PublicOnlyRoute from "./routes/PublicOnlyRoute";
+import { useLockAuthHistory } from "./hooks/auth/useLockAuthHistory";
 
 export default function App() {
   const location = useLocation();
+  useLockAuthHistory();
 
   const isAuthPage = ["/login" , "/signup"].includes(location.pathname);
 
@@ -29,15 +33,19 @@ export default function App() {
         <ScrollToTop />
 
         <Routes>
-          <Route path="/login" element={<LoginForm />} />
-          <Route path="/signup" element={<SignupForm />} />
-          <Route path="/" element={<HomePage />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="/marketplace" element={<MarketplacePage />} />
-          <Route path="/store" element={<StorePage />} />
-          <Route path="/contact" element={<ContactUsPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/overview" element={<OverviewPage />} />
+          <Route element={<PublicOnlyRoute />}>
+            <Route path="/login" element={<LoginForm />} />
+            <Route path="/signup" element={<SignupForm />} />
+          </Route>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/marketplace" element={<MarketplacePage />} />
+            <Route path="/store" element={<StorePage />} />
+            <Route path="/contact" element={<ContactUsPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/overview" element={<OverviewPage />} />
+          </Route>
         </Routes>
 
         {!isAuthPage && <Footer />}
