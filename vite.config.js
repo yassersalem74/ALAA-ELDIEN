@@ -7,3 +7,15 @@ export default defineConfig({
   plugins: [react(),  tailwindcss(),],
   
 })
+// export default defineConfig({
+//   plugins: [react(), tailwindcss()],
+//   server: {
+//     proxy: {
+//       '/api': {
+//         target: 'https://alaaeldin.runasp.net',
+//         changeOrigin: true,
+//         rewrite: (path) => path.replace(/^\/api/, '/api/v1'),
+//       }
+//     }
+//   }
+// })

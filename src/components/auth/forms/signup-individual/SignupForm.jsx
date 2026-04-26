@@ -10,7 +10,11 @@ import CompanyStepTwoVerify from "../signup-company/StepTwoVerify";
 import VerificationForm from "../VerificationForm";
 import Toast from "../../../common/Toast";
 
-import { registerUser, verifyOtp } from "../../../../api/auth/auth.api";
+import {
+  registerUser,
+  resendEmailVerification,
+  verifyEmail,
+} from "../../../../api/auth/auth.api";
 
 import signupImage from "../../../../assets/images/auth/signup.png";
 import verifyImage from "../../../../assets/images/auth/veri.jpg";
@@ -44,6 +48,7 @@ const getApiErrorMessage = (error) => {
 
   if (typeof data?.message === "string") return data.message;
   if (typeof data?.error === "string") return data.error;
+  if (typeof data?.error?.message === "string") return data.error.message;
   if (Array.isArray(data?.errors)) {
     return data.errors.map(formatValidationError).join(", ");
   }
@@ -93,25 +98,23 @@ export default function SignupForm() {
     appendIfPresent(form, "lastName", allData.lastName);
     appendIfPresent(form, "email", allData.email);
     appendIfPresent(form, "password", allData.password);
-    appendIfPresent(form, "confirmPassword", allData.confirmPassword);
-    appendIfPresent(form, "phone", allData.phone);
-    appendIfPresent(form, "idNumber", allData.idNumber);
+    appendIfPresent(form, "phoneNumber", allData.phone);
+    appendIfPresent(form, "nationalId", allData.idNumber);
 
-    form.append("lang", "en");
-    form.append("accountType", type);
-    form.append("permission", allData.permission || "service");
+    form.append("language", "en");
 
-    appendIfPresent(form, "idImageFront", allData.front);
-    appendIfPresent(form, "idImageBack", allData.back);
-    appendIfPresent(form, "idImageSelfie", allData.selfie);
+    appendIfPresent(form, "frontImageNationalId", allData.front);
+    appendIfPresent(form, "backImageNationalId", allData.back);
+    appendIfPresent(form, "selfieImageNationalId", allData.selfie);
+    appendIfPresent(form, "profileImage", allData.profileImage);
 
     appendIfPresent(form, "governorateId", allData.governorateId);
-    appendIfPresent(form, "areaId", allData.areaId);
-    appendIfPresent(form, "streetName", allData.streetName);
+    appendIfPresent(form, "neighborhoodId", allData.areaId);
+    appendIfPresent(form, "street", allData.streetName);
     appendIfPresent(form, "apartment", allData.apartment);
-    appendIfPresent(form, "floorNumber", allData.floorNumber);
-    appendIfPresent(form, "buildingNumber", allData.buildingNumber);
-    appendIfPresent(form, "additionalDetails", allData.additionalDetails);
+    appendIfPresent(form, "floor", allData.floorNumber);
+    appendIfPresent(form, "building", allData.buildingNumber);
+    appendIfPresent(form, "details", allData.additionalDetails);
 
     return form;
   };
@@ -141,7 +144,7 @@ export default function SignupForm() {
       localStorage.setItem("pendingSignupAccountType", type);
 
       const accountName = getAccountName(allData, type);
-      const message = `Signed up successfully as ${type} with name: ${accountName}. Enter the OTP sent to ${allData.email}.`;
+      const message = `Signed up successfully as ${type} with name: ${accountName}. Enter the verification code sent to ${allData.email}.`;
 
       setApiSuccess(message);
       showToast("success", message);
@@ -301,12 +304,12 @@ export default function SignupForm() {
                   setApiSuccess("");
 
                   try {
-                    const res = await verifyOtp({
+                    const res = await verifyEmail({
                       email: registeredEmail || formData.email,
-                      otp: otpCode,
+                      code: otpCode,
                     });
 
-                    console.log("VERIFY OTP RESPONSE", res);
+                    console.log("VERIFY EMAIL RESPONSE", res);
                     const message = `Email verified successfully for ${
                       registeredEmail || formData.email
                     }. You can sign in now.`;
@@ -318,7 +321,7 @@ export default function SignupForm() {
                       navigate("/login");
                     }, 1000);
                   } catch (error) {
-                    console.error("VERIFY OTP API ERROR", error?.response?.data || error);
+                    console.error("VERIFY EMAIL API ERROR", error?.response?.data || error);
                     const message = getApiErrorMessage(error);
 
                     setApiError(message);
@@ -326,6 +329,32 @@ export default function SignupForm() {
                     throw error;
                   } finally {
                     setIsVerifyingOtp(false);
+                  }
+                }}
+                onResend={async () => {
+                  const email = registeredEmail || formData.email;
+
+                  if (!email) {
+                    const message = "Missing email address for verification.";
+
+                    setApiError(message);
+                    showToast("error", message);
+                    throw new Error(message);
+                  }
+
+                  try {
+                    await resendEmailVerification({ email });
+                    const message = `A new verification code was sent to ${email}.`;
+
+                    setApiError("");
+                    setApiSuccess(message);
+                    showToast("success", message);
+                  } catch (error) {
+                    const message = getApiErrorMessage(error);
+
+                    setApiError(message);
+                    showToast("error", message);
+                    throw error;
                   }
                 }}
                 onClose={() => {

@@ -22,6 +22,7 @@ const getApiErrorMessage = (error) => {
 };
 
 const getAuthToken = (data) =>
+  (typeof data?.data === "string" ? data.data : null) ||
   data?.token ||
   data?.accessToken ||
   data?.data?.token ||
@@ -71,6 +72,7 @@ export default function LoginForm() {
       const res = await loginUser({
         email: data.email,
         password: data.password,
+        remeberMe: true,
       });
 
       console.log("LOGIN RESPONSE", res);
