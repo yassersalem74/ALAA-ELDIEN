@@ -10,6 +10,7 @@ import StorePage from "./pages/StorePage";
 import ContactUsPage from "./pages/ContactUsPage";
 import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
+import ProfilePage from "./pages/ProfilePage";
 import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
 import LoginForm from "./components/auth/forms/login/LoginForm";
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/contact" element={<ContactUsPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/overview" element={<OverviewPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
           </Route>
         </Routes>
 

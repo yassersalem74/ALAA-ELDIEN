@@ -86,6 +86,10 @@ export default function LoginForm() {
 
       const token = getAuthToken(res);
       const user = getAuthUser(res);
+      const currentUser = user || {
+        email: data.email,
+        accountType,
+      };
 
       // Validate account type matches
       const userAccountType = user?.accountType || user?.type || accountType;
@@ -115,7 +119,7 @@ export default function LoginForm() {
       login({
         accountType,
         token,
-        user,
+        user: currentUser,
       });
 
       showToast(
