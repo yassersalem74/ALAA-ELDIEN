@@ -4,7 +4,7 @@ import nationalFront from "../../../../assets/images/auth/nationalFront.png";
 import nationalBack from "../../../../assets/images/auth/nationalBack.png";
 import selfie from "../../../../assets/images/auth/selfie.png";
 
-export default function StepTwoVerify({ onNext, onError }) {
+export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
   const frontRef = useRef(null);
   const backRef = useRef(null);
   const selfieRef = useRef(null);
@@ -12,9 +12,9 @@ export default function StepTwoVerify({ onNext, onError }) {
   const inputs = [frontRef, backRef, selfieRef];
 
   const [files, setFiles] = useState({
-    front: null,
-    back: null,
-    selfie: null,
+    front: initialData.front || null,
+    back: initialData.back || null,
+    selfie: initialData.selfie || null,
   });
 
   const [errors, setErrors] = useState({});
@@ -71,7 +71,7 @@ export default function StepTwoVerify({ onNext, onError }) {
     });
   };
 
-  const [idNumber, setIdNumber] = useState("");
+  const [idNumber, setIdNumber] = useState(initialData.idNumber || "");
 
   return (
     <div className="space-y-2 overflow-y-auto">

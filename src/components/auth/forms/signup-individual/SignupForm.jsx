@@ -64,10 +64,19 @@ const getAccountName = (data, type) => {
   return [data.firstName, data.lastName].filter(Boolean).join(" ");
 };
 
+const signupSteps = [
+  { number: 1, label: "Account" },
+  { number: 2, label: "Identity" },
+  { number: 3, label: "Address" },
+];
+
+const hasValue = (value) => value !== undefined && value !== null && value !== "";
+
 export default function SignupForm() {
   const [type, setType] = useState("individual");
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({});
+  const [invalidSteps, setInvalidSteps] = useState([]);
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
@@ -119,6 +128,63 @@ export default function SignupForm() {
     return form;
   };
 
+  const isStepComplete = (stepNumber, data = formData) => {
+    if (stepNumber === 1) {
+      const requiredFields =
+        type === "company"
+          ? [
+              "firstName",
+              "lastName",
+              "phone",
+              "email",
+              "permission",
+              "password",
+              "confirmPassword",
+            ]
+          : [
+              "firstName",
+              "lastName",
+              "phone",
+              "email",
+              "password",
+              "confirmPassword",
+            ];
+
+      return (
+        requiredFields.every((field) => hasValue(data[field])) &&
+        data.password === data.confirmPassword
+      );
+    }
+
+    if (stepNumber === 2) {
+      return (
+        /^[0-9]{14}$/.test(data.idNumber || "") &&
+        hasValue(data.front) &&
+        hasValue(data.back) &&
+        hasValue(data.selfie)
+      );
+    }
+
+    if (stepNumber === 3) {
+      return [
+        "governorateId",
+        "areaId",
+        "streetName",
+        "buildingNumber",
+        "floorNumber",
+        "apartment",
+      ].every((field) => hasValue(data[field]));
+    }
+
+    return false;
+  };
+
+  const clearInvalidStep = (stepNumber) => {
+    setInvalidSteps((currentInvalidSteps) =>
+      currentInvalidSteps.filter((invalidStep) => invalidStep !== stepNumber)
+    );
+  };
+
   const showToast = (type, message) => {
     setToast({
       id: Date.now(),
@@ -128,6 +194,11 @@ export default function SignupForm() {
   };
 
   const handleStepError = (message) => {
+    setInvalidSteps((currentInvalidSteps) =>
+      currentInvalidSteps.includes(step)
+        ? currentInvalidSteps
+        : [...currentInvalidSteps, step]
+    );
     showToast("error", message);
   };
 
@@ -168,6 +239,7 @@ export default function SignupForm() {
 
     console.log("STEP DATA", data);
     setFormData(nextData);
+    clearInvalidStep(step);
     setApiError("");
     setApiSuccess("");
 
@@ -182,6 +254,38 @@ export default function SignupForm() {
   const handleAccountTypeChange = (nextType) => {
     setType(nextType);
     setFormData({});
+    setInvalidSteps([]);
+    setApiError("");
+    setApiSuccess("");
+  };
+
+  const handleStepClick = (targetStep) => {
+    if (targetStep === step || isSubmitting || isVerifyingOtp) return;
+
+    const incompleteSteps = signupSteps
+      .map(({ number }) => number)
+      .filter(
+        (stepNumber) =>
+          (stepNumber === step || stepNumber < targetStep) &&
+          !isStepComplete(stepNumber)
+      );
+
+    setInvalidSteps((currentInvalidSteps) => {
+      const nextInvalidSteps = new Set(currentInvalidSteps);
+
+      signupSteps.forEach(({ number }) => {
+        if (isStepComplete(number)) {
+          nextInvalidSteps.delete(number);
+        }
+      });
+
+      incompleteSteps.forEach((stepNumber) => {
+        nextInvalidSteps.add(stepNumber);
+      });
+
+      return [...nextInvalidSteps];
+    });
+    setStep(targetStep);
     setApiError("");
     setApiSuccess("");
   };
@@ -202,6 +306,66 @@ export default function SignupForm() {
           <h1 className="text-[22px] sm:text-[28px] font-bold text-[#011C60] mb-4 text-center">
             {titles[step]}
           </h1>
+
+          <div
+            className="mx-auto mb-5 w-full max-w-sm"
+            aria-label="Sign up progress"
+          >
+            <div className="grid grid-cols-3 gap-2">
+              {signupSteps.map(({ number, label }) => {
+                const isCompleted = step > number;
+                const isActive = step === number;
+                const isInvalid = invalidSteps.includes(number);
+
+                return (
+                  <button
+                    type="button"
+                    key={number}
+                    onClick={() => handleStepClick(number)}
+                    className="min-w-0 text-center cursor-pointer"
+                    disabled={isSubmitting || isVerifyingOtp}
+                    aria-current={isActive ? "step" : undefined}
+                  >
+                    <div
+                      className={`mx-auto flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border text-[12px] sm:text-[14px] font-semibold transition-all duration-300 ${
+                        isInvalid
+                          ? "border-red-500 bg-red-500 text-white"
+                          : isCompleted || isActive
+                          ? "border-[#06B217] bg-[#06B217] text-white"
+                          : "border-[#D6DAE6] bg-white text-[#808DAF]"
+                      }`}
+                    >
+                      {number}
+                    </div>
+                    <p
+                      className={`mt-1 truncate text-[10px] sm:text-[12px] font-medium ${
+                        isInvalid
+                          ? "text-red-500"
+                          : isCompleted || isActive
+                          ? "text-[#06B217]"
+                          : "text-[#808DAF]"
+                      }`}
+                    >
+                      {label}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#E6E8EF]">
+              <div
+                className="h-full rounded-full bg-[#06B217] transition-all duration-300"
+                style={{
+                  width: `${
+                    ((Math.min(step, signupSteps.length) - 1) /
+                      (signupSteps.length - 1)) *
+                    100
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
 
           {/* ACCOUNT TYPE */}
           {step === 1 && (
@@ -255,12 +419,14 @@ export default function SignupForm() {
                   onNext={handleNext}
                   navigate={navigate}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               ) : (
                 <IndividualStepOneInfo
                   onNext={handleNext}
                   navigate={navigate}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               )
             )}
@@ -270,11 +436,13 @@ export default function SignupForm() {
                 <CompanyStepTwoVerify
                   onNext={handleNext}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               ) : (
                 <IndividualStepTwoVerify
                   onNext={handleNext}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               ))}
 
@@ -284,12 +452,14 @@ export default function SignupForm() {
                   onNext={handleNext}
                   isSubmitting={isSubmitting}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               ) : (
                 <IndividualStepThreeAddress
                   onNext={handleNext}
                   isSubmitting={isSubmitting}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               )
             )}
