@@ -15,6 +15,7 @@ import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
 import LoginForm from "./components/auth/forms/login/LoginForm";
 import SignupForm from "./components/auth/forms/signup-individual/SignupForm";
+
 import ForgotPasswordForm from "./components/auth/forms/forget-password/ForgotPasswordForm";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import PublicOnlyRoute from "./routes/PublicOnlyRoute";
