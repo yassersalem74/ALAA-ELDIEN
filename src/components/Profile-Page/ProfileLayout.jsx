@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import {
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import ProfileSidebar from "./ProfileSidebar";
 import {
   createProfileDetails,
+  PROFILE_NAV_ITEMS,
   PROFILE_PERSONAL_INFO_FIELDS,
 } from "./profileData";
 import ProfileDashboardSection from "./sections/ProfileDashboardSection";
@@ -15,8 +23,17 @@ import ProfileOrdersSection from "./sections/ProfileOrdersSection";
 import ProfileBecomeProviderSection from "./sections/ProfileBecomeProviderSection";
 import ProfileSettingsSection from "./sections/ProfileSettingsSection";
 import LogoutConfirmModal from "../common/LogoutConfirmModal";
+import ProfileNavIcon from "./ProfileNavIcon";
+
+const mobileNavItemClassName = ({ isActive }) =>
+  `flex items-center gap-3 rounded-2xl px-4 py-3 text-left font-['Roboto'] text-[18px] font-semibold leading-6 transition ${
+    isActive
+      ? "bg-white text-[#011C60] shadow-[0px_12px_30px_rgba(17,27,71,0.08)]"
+      : "text-[#6777A0] hover:bg-white/80 hover:text-[#011C60]"
+  }`;
 
 export default function ProfileLayout() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [savedProfile, setSavedProfile] = useState(() =>
@@ -26,6 +43,7 @@ export default function ProfileLayout() {
     createProfileDetails(user)
   );
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const nextProfile = createProfileDetails(user);
@@ -33,6 +51,10 @@ export default function ProfileLayout() {
     setSavedProfile(nextProfile);
     setDraftProfile(nextProfile);
   }, [user]);
+
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [location.pathname]);
 
   const hasChanges = PROFILE_PERSONAL_INFO_FIELDS.some(
     (field) => savedProfile[field.name] !== draftProfile[field.name]
@@ -68,6 +90,7 @@ export default function ProfileLayout() {
   };
 
   const requestLogout = () => {
+    setIsMobileSidebarOpen(false);
     setIsLogoutConfirmOpen(true);
   };
 
@@ -81,12 +104,39 @@ export default function ProfileLayout() {
     navigate("/login", { replace: true });
   };
 
+  const openMobileSidebar = () => {
+    setIsMobileSidebarOpen(true);
+  };
+
+  const closeMobileSidebar = () => {
+    setIsMobileSidebarOpen(false);
+  };
+
   return (
     <section className="min-h-screen bg-[#F8F9FC] px-4 py-8 sm:px-6 lg:px-8">
-      <div className="grid w-full  lg:grid-cols-[320px_minmax(0,1fr)]">
-        <ProfileSidebar onLogout={requestLogout} />
+      <div className="grid w-full items-start lg:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="hidden lg:block">
+          <ProfileSidebar onLogout={requestLogout} />
+        </div>
 
-        <div className="flex min-w-0 flex-col gap-6 bg-white p-6 rounded-r-2xl">
+        <div className="flex min-w-0 flex-col gap-6 rounded-2xl bg-white p-6 lg:rounded-l-none">
+          <div className="lg:hidden">
+            <button
+              type="button"
+              onClick={openMobileSidebar}
+              className="inline-flex cursor-pointer items-center gap-3 rounded-2xl border border-[#D7DDED] bg-[#F8F9FC] px-4 py-3 shadow-[0px_10px_30px_rgba(17,27,71,0.08)] transition hover:border-[#011C60] hover:bg-white"
+            >
+              <span className="flex flex-col gap-1.5" aria-hidden="true">
+                <span className="h-0.5 w-6 rounded-full bg-[#011C60]" />
+                <span className="h-0.5 w-4 rounded-full bg-[#011C60]" />
+                <span className="h-0.5 w-6 rounded-full bg-[#011C60]" />
+              </span>
+              <span className="font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60]">
+                Profile Menu
+              </span>
+            </button>
+          </div>
+
           <header>
             <h1 className="font-['Roboto'] text-[28px] font-bold leading-[42px] text-[#011C60] sm:text-[36px] sm:leading-[56px]">
               Welcome back, {savedProfile.welcomeName}
@@ -142,6 +192,91 @@ export default function ProfileLayout() {
             <Route path="settings" element={<ProfileSettingsSection />} />
             <Route path="*" element={<Navigate to="personal-info" replace />} />
           </Routes>
+        </div>
+      </div>
+
+      <div
+        className={`fixed inset-0 z-[170] lg:hidden ${
+          isMobileSidebarOpen ? "pointer-events-auto" : "pointer-events-none"
+        }`}
+      >
+        <button
+          type="button"
+          aria-label="Close profile menu overlay"
+          onClick={closeMobileSidebar}
+          className={`absolute inset-0 bg-[#011C60]/30 transition-opacity duration-300 ${
+            isMobileSidebarOpen ? "opacity-100" : "opacity-0"
+          }`}
+        />
+
+        <div
+          className={`absolute left-0 top-0 flex h-full w-[clamp(240px,33vw,360px)] max-w-[85vw] flex-col rounded-r-[28px] bg-[#F3F4F7] shadow-[0px_20px_50px_rgba(17,27,71,0.18)] transition-transform duration-300 ${
+            isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between border-b border-[#DCE2F1] px-4 py-4">
+            <div>
+              <p className="font-['Roboto'] text-[18px] font-semibold leading-6 text-[#011C60]">
+                Profile Menu
+              </p>
+              <p className="mt-1 font-['Roboto'] text-[13px] leading-5 text-[#6777A0]">
+                Quick access to your profile pages
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={closeMobileSidebar}
+              aria-label="Close profile menu"
+              className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-[#D7DDED] bg-white text-[#011C60] transition hover:border-[#011C60] hover:bg-[#F8F9FC]"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-5">
+            <nav className="flex flex-col gap-2">
+              {PROFILE_NAV_ITEMS.map((item) => (
+                <NavLink
+                  key={item.slug}
+                  to={`/profile/${item.slug}`}
+                  className={mobileNavItemClassName}
+                >
+                  <ProfileNavIcon
+                    name={item.icon}
+                    className="h-5 w-5 shrink-0"
+                  />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="mt-6 border-t border-[#DCE2F1] pt-4">
+              <button
+                type="button"
+                onClick={requestLogout}
+                className="flex w-full cursor-pointer items-center gap-3 rounded-2xl px-4 py-3 text-left font-['Roboto'] text-[18px] font-semibold leading-6 text-[#DC2626] transition hover:bg-white hover:shadow-[0px_12px_30px_rgba(17,27,71,0.08)]"
+              >
+                <ProfileNavIcon
+                  name="logout"
+                  className="h-5 w-5 shrink-0"
+                />
+                <span>Log out</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
