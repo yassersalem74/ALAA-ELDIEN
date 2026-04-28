@@ -6,6 +6,7 @@ import {
   getUserEmail,
   getUserInitial,
 } from "../utils/auth/userProfile";
+import LogoutConfirmModal from "./common/LogoutConfirmModal";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -91,7 +92,7 @@ export default function Navbar() {
 
               {isAuthenticated ? (
                 <>
-                  {hasUser && <li><NavLink to="/profile" className={navLink}>Profile</NavLink></li>}
+                  {hasUser && <li><NavLink to="/profile/personal-info" className={navLink}>Profile</NavLink></li>}
                   <li>
                     <button type="button" onClick={requestLogout} className={logoutButton}>
                       Logout
@@ -227,7 +228,7 @@ export default function Navbar() {
                   )}
                 </li>
                 <li>
-                  <NavLink to="/profile" className="justify-between text-[#011C60] md:text-lg">
+                  <NavLink to="/profile/personal-info" className="justify-between text-[#011C60] md:text-lg">
                     Profile
                     <span className="badge bg-white text-[#011C60] border-[#E6E8EF]">
                       New
@@ -289,33 +290,11 @@ export default function Navbar() {
         </div>
       </div>
 
-      {isLogoutConfirmOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-[0px_12px_32px_rgba(23,26,30,0.25)]">
-            <h2 className="text-xl font-bold text-[#011C60]">Confirm logout</h2>
-            <p className="mt-2 text-sm text-[#808DAF]">
-              Are you sure you want to logout?
-            </p>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={cancelLogout}
-                className="cursor-pointer rounded-lg border border-[#BEC6DE] px-4 py-2 font-semibold text-[#011C60] transition hover:bg-[#E6E8EF]"
-              >
-                No
-              </button>
-              <button
-                type="button"
-                onClick={confirmLogout}
-                className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-700"
-              >
-                Yes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LogoutConfirmModal
+        isOpen={isLogoutConfirmOpen}
+        onCancel={cancelLogout}
+        onConfirm={confirmLogout}
+      />
     </header>
   );
 }

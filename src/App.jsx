@@ -50,7 +50,7 @@ export default function App() {
             <Route path="/contact" element={<ContactUsPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/overview" element={<OverviewPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile/*" element={<ProfilePage />} />
           </Route>
         </Routes>
 
