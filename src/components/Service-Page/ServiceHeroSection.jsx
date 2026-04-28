@@ -1,6 +1,6 @@
 export default function ServiceHeroSection() {
   return (
-    <section className="mx-auto flex min-h-[330px] w-full  flex-col items-center justify-center gap-4 rounded-2xl bg-[#E6E8EF] px-6 py-9 text-center shadow-[0px_4px_16px_rgba(190,198,222,0.3)] md:px-24">
+    <section className="mx-auto flex min-h-[330px] w-full max-w-[1290px] flex-col items-center justify-center gap-4 rounded-2xl bg-[#E6E8EF] px-6 py-9 text-center shadow-[0px_4px_16px_rgba(190,198,222,0.3)] md:px-24">
       <h1 className="max-w-4xl font-['Roboto'] text-[34px] font-bold leading-[48px] text-[#011C60] md:text-[48px] md:leading-[72px]">
         Professional Services,
         <br />

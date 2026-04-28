@@ -3,7 +3,7 @@ import { serviceCategories } from "./servicePageData";
 
 export default function ServiceCategoriesSection() {
   return (
-    <section className="mx-auto w-full ">
+    <section className="mx-auto w-full max-w-[1290px]">
       <SectionHeader
         title="Services Categories"
         description="A simple process designed to get things done without hassle."
