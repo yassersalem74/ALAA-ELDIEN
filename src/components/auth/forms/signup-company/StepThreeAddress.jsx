@@ -29,10 +29,17 @@ const getOptionName = (item) =>
 const getErrorMessage = (error, fallback) =>
   error?.response?.data?.message || error?.message || fallback;
 
-export default function StepThreeAddress({ onNext, isSubmitting, onError }) {
+export default function StepThreeAddress({
+  onNext,
+  isSubmitting,
+  onError,
+  initialData = {},
+}) {
   const [governorates, setGovernorates] = useState([]);
   const [neighborhoods, setNeighborhoods] = useState([]);
-  const [selectedGovernorateId, setSelectedGovernorateId] = useState("");
+  const [selectedGovernorateId, setSelectedGovernorateId] = useState(
+    initialData.governorateId || ""
+  );
   const [isLoadingGovernorates, setIsLoadingGovernorates] = useState(false);
   const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
   const [locationError, setLocationError] = useState("");
@@ -44,6 +51,7 @@ export default function StepThreeAddress({ onNext, isSubmitting, onError }) {
     formState: { errors },
   } = useForm({
     mode: "onChange",
+    defaultValues: initialData,
   });
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import verifyDoneImage from "../../../assets/images/auth/verify-done.png";
 export default function VerificationForm({
   isVerifying,
   onVerify,
+  onResend,
   onClose,
   error = "",
 }) {
@@ -115,7 +116,7 @@ export default function VerificationForm({
             Verify your email
           </h2>
           <p className="text-[14px] text-[#808DAF]">
-            Enter the 4 digit code sent to your mobile phone.
+            Enter the 4 digit code sent to your email.
           </p>
         </div>
 
@@ -162,9 +163,10 @@ export default function VerificationForm({
               <button
                 type="button"
                 className="text-[#011C60] font-semibold hover:underline hover:cursor-pointer"
-                onClick={() => {
+                onClick={async () => {
                   setOtp(["", "", "", ""]);
-                  // Call resend API here
+                  setLocalError("");
+                  await onResend?.();
                 }}
               >
                 RESEND

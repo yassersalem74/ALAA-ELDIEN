@@ -10,15 +10,23 @@ import StorePage from "./pages/StorePage";
 import ContactUsPage from "./pages/ContactUsPage";
 import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
+import ProfilePage from "./pages/ProfilePage";
 import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
 import LoginForm from "./components/auth/forms/login/LoginForm";
 import SignupForm from "./components/auth/forms/signup-individual/SignupForm";
+import ForgotPasswordForm from "./components/auth/forms/forget-password/ForgotPasswordForm";
+import ProtectedRoute from "./routes/ProtectedRoute";
+import PublicOnlyRoute from "./routes/PublicOnlyRoute";
+import { useLockAuthHistory } from "./hooks/auth/useLockAuthHistory";
 
 export default function App() {
   const location = useLocation();
+  useLockAuthHistory();
 
-  const isAuthPage = ["/login" , "/signup"].includes(location.pathname);
+  const isAuthPage = ["/login", "/signup", "/forget-password"].includes(
+    location.pathname
+  );
 
   return (
     <>
@@ -29,15 +37,21 @@ export default function App() {
         <ScrollToTop />
 
         <Routes>
-          <Route path="/login" element={<LoginForm />} />
-          <Route path="/signup" element={<SignupForm />} />
-          <Route path="/" element={<HomePage />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="/marketplace" element={<MarketplacePage />} />
-          <Route path="/store" element={<StorePage />} />
-          <Route path="/contact" element={<ContactUsPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/overview" element={<OverviewPage />} />
+          <Route element={<PublicOnlyRoute />}>
+            <Route path="/login" element={<LoginForm />} />
+            <Route path="/signup" element={<SignupForm />} />
+            <Route path="/forget-password" element={<ForgotPasswordForm />} />
+          </Route>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/marketplace" element={<MarketplacePage />} />
+            <Route path="/store" element={<StorePage />} />
+            <Route path="/contact" element={<ContactUsPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/overview" element={<OverviewPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
         </Routes>
 
         {!isAuthPage && <Footer />}

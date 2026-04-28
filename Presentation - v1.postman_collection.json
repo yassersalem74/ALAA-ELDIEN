@@ -1,0 +1,2034 @@
+{
+	"info": {
+		"_postman_id": "3bf47d9c-e0b1-4f47-968a-f39779eb2759",
+		"name": "Presentation | v1",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "54131638",
+		"_collection_link": "https://alaa-eldin-team.postman.co/workspace/Team-Workspace~0a0e445d-eb06-4fc0-83f0-a682cadfe0e9/collection/54131911-3bf47d9c-e0b1-4f47-968a-f39779eb2759?action=share&source=collection_link&creator=54131638"
+	},
+	"item": [
+		{
+			"name": "api",
+			"item": [
+				{
+					"name": "v1",
+					"item": [
+						{
+							"name": "authentication",
+							"item": [
+								{
+									"name": "register",
+									"item": [
+										{
+											"name": "Register",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "multipart/form-data"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "formdata",
+													"formdata": [
+														{
+															"key": "email",
+															"value": "user@alaaEldin.com",
+															"description": "Must be a valid email address, not empty, and up to 200 characters.",
+															"type": "text"
+														},
+														{
+															"key": "password",
+															"value": "Ae1234++",
+															"description": "Must be a valid password, not empty, between 8 and 50 characters, contain at least one uppercase letter, one lowercase letter, one digit, one special character (@$!%*?&+), and must not contain whitespace.",
+															"type": "text"
+														},
+														{
+															"key": "firstName",
+															"value": "first name",
+															"description": "Must be a valid name, not empty, between 3 and 50 characters, and contain only letters and spaces.",
+															"type": "text"
+														},
+														{
+															"key": "lastName",
+															"value": "last name",
+															"description": "Must be a valid name, not empty, between 3 and 50 characters, and contain only letters and spaces.",
+															"type": "text"
+														},
+														{
+															"key": "nationalId",
+															"value": "30105230101234",
+															"description": "Must be a valid Egyptian national ID, not empty, exactly 14 digits, start with 2 or 3, and contain a valid birth date.",
+															"type": "text"
+														},
+														{
+															"key": "phoneNumber",
+															"value": "01234567890",
+															"description": "Must be a valid Egyptian phone number and not empty.",
+															"type": "text"
+														},
+														{
+															"key": "language",
+															"value": "en",
+															"description": "Must be a valid language value (en or ar).",
+															"type": "text"
+														},
+														{
+															"key": "frontImageNationalId",
+															"type": "file",
+															"src": []
+														},
+														{
+															"key": "backImageNationalId",
+															"type": "file",
+															"src": []
+														},
+														{
+															"key": "selfieImageNationalId",
+															"type": "file",
+															"src": []
+														},
+														{
+															"key": "profileImage",
+															"type": "file",
+															"src": []
+														},
+														{
+															"key": "street",
+															"value": "Street name",
+															"description": "Must be a valid street name, not empty, between 3 and 200 characters.",
+															"type": "text"
+														},
+														{
+															"key": "apartment",
+															"value": "Apt 1",
+															"description": "Must be a valid apartment number or identifier, not empty, and up to 20 characters.",
+															"type": "text"
+														},
+														{
+															"key": "floor",
+															"value": "3",
+															"description": "Must be a valid floor value, not empty, and up to 10 characters.",
+															"type": "text"
+														},
+														{
+															"key": "building",
+															"value": "Building A",
+															"description": "Must be a valid building name or number, not empty, and up to 50 characters.",
+															"type": "text"
+														},
+														{
+															"key": "details",
+															"value": "Optional details",
+															"description": "Optional field for additional details, up to 400 characters.",
+															"type": "text"
+														},
+														{
+															"key": "neighborhoodId",
+															"value": "676ee7cc469499c28eaccdf8",
+															"description": "Not Empty.",
+															"type": "text"
+														},
+														{
+															"key": "governorateId",
+															"value": "676ed79d469499c28eaccd99",
+															"description": "Not Empty.",
+															"type": "text"
+														}
+													]
+												},
+												"url": "{{baseUrl}}/api/v1/authentication/register"
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "multipart/form-data"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "formdata",
+															"formdata": [
+																{
+																	"key": "email",
+																	"value": "user@alaaEldin.com",
+																	"description": "Must be a valid email address, not empty, and up to 200 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "password",
+																	"value": "Ae1234++",
+																	"description": "Must be a valid password, not empty, between 8 and 50 characters, contain at least one uppercase letter, one lowercase letter, one digit, one special character (@$!%*?&+), and must not contain whitespace.",
+																	"type": "text"
+																},
+																{
+																	"key": "firstName",
+																	"value": "first name",
+																	"description": "Must be a valid name, not empty, between 3 and 50 characters, and contain only letters and spaces.",
+																	"type": "text"
+																},
+																{
+																	"key": "lastName",
+																	"value": "last name",
+																	"description": "Must be a valid name, not empty, between 3 and 50 characters, and contain only letters and spaces.",
+																	"type": "text"
+																},
+																{
+																	"key": "nationalId",
+																	"value": "30105230101234",
+																	"description": "Must be a valid Egyptian national ID, not empty, exactly 14 digits, start with 2 or 3, and contain a valid birth date.",
+																	"type": "text"
+																},
+																{
+																	"key": "phoneNumber",
+																	"value": "01234567890",
+																	"description": "Must be a valid Egyptian phone number and not empty.",
+																	"type": "text"
+																},
+																{
+																	"key": "language",
+																	"value": "en",
+																	"description": "Must be a valid language value (en or ar).",
+																	"type": "text"
+																},
+																{
+																	"key": "frontImageNationalId",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "backImageNationalId",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "selfieImageNationalId",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "profileImage",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "street",
+																	"value": "Street name",
+																	"description": "Must be a valid street name, not empty, between 3 and 200 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "apartment",
+																	"value": "Apt 1",
+																	"description": "Must be a valid apartment number or identifier, not empty, and up to 20 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "floor",
+																	"value": "3",
+																	"description": "Must be a valid floor value, not empty, and up to 10 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "building",
+																	"value": "Building A",
+																	"description": "Must be a valid building name or number, not empty, and up to 50 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "details",
+																	"value": "Optional details",
+																	"description": "Optional field for additional details, up to 400 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "neighborhoodId",
+																	"value": "676ee7cc469499c28eaccdf8",
+																	"description": "Not Empty.",
+																	"type": "text"
+																},
+																{
+																	"key": "governorateId",
+																	"value": "676ed79d469499c28eaccd99",
+																	"description": "Not Empty.",
+																	"type": "text"
+																}
+															]
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/register"
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+												},
+												{
+													"name": "Bad Request",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "multipart/form-data"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "formdata",
+															"formdata": [
+																{
+																	"key": "email",
+																	"value": "user@alaaEldin.com",
+																	"description": "Must be a valid email address, not empty, and up to 200 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "password",
+																	"value": "Ae1234++",
+																	"description": "Must be a valid password, not empty, between 8 and 50 characters, contain at least one uppercase letter, one lowercase letter, one digit, one special character (@$!%*?&+), and must not contain whitespace.",
+																	"type": "text"
+																},
+																{
+																	"key": "firstName",
+																	"value": "first name",
+																	"description": "Must be a valid name, not empty, between 3 and 50 characters, and contain only letters and spaces.",
+																	"type": "text"
+																},
+																{
+																	"key": "lastName",
+																	"value": "last name",
+																	"description": "Must be a valid name, not empty, between 3 and 50 characters, and contain only letters and spaces.",
+																	"type": "text"
+																},
+																{
+																	"key": "nationalId",
+																	"value": "30105230101234",
+																	"description": "Must be a valid Egyptian national ID, not empty, exactly 14 digits, start with 2 or 3, and contain a valid birth date.",
+																	"type": "text"
+																},
+																{
+																	"key": "phoneNumber",
+																	"value": "01234567890",
+																	"description": "Must be a valid Egyptian phone number and not empty.",
+																	"type": "text"
+																},
+																{
+																	"key": "language",
+																	"value": "en",
+																	"description": "Must be a valid language value (en or ar).",
+																	"type": "text"
+																},
+																{
+																	"key": "frontImageNationalId",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "backImageNationalId",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "selfieImageNationalId",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "profileImage",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "street",
+																	"value": "Street name",
+																	"description": "Must be a valid street name, not empty, between 3 and 200 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "apartment",
+																	"value": "Apt 1",
+																	"description": "Must be a valid apartment number or identifier, not empty, and up to 20 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "floor",
+																	"value": "3",
+																	"description": "Must be a valid floor value, not empty, and up to 10 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "building",
+																	"value": "Building A",
+																	"description": "Must be a valid building name or number, not empty, and up to 50 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "details",
+																	"value": "Optional details",
+																	"description": "Optional field for additional details, up to 400 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "neighborhoodId",
+																	"value": "676ee7cc469499c28eaccdf8",
+																	"description": "Not Empty.",
+																	"type": "text"
+																},
+																{
+																	"key": "governorateId",
+																	"value": "676ed79d469499c28eaccd99",
+																	"description": "Not Empty.",
+																	"type": "text"
+																}
+															]
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/register"
+													},
+													"status": "Bad Request",
+													"code": 400,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+												},
+												{
+													"name": "Conflict",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "multipart/form-data"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "formdata",
+															"formdata": [
+																{
+																	"key": "email",
+																	"value": "user@alaaEldin.com",
+																	"description": "Must be a valid email address, not empty, and up to 200 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "password",
+																	"value": "Ae1234++",
+																	"description": "Must be a valid password, not empty, between 8 and 50 characters, contain at least one uppercase letter, one lowercase letter, one digit, one special character (@$!%*?&+), and must not contain whitespace.",
+																	"type": "text"
+																},
+																{
+																	"key": "firstName",
+																	"value": "first name",
+																	"description": "Must be a valid name, not empty, between 3 and 50 characters, and contain only letters and spaces.",
+																	"type": "text"
+																},
+																{
+																	"key": "lastName",
+																	"value": "last name",
+																	"description": "Must be a valid name, not empty, between 3 and 50 characters, and contain only letters and spaces.",
+																	"type": "text"
+																},
+																{
+																	"key": "nationalId",
+																	"value": "30105230101234",
+																	"description": "Must be a valid Egyptian national ID, not empty, exactly 14 digits, start with 2 or 3, and contain a valid birth date.",
+																	"type": "text"
+																},
+																{
+																	"key": "phoneNumber",
+																	"value": "01234567890",
+																	"description": "Must be a valid Egyptian phone number and not empty.",
+																	"type": "text"
+																},
+																{
+																	"key": "language",
+																	"value": "en",
+																	"description": "Must be a valid language value (en or ar).",
+																	"type": "text"
+																},
+																{
+																	"key": "frontImageNationalId",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "backImageNationalId",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "selfieImageNationalId",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "profileImage",
+																	"type": "file",
+																	"src": []
+																},
+																{
+																	"key": "street",
+																	"value": "Street name",
+																	"description": "Must be a valid street name, not empty, between 3 and 200 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "apartment",
+																	"value": "Apt 1",
+																	"description": "Must be a valid apartment number or identifier, not empty, and up to 20 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "floor",
+																	"value": "3",
+																	"description": "Must be a valid floor value, not empty, and up to 10 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "building",
+																	"value": "Building A",
+																	"description": "Must be a valid building name or number, not empty, and up to 50 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "details",
+																	"value": "Optional details",
+																	"description": "Optional field for additional details, up to 400 characters.",
+																	"type": "text"
+																},
+																{
+																	"key": "neighborhoodId",
+																	"value": "676ee7cc469499c28eaccdf8",
+																	"description": "Not Empty.",
+																	"type": "text"
+																},
+																{
+																	"key": "governorateId",
+																	"value": "676ed79d469499c28eaccd99",
+																	"description": "Not Empty.",
+																	"type": "text"
+																}
+															]
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/register"
+													},
+													"status": "Conflict",
+													"code": 409,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "login",
+									"item": [
+										{
+											"name": "Login By Email",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"email\": \"customer@alaaeldin.com\",\n  \"password\": \"Ae1234++\",\n  \"remeberMe\": false\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": "{{baseUrl}}/api/v1/authentication/login"
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"customer@alaaeldin.com\",\n  \"password\": \"Ae1234++\",\n  \"remeberMe\": false\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/login"
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+												},
+												{
+													"name": "Unauthorized",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"customer@alaaeldin.com\",\n  \"password\": \"Ae1234++\",\n  \"remeberMe\": false\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/login"
+													},
+													"status": "Unauthorized",
+													"code": 401,
+													"_postman_previewlanguage": "text",
+													"header": [],
+													"cookie": [],
+													"body": ""
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "refresh-token",
+									"item": [
+										{
+											"name": "Refresh Token",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": "{{baseUrl}}/api/v1/authentication/refresh-token"
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": "{{baseUrl}}/api/v1/authentication/refresh-token"
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+												},
+												{
+													"name": "Unauthorized",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": "{{baseUrl}}/api/v1/authentication/refresh-token"
+													},
+													"status": "Unauthorized",
+													"code": 401,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "resend-email-verification",
+									"item": [
+										{
+											"name": " Resend Email Verification",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"email\": \"user@alaaeldin.com\"\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": "{{baseUrl}}/api/v1/authentication/resend-email-verification"
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"user@alaaeldin.com\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/resend-email-verification"
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+												},
+												{
+													"name": "Bad Request",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"user@alaaeldin.com\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/resend-email-verification"
+													},
+													"status": "Bad Request",
+													"code": 400,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+												},
+												{
+													"name": "Conflict",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"user@alaaeldin.com\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/resend-email-verification"
+													},
+													"status": "Conflict",
+													"code": 409,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "verify-email",
+									"item": [
+										{
+											"name": "Verify Email",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"email\": \"user@alaaEldin.com\",\n  \"code\": \"1234\"\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": "{{baseUrl}}/api/v1/authentication/verify-email"
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"user@alaaEldin.com\",\n  \"code\": \"1234\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/verify-email"
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+												},
+												{
+													"name": "Bad Request",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"user@alaaEldin.com\",\n  \"code\": \"1234\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/verify-email"
+													},
+													"status": "Bad Request",
+													"code": 400,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+												},
+												{
+													"name": "Unauthorized",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"user@alaaEldin.com\",\n  \"code\": \"1234\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/verify-email"
+													},
+													"status": "Unauthorized",
+													"code": 401,
+													"_postman_previewlanguage": "text",
+													"header": [],
+													"cookie": [],
+													"body": ""
+												},
+												{
+													"name": "Conflict",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"user@alaaEldin.com\",\n  \"code\": \"1234\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/verify-email"
+													},
+													"status": "Conflict",
+													"code": 409,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "forget-password",
+									"item": [
+										{
+											"name": "Forget Password",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"email\": \"user@alaaeldin.com\"\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": "{{baseUrl}}/api/v1/authentication/forget-password"
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"email\": \"user@alaaeldin.com\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/forget-password"
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "reset-password",
+									"item": [
+										{
+											"name": "Reset Password",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"newPassword\": \"Ae1234++\",\n  \"email\": \"user@alaaeldin.com\",\n  \"code\": \"1234\"\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": "{{baseUrl}}/api/v1/authentication/reset-password"
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"newPassword\": \"Ae1234++\",\n  \"email\": \"user@alaaeldin.com\",\n  \"code\": \"1234\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/reset-password"
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+												},
+												{
+													"name": "Bad Request",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"newPassword\": \"Ae1234++\",\n  \"email\": \"user@alaaeldin.com\",\n  \"code\": \"1234\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/reset-password"
+													},
+													"status": "Bad Request",
+													"code": 400,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+												},
+												{
+													"name": "Unauthorized",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"newPassword\": \"Ae1234++\",\n  \"email\": \"user@alaaeldin.com\",\n  \"code\": \"1234\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/authentication/reset-password"
+													},
+													"status": "Unauthorized",
+													"code": 401,
+													"_postman_previewlanguage": "text",
+													"header": [],
+													"cookie": [],
+													"body": ""
+												}
+											]
+										}
+									]
+								}
+							]
+						},
+						{
+							"name": "governorates",
+							"item": [
+								{
+									"name": "Get All",
+									"request": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/api/v1/governorates?language=en",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"governorates"
+											],
+											"query": [
+												{
+													"key": "language",
+													"value": "en"
+												}
+											]
+										}
+									},
+									"response": [
+										{
+											"name": "OK",
+											"originalRequest": {
+												"method": "GET",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/governorates?language=string",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"governorates"
+													],
+													"query": [
+														{
+															"key": "language",
+															"value": "string"
+														}
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												}
+											],
+											"cookie": [],
+											"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+										},
+										{
+											"name": "Bad Request",
+											"originalRequest": {
+												"method": "GET",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/governorates?language=string",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"governorates"
+													],
+													"query": [
+														{
+															"key": "language",
+															"value": "string"
+														}
+													]
+												}
+											},
+											"status": "Bad Request",
+											"code": 400,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												}
+											],
+											"cookie": [],
+											"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+										}
+									]
+								}
+							]
+						},
+						{
+							"name": "neighborhoods",
+							"item": [
+								{
+									"name": "Get All",
+									"request": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/api/v1/neighborhoods?language=en&governorateId=676ed79d469499c28eaccd99",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"neighborhoods"
+											],
+											"query": [
+												{
+													"key": "language",
+													"value": "en"
+												},
+												{
+													"key": "governorateId",
+													"value": "676ed79d469499c28eaccd99"
+												}
+											]
+										}
+									},
+									"response": [
+										{
+											"name": "OK",
+											"originalRequest": {
+												"method": "GET",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/neighborhoods?language=string&governorateId=string",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"neighborhoods"
+													],
+													"query": [
+														{
+															"key": "language",
+															"value": "string"
+														},
+														{
+															"key": "governorateId",
+															"value": "string"
+														}
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												}
+											],
+											"cookie": [],
+											"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+										},
+										{
+											"name": "Bad Request",
+											"originalRequest": {
+												"method": "GET",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/neighborhoods?language=string&governorateId=string",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"neighborhoods"
+													],
+													"query": [
+														{
+															"key": "language",
+															"value": "string"
+														},
+														{
+															"key": "governorateId",
+															"value": "string"
+														}
+													]
+												}
+											},
+											"status": "Bad Request",
+											"code": 400,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												}
+											],
+											"cookie": [],
+											"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+										}
+									]
+								}
+							]
+						},
+						{
+							"name": "users",
+							"item": [
+								{
+									"name": "me",
+									"item": [
+										{
+											"name": "personal-information",
+											"item": [
+												{
+													"name": "Get Personal Information",
+													"request": {
+														"method": "GET",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": "{{baseUrl}}/api/v1/users/me/personal-information",
+														"description": "Requires JWT Bearer authentication via Authorization header."
+													},
+													"response": [
+														{
+															"name": "OK",
+															"originalRequest": {
+																"method": "GET",
+																"header": [
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"url": "{{baseUrl}}/api/v1/users/me/personal-information"
+															},
+															"status": "OK",
+															"code": 200,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{\n  \"data\": null,\n  \"isSuccess\": false\n}"
+														},
+														{
+															"name": "Unauthorized",
+															"originalRequest": {
+																"method": "GET",
+																"header": [
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"url": "{{baseUrl}}/api/v1/users/me/personal-information"
+															},
+															"status": "Unauthorized",
+															"code": 401,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{\n  \"error\": {\n    \"message\": \"string\",\n    \"code\": \"string\"\n  },\n  \"isSuccess\": true\n}"
+														}
+													]
+												}
+											]
+										},
+										{
+											"name": "change-password",
+											"item": [
+												{
+													"name": "Change Password",
+													"request": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"oldPassword\": \"string\",\n  \"newPassword\": \"string\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": "{{baseUrl}}/api/v1/users/me/change-password"
+													},
+													"response": [
+														{
+															"name": "OK",
+															"originalRequest": {
+																"method": "POST",
+																"header": [
+																	{
+																		"key": "Content-Type",
+																		"value": "application/json"
+																	}
+																],
+																"body": {
+																	"mode": "raw",
+																	"raw": "{\n  \"oldPassword\": \"string\",\n  \"newPassword\": \"string\"\n}",
+																	"options": {
+																		"raw": {
+																			"headerFamily": "json",
+																			"language": "json"
+																		}
+																	}
+																},
+																"url": "{{baseUrl}}/api/v1/users/me/change-password"
+															},
+															"status": "OK",
+															"code": 200,
+															"_postman_previewlanguage": "text",
+															"header": [],
+															"cookie": [],
+															"body": ""
+														}
+													]
+												}
+											]
+										},
+										{
+											"name": "Delete My Account",
+											"request": {
+												"method": "DELETE",
+												"header": [],
+												"url": "{{baseUrl}}/api/v1/users/me"
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "DELETE",
+														"header": [],
+														"url": "{{baseUrl}}/api/v1/users/me"
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "text",
+													"header": [],
+													"cookie": [],
+													"body": ""
+												}
+											]
+										}
+									]
+								}
+							]
+						},
+						{
+							"name": "locations",
+							"item": [
+								{
+									"name": "{id}",
+									"item": [
+										{
+											"name": "Get Location Details",
+											"request": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/locations/:id?language=string",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"locations",
+														":id"
+													],
+													"query": [
+														{
+															"key": "language",
+															"value": "string"
+														}
+													],
+													"variable": [
+														{
+															"key": "id",
+															"value": "string"
+														}
+													]
+												}
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "GET",
+														"header": [],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/locations/:id?language=string",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"locations",
+																":id"
+															],
+															"query": [
+																{
+																	"key": "language",
+																	"value": "string"
+																}
+															],
+															"variable": [
+																{
+																	"key": "id",
+																	"value": "string"
+																}
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "text",
+													"header": [],
+													"cookie": [],
+													"body": ""
+												}
+											]
+										},
+										{
+											"name": "Update Location",
+											"request": {
+												"method": "PUT",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"street\": \"string\",\n  \"apartment\": \"string\",\n  \"floor\": \"string\",\n  \"building\": \"string\",\n  \"details\": null,\n  \"neighborhoodId\": \"string\",\n  \"governorateId\": \"string\"\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/locations/:id?Id=string",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"locations",
+														":id"
+													],
+													"query": [
+														{
+															"key": "Id",
+															"value": "string"
+														}
+													],
+													"variable": [
+														{
+															"key": "id"
+														}
+													]
+												}
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "PUT",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"street\": \"string\",\n  \"apartment\": \"string\",\n  \"floor\": \"string\",\n  \"building\": \"string\",\n  \"details\": null,\n  \"neighborhoodId\": \"string\",\n  \"governorateId\": \"string\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/locations/:id?Id=string",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"locations",
+																":id"
+															],
+															"query": [
+																{
+																	"key": "Id",
+																	"value": "string"
+																}
+															],
+															"variable": [
+																{
+																	"key": "id"
+																}
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "text",
+													"header": [],
+													"cookie": [],
+													"body": ""
+												}
+											]
+										},
+										{
+											"name": "Delete Location",
+											"request": {
+												"method": "DELETE",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/locations/:id",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"locations",
+														":id"
+													],
+													"variable": [
+														{
+															"key": "id",
+															"value": "string"
+														}
+													]
+												},
+												"description": "Delete Location"
+											},
+											"response": [
+												{
+													"name": "OK",
+													"originalRequest": {
+														"method": "DELETE",
+														"header": [],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/locations/:id",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"locations",
+																":id"
+															],
+															"variable": [
+																{
+																	"key": "id",
+																	"value": "string"
+																}
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "text",
+													"header": [],
+													"cookie": [],
+													"body": ""
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "Get All Locations",
+									"request": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/api/v1/locations?language=string",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"locations"
+											],
+											"query": [
+												{
+													"key": "language",
+													"value": "string"
+												}
+											]
+										}
+									},
+									"response": [
+										{
+											"name": "OK",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/locations?language=string",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"locations"
+													],
+													"query": [
+														{
+															"key": "language",
+															"value": "string"
+														}
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "text",
+											"header": [],
+											"cookie": [],
+											"body": ""
+										}
+									]
+								},
+								{
+									"name": "Add My New Location",
+									"request": {
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"street\": \"string\",\n  \"apartment\": \"string\",\n  \"floor\": \"string\",\n  \"building\": \"string\",\n  \"details\": null,\n  \"neighborhoodId\": \"string\",\n  \"governorateId\": \"string\"\n}",
+											"options": {
+												"raw": {
+													"headerFamily": "json",
+													"language": "json"
+												}
+											}
+										},
+										"url": "{{baseUrl}}/api/v1/locations"
+									},
+									"response": [
+										{
+											"name": "OK",
+											"originalRequest": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"street\": \"string\",\n  \"apartment\": \"string\",\n  \"floor\": \"string\",\n  \"building\": \"string\",\n  \"details\": null,\n  \"neighborhoodId\": \"string\",\n  \"governorateId\": \"string\"\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": "{{baseUrl}}/api/v1/locations"
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "text",
+											"header": [],
+											"cookie": [],
+											"body": ""
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://alaaeldin.runasp.net"
+		}
+	]
+}

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import PasswordToggle from "../../../common/PasswordToggle";
 import Toast from "../../../common/Toast";
 import { loginUser } from "../../../../api/auth/auth.api";
+import { useAuth } from "../../../../context/useAuth";
 
 import loginImage from "../../../../assets/images/auth/login.png";
 import emailIcon from "../../../../assets/images/auth/email.png";
@@ -22,6 +23,7 @@ const getApiErrorMessage = (error) => {
 };
 
 const getAuthToken = (data) =>
+  (typeof data?.data === "string" ? data.data : null) ||
   data?.token ||
   data?.accessToken ||
   data?.data?.token ||
@@ -35,6 +37,7 @@ export default function LoginForm() {
   const [apiError, setApiError] = useState("");
   const [toast, setToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login } = useAuth();
   const {
     register,
     handleSubmit,
@@ -43,6 +46,11 @@ export default function LoginForm() {
     mode: "onChange",
   });
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectFrom = location.state?.from;
+  const redirectTo = redirectFrom
+    ? `${redirectFrom.pathname}${redirectFrom.search || ""}${redirectFrom.hash || ""}`
+    : "/";
 
   const handleAccountTypeChange = (type) => {
     setAccountType(type);
@@ -71,12 +79,17 @@ export default function LoginForm() {
       const res = await loginUser({
         email: data.email,
         password: data.password,
+        remeberMe: true,
       });
 
       console.log("LOGIN RESPONSE", res);
 
       const token = getAuthToken(res);
       const user = getAuthUser(res);
+      const currentUser = user || {
+        email: data.email,
+        accountType,
+      };
 
       // Validate account type matches
       const userAccountType = user?.accountType || user?.type || accountType;
@@ -103,10 +116,11 @@ export default function LoginForm() {
         timestamp: new Date().toISOString(),
       });
 
-      localStorage.setItem("accountType", accountType);
-      localStorage.setItem("loggedInAs", accountType);
-      if (token) localStorage.setItem("token", token);
-      if (user) localStorage.setItem("user", JSON.stringify(user));
+      login({
+        accountType,
+        token,
+        user: currentUser,
+      });
 
       showToast(
         "success",
@@ -114,7 +128,7 @@ export default function LoginForm() {
       );
 
       setTimeout(() => {
-        navigate("/");
+        navigate(redirectTo, { replace: true });
       }, 1000);
     } catch (error) {
       console.error("LOGIN API ERROR", error?.response?.data || error);
@@ -255,7 +269,9 @@ export default function LoginForm() {
 
               {/* Forget Password */}
               <div className="text-right">
-                <span
+                <button
+                  type="button"
+                  onClick={() => navigate("/forget-password")}
                   className="
                                 text-[14px] sm:text-[18px] leading-6 text-[#011C60] cursor-pointer
                                 
@@ -273,7 +289,7 @@ export default function LoginForm() {
                             "
                 >
                   forget password ?
-                </span>
+                </button>
               </div>
 
               <button

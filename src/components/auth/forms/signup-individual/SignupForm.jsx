@@ -10,7 +10,11 @@ import CompanyStepTwoVerify from "../signup-company/StepTwoVerify";
 import VerificationForm from "../VerificationForm";
 import Toast from "../../../common/Toast";
 
-import { registerUser, verifyOtp } from "../../../../api/auth/auth.api";
+import {
+  registerUser,
+  resendEmailVerification,
+  verifyEmail,
+} from "../../../../api/auth/auth.api";
 
 import signupImage from "../../../../assets/images/auth/signup.png";
 import verifyImage from "../../../../assets/images/auth/veri.jpg";
@@ -44,6 +48,7 @@ const getApiErrorMessage = (error) => {
 
   if (typeof data?.message === "string") return data.message;
   if (typeof data?.error === "string") return data.error;
+  if (typeof data?.error?.message === "string") return data.error.message;
   if (Array.isArray(data?.errors)) {
     return data.errors.map(formatValidationError).join(", ");
   }
@@ -59,10 +64,19 @@ const getAccountName = (data, type) => {
   return [data.firstName, data.lastName].filter(Boolean).join(" ");
 };
 
+const signupSteps = [
+  { number: 1, label: "Account" },
+  { number: 2, label: "Identity" },
+  { number: 3, label: "Address" },
+];
+
+const hasValue = (value) => value !== undefined && value !== null && value !== "";
+
 export default function SignupForm() {
   const [type, setType] = useState("individual");
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({});
+  const [invalidSteps, setInvalidSteps] = useState([]);
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
@@ -93,27 +107,82 @@ export default function SignupForm() {
     appendIfPresent(form, "lastName", allData.lastName);
     appendIfPresent(form, "email", allData.email);
     appendIfPresent(form, "password", allData.password);
-    appendIfPresent(form, "confirmPassword", allData.confirmPassword);
-    appendIfPresent(form, "phone", allData.phone);
-    appendIfPresent(form, "idNumber", allData.idNumber);
+    appendIfPresent(form, "phoneNumber", allData.phone);
+    appendIfPresent(form, "nationalId", allData.idNumber);
 
-    form.append("lang", "en");
-    form.append("accountType", type);
-    form.append("permission", allData.permission || "service");
+    form.append("language", "en");
 
-    appendIfPresent(form, "idImageFront", allData.front);
-    appendIfPresent(form, "idImageBack", allData.back);
-    appendIfPresent(form, "idImageSelfie", allData.selfie);
+    appendIfPresent(form, "frontImageNationalId", allData.front);
+    appendIfPresent(form, "backImageNationalId", allData.back);
+    appendIfPresent(form, "selfieImageNationalId", allData.selfie);
+    appendIfPresent(form, "profileImage", allData.profileImage);
 
     appendIfPresent(form, "governorateId", allData.governorateId);
-    appendIfPresent(form, "areaId", allData.areaId);
-    appendIfPresent(form, "streetName", allData.streetName);
+    appendIfPresent(form, "neighborhoodId", allData.areaId);
+    appendIfPresent(form, "street", allData.streetName);
     appendIfPresent(form, "apartment", allData.apartment);
-    appendIfPresent(form, "floorNumber", allData.floorNumber);
-    appendIfPresent(form, "buildingNumber", allData.buildingNumber);
-    appendIfPresent(form, "additionalDetails", allData.additionalDetails);
+    appendIfPresent(form, "floor", allData.floorNumber);
+    appendIfPresent(form, "building", allData.buildingNumber);
+    appendIfPresent(form, "details", allData.additionalDetails);
 
     return form;
+  };
+
+  const isStepComplete = (stepNumber, data = formData) => {
+    if (stepNumber === 1) {
+      const requiredFields =
+        type === "company"
+          ? [
+              "firstName",
+              "lastName",
+              "phone",
+              "email",
+              "permission",
+              "password",
+              "confirmPassword",
+            ]
+          : [
+              "firstName",
+              "lastName",
+              "phone",
+              "email",
+              "password",
+              "confirmPassword",
+            ];
+
+      return (
+        requiredFields.every((field) => hasValue(data[field])) &&
+        data.password === data.confirmPassword
+      );
+    }
+
+    if (stepNumber === 2) {
+      return (
+        /^[0-9]{14}$/.test(data.idNumber || "") &&
+        hasValue(data.front) &&
+        hasValue(data.back) &&
+        hasValue(data.selfie)
+      );
+    }
+
+    if (stepNumber === 3) {
+      return [
+        "governorateId",
+        "areaId",
+        "streetName",
+        "buildingNumber",
+        "floorNumber",
+        "apartment",
+      ].every((field) => hasValue(data[field]));
+    }
+
+    return false;
+  };
+
+  const clearInvalidStep = (stepNumber) => {
+    setInvalidSteps((currentInvalidSteps) =>
+      currentInvalidSteps.filter((invalidStep) => invalidStep !== stepNumber)
+    );
   };
 
   const showToast = (type, message) => {
@@ -125,6 +194,11 @@ export default function SignupForm() {
   };
 
   const handleStepError = (message) => {
+    setInvalidSteps((currentInvalidSteps) =>
+      currentInvalidSteps.includes(step)
+        ? currentInvalidSteps
+        : [...currentInvalidSteps, step]
+    );
     showToast("error", message);
   };
 
@@ -141,7 +215,7 @@ export default function SignupForm() {
       localStorage.setItem("pendingSignupAccountType", type);
 
       const accountName = getAccountName(allData, type);
-      const message = `Signed up successfully as ${type} with name: ${accountName}. Enter the OTP sent to ${allData.email}.`;
+      const message = `Signed up successfully as ${type} with name: ${accountName}. Enter the verification code sent to ${allData.email}.`;
 
       setApiSuccess(message);
       showToast("success", message);
@@ -165,6 +239,7 @@ export default function SignupForm() {
 
     console.log("STEP DATA", data);
     setFormData(nextData);
+    clearInvalidStep(step);
     setApiError("");
     setApiSuccess("");
 
@@ -179,6 +254,38 @@ export default function SignupForm() {
   const handleAccountTypeChange = (nextType) => {
     setType(nextType);
     setFormData({});
+    setInvalidSteps([]);
+    setApiError("");
+    setApiSuccess("");
+  };
+
+  const handleStepClick = (targetStep) => {
+    if (targetStep === step || isSubmitting || isVerifyingOtp) return;
+
+    const incompleteSteps = signupSteps
+      .map(({ number }) => number)
+      .filter(
+        (stepNumber) =>
+          (stepNumber === step || stepNumber < targetStep) &&
+          !isStepComplete(stepNumber)
+      );
+
+    setInvalidSteps((currentInvalidSteps) => {
+      const nextInvalidSteps = new Set(currentInvalidSteps);
+
+      signupSteps.forEach(({ number }) => {
+        if (isStepComplete(number)) {
+          nextInvalidSteps.delete(number);
+        }
+      });
+
+      incompleteSteps.forEach((stepNumber) => {
+        nextInvalidSteps.add(stepNumber);
+      });
+
+      return [...nextInvalidSteps];
+    });
+    setStep(targetStep);
     setApiError("");
     setApiSuccess("");
   };
@@ -199,6 +306,66 @@ export default function SignupForm() {
           <h1 className="text-[22px] sm:text-[28px] font-bold text-[#011C60] mb-4 text-center">
             {titles[step]}
           </h1>
+
+          <div
+            className="mx-auto mb-5 w-full max-w-sm"
+            aria-label="Sign up progress"
+          >
+            <div className="grid grid-cols-3 gap-2">
+              {signupSteps.map(({ number, label }) => {
+                const isCompleted = step > number;
+                const isActive = step === number;
+                const isInvalid = invalidSteps.includes(number);
+
+                return (
+                  <button
+                    type="button"
+                    key={number}
+                    onClick={() => handleStepClick(number)}
+                    className="min-w-0 text-center cursor-pointer"
+                    disabled={isSubmitting || isVerifyingOtp}
+                    aria-current={isActive ? "step" : undefined}
+                  >
+                    <div
+                      className={`mx-auto flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border text-[12px] sm:text-[14px] font-semibold transition-all duration-300 ${
+                        isInvalid
+                          ? "border-red-500 bg-red-500 text-white"
+                          : isCompleted || isActive
+                          ? "border-[#06B217] bg-[#06B217] text-white"
+                          : "border-[#D6DAE6] bg-white text-[#808DAF]"
+                      }`}
+                    >
+                      {number}
+                    </div>
+                    <p
+                      className={`mt-1 truncate text-[10px] sm:text-[12px] font-medium ${
+                        isInvalid
+                          ? "text-red-500"
+                          : isCompleted || isActive
+                          ? "text-[#06B217]"
+                          : "text-[#808DAF]"
+                      }`}
+                    >
+                      {label}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#E6E8EF]">
+              <div
+                className="h-full rounded-full bg-[#06B217] transition-all duration-300"
+                style={{
+                  width: `${
+                    ((Math.min(step, signupSteps.length) - 1) /
+                      (signupSteps.length - 1)) *
+                    100
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
 
           {/* ACCOUNT TYPE */}
           {step === 1 && (
@@ -252,12 +419,14 @@ export default function SignupForm() {
                   onNext={handleNext}
                   navigate={navigate}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               ) : (
                 <IndividualStepOneInfo
                   onNext={handleNext}
                   navigate={navigate}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               )
             )}
@@ -267,11 +436,13 @@ export default function SignupForm() {
                 <CompanyStepTwoVerify
                   onNext={handleNext}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               ) : (
                 <IndividualStepTwoVerify
                   onNext={handleNext}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               ))}
 
@@ -281,12 +452,14 @@ export default function SignupForm() {
                   onNext={handleNext}
                   isSubmitting={isSubmitting}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               ) : (
                 <IndividualStepThreeAddress
                   onNext={handleNext}
                   isSubmitting={isSubmitting}
                   onError={handleStepError}
+                  initialData={formData}
                 />
               )
             )}
@@ -301,12 +474,12 @@ export default function SignupForm() {
                   setApiSuccess("");
 
                   try {
-                    const res = await verifyOtp({
+                    const res = await verifyEmail({
                       email: registeredEmail || formData.email,
-                      otp: otpCode,
+                      code: otpCode,
                     });
 
-                    console.log("VERIFY OTP RESPONSE", res);
+                    console.log("VERIFY EMAIL RESPONSE", res);
                     const message = `Email verified successfully for ${
                       registeredEmail || formData.email
                     }. You can sign in now.`;
@@ -318,7 +491,7 @@ export default function SignupForm() {
                       navigate("/login");
                     }, 1000);
                   } catch (error) {
-                    console.error("VERIFY OTP API ERROR", error?.response?.data || error);
+                    console.error("VERIFY EMAIL API ERROR", error?.response?.data || error);
                     const message = getApiErrorMessage(error);
 
                     setApiError(message);
@@ -326,6 +499,32 @@ export default function SignupForm() {
                     throw error;
                   } finally {
                     setIsVerifyingOtp(false);
+                  }
+                }}
+                onResend={async () => {
+                  const email = registeredEmail || formData.email;
+
+                  if (!email) {
+                    const message = "Missing email address for verification.";
+
+                    setApiError(message);
+                    showToast("error", message);
+                    throw new Error(message);
+                  }
+
+                  try {
+                    await resendEmailVerification({ email });
+                    const message = `A new verification code was sent to ${email}.`;
+
+                    setApiError("");
+                    setApiSuccess(message);
+                    showToast("success", message);
+                  } catch (error) {
+                    const message = getApiErrorMessage(error);
+
+                    setApiError(message);
+                    showToast("error", message);
+                    throw error;
                   }
                 }}
                 onClose={() => {

@@ -3,7 +3,12 @@ import { useEffect } from "react";
 import PasswordToggle from "../../../common/PasswordToggle";
 import emailIcon from "../../../../assets/images/auth/email.png";
 
-export default function StepOneInfo({ onNext, navigate, onError }) {
+export default function StepOneInfo({
+  onNext,
+  navigate,
+  onError,
+  initialData = {},
+}) {
   const {
     register,
     handleSubmit,
@@ -12,6 +17,7 @@ export default function StepOneInfo({ onNext, navigate, onError }) {
     formState: { errors },
   } = useForm({
     mode: "onChange",
+    defaultValues: initialData,
   });
 
   const password = useWatch({
