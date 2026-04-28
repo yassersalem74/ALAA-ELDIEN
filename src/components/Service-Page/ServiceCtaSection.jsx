@@ -11,7 +11,7 @@ const ctaActions = [
 
 export default function ServiceCtaSection() {
   return (
-    <section className="mx-auto flex min-h-[220px] w-full max-w-[1120px] flex-col items-center justify-center gap-8 rounded-2xl bg-[#E6E8EF] px-6 py-9 text-center md:px-24">
+    <section className="mx-auto flex min-h-[220px] w-full  flex-col items-center justify-center gap-8 rounded-2xl bg-[#E6E8EF] px-6 py-9 text-center md:px-24">
       <h2 className="font-['Roboto'] text-[30px] font-bold leading-[44px] text-[#011C60] md:text-[40px] md:leading-[64px]">
         Ready to Book a Service ?
       </h2>

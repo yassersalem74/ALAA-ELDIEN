@@ -3,7 +3,7 @@ import { serviceSteps } from "./servicePageData";
 
 export default function HowItWorksSection() {
   return (
-    <section className="mx-auto w-full max-w-[1120px]">
+    <section className="mx-auto w-full ">
       <SectionHeader
         title="How It Works"
         description="A simple process designed to get things done without hassle."

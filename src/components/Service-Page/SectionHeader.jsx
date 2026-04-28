@@ -1,6 +1,6 @@
 export default function SectionHeader({ title, description }) {
   return (
-    <header className="mx-auto max-w-4xl text-center">
+    <header className="mx-auto  text-center">
       <h2 className="font-['Roboto'] text-[30px] font-bold leading-[44px] text-[#011C60] md:text-[40px] md:leading-[64px]">
         {title}
       </h2>
