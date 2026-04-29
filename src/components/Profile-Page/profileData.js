@@ -10,7 +10,7 @@ export const PROFILE_NAV_ITEMS = [
   { slug: "chats", label: "Chats", icon: "chat" },
   { slug: "cart", label: "Cart", icon: "cart" },
   { slug: "orders", label: "My Order", icon: "orders" },
-  { slug: "become-provider", label: "Become a Provider", icon: "provider" },
+  { slug: "become-provider", label: "Become a Partner", icon: "provider" },
   { slug: "settings", label: "Setting", icon: "settings" },
 ];
 

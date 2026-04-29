@@ -1,10 +1,5 @@
-import ProfileSectionPlaceholder from "../ProfileSectionPlaceholder";
+import BecomePartnerFlow from "../add-service-flow/BecomePartnerFlow";
 
 export default function ProfileBecomeProviderSection() {
-  return (
-    <ProfileSectionPlaceholder
-      title="Become a Provider"
-      description="This space is ready for provider onboarding, requirements, and progress tracking."
-    />
-  );
+  return <BecomePartnerFlow />;
 }

@@ -36,6 +36,7 @@ export default function ProfileLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const isPartnerRoute = location.pathname.includes("/profile/become-provider");
   const [savedProfile, setSavedProfile] = useState(() =>
     createProfileDetails(user)
   );
@@ -137,31 +138,35 @@ export default function ProfileLayout() {
             </button>
           </div>
 
-          <header>
-            <h1 className="font-['Roboto'] text-[28px] font-bold leading-[42px] text-[#011C60] sm:text-[36px] sm:leading-[56px]">
-              Welcome back, {savedProfile.welcomeName}
-            </h1>
-            <p className="mt-1 max-w-2xl font-['Roboto'] text-[16px] leading-6 text-[#6777A0] sm:text-[18px]">
-              Your digital concierge is ready to help you manage your home.
-            </p>
-          </header>
-
-          <section className="rounded-2xl bg-[#EFF1F7] px-6 py-4 shadow-[0px_12px_40px_rgba(17,27,71,0.06)]">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex h-[100px] w-[94px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#011C60] to-[#274697] font-['Roboto'] text-[36px] font-bold text-white shadow-[0px_12px_30px_rgba(1,28,96,0.24)]">
-                {savedProfile.avatarInitial}
-              </div>
-
-              <div className="min-w-0">
-                <h2 className="truncate font-['Roboto'] text-[24px] font-medium leading-10 text-[#011C60]">
-                  {savedProfile.fullName}
-                </h2>
-                <p className="break-all font-['Roboto'] text-[16px] leading-6 text-[#011C60]">
-                  {savedProfile.email || "No email available"}
+          {!isPartnerRoute && (
+            <>
+              <header>
+                <h1 className="font-['Roboto'] text-[28px] font-bold leading-[42px] text-[#011C60] sm:text-[36px] sm:leading-[56px]">
+                  Welcome back, {savedProfile.welcomeName}
+                </h1>
+                <p className="mt-1 max-w-2xl font-['Roboto'] text-[16px] leading-6 text-[#6777A0] sm:text-[18px]">
+                  Your digital concierge is ready to help you manage your home.
                 </p>
-              </div>
-            </div>
-          </section>
+              </header>
+
+              <section className="rounded-2xl bg-[#EFF1F7] px-6 py-4 shadow-[0px_12px_40px_rgba(17,27,71,0.06)]">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="flex h-[100px] w-[94px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#011C60] to-[#274697] font-['Roboto'] text-[36px] font-bold text-white shadow-[0px_12px_30px_rgba(1,28,96,0.24)]">
+                    {savedProfile.avatarInitial}
+                  </div>
+
+                  <div className="min-w-0">
+                    <h2 className="truncate font-['Roboto'] text-[24px] font-medium leading-10 text-[#011C60]">
+                      {savedProfile.fullName}
+                    </h2>
+                    <p className="break-all font-['Roboto'] text-[16px] leading-6 text-[#011C60]">
+                      {savedProfile.email || "No email available"}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
 
           <Routes>
             <Route index element={<Navigate to="personal-info" replace />} />
