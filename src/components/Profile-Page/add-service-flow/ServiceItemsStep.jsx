@@ -83,7 +83,7 @@ export default function ServiceItemsStep({
         <section className={PANEL_CLASS_NAME}>
           <div className="flex flex-col gap-8">
             <SectionHeading
-              title="Services Items"
+              title="Service Items"
               description="Define your offerings for Alaa Eldeen. Clients will see these prices when booking."
             />
 
