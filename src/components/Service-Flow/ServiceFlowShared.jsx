@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 const joinClasses = (...classes) => classes.filter(Boolean).join(" ");
 
 export const formatReviewCount = (value) =>
@@ -248,7 +250,7 @@ export function SearchInput({
   return (
     <label
       className={joinClasses(
-        "flex w-full items-center gap-4 rounded-2xl border border-[#D8DDEB] bg-white px-6 shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)]",
+        "flex w-full items-center gap-4 rounded-2xl border border-[#D8DDEB] bg-white px-6 shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)] transition hover:border-[#EECE42] hover:shadow-[0px_12px_28px_rgba(204,210,223,0.45)] focus-within:border-[#EECE42]",
         isCompact ? "h-12" : "h-16",
         className
       )}
@@ -269,6 +271,218 @@ export function SearchInput({
         <ArrowRightIcon className="h-4 w-4" stroke="#011C60" />
       </span>
     </label>
+  );
+}
+
+export function CreativeDropdown({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder,
+  leading,
+  className = "",
+  menuClassName = "",
+  renderValue,
+  renderOption,
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const rootRef = useRef(null);
+  const selectedOption = options.find(
+    (option) => String(option.value) === String(value)
+  );
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (rootRef.current?.contains(event.target)) return;
+      setIsOpen(false);
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={rootRef} className={joinClasses("relative", className)}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className={joinClasses(
+          "flex h-12 w-full items-center justify-between gap-4 rounded-[14px] border border-[#D8DDEB] bg-white px-4 shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)] transition hover:-translate-y-0.5 hover:border-[#EECE42] hover:shadow-[0px_12px_28px_rgba(204,210,223,0.45)]",
+          isOpen ? "border-[#EECE42]" : ""
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          {leading && (
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F8F9FC] text-[#011C60] shadow-[0px_6px_16px_rgba(204,210,223,0.35)]">
+              {leading}
+            </span>
+          )}
+
+          <div className="min-w-0 text-left">
+            <p className="font-['Roboto'] text-[11px] font-medium uppercase tracking-[0.08em] text-[#808DAF]">
+              {label}
+            </p>
+            <div className="truncate font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+              {selectedOption
+                ? renderValue
+                  ? renderValue(selectedOption)
+                  : selectedOption.label
+                : placeholder}
+            </div>
+          </div>
+        </div>
+
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8F9FC]">
+          <ChevronDownIcon
+            stroke={isOpen ? "#011C60" : "#808DAF"}
+            isOpen={isOpen}
+          />
+        </span>
+      </button>
+
+      {isOpen && (
+        <div
+          role="listbox"
+          className={joinClasses(
+            "absolute left-0 top-[calc(100%+12px)] z-30 w-full rounded-[20px] border border-[#E6E8EF] bg-white p-3 shadow-[0px_20px_48px_rgba(1,28,96,0.14)]",
+            menuClassName
+          )}
+        >
+          <div className="max-h-72 overflow-y-auto">
+            {options.map((option) => {
+              const isSelected =
+                String(option.value) === String(selectedOption?.value);
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                  className={joinClasses(
+                    "flex w-full items-center justify-between gap-4 rounded-2xl px-4 py-3 text-left transition",
+                    isSelected
+                      ? "bg-[#FFF4C4] text-[#011C60]"
+                      : "text-[#011C60] hover:bg-[#F5F7FC]"
+                  )}
+                >
+                  <div className="min-w-0 flex-1">
+                    {renderOption ? renderOption(option, isSelected) : option.label}
+                  </div>
+
+                  {isSelected && (
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EECE42]">
+                      <ArrowRightIcon className="h-4 w-4" stroke="#011C60" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function CallyDatePicker({
+  value,
+  min,
+  onChange,
+  className = "",
+}) {
+  const calendarRef = useRef(null);
+
+  useEffect(() => {
+    const calendar = calendarRef.current;
+
+    if (!calendar) return undefined;
+
+    const handleChange = () => {
+      onChange(calendar.value || "");
+    };
+
+    calendar.addEventListener("change", handleChange);
+
+    return () => {
+      calendar.removeEventListener("change", handleChange);
+    };
+  }, [onChange]);
+
+  useEffect(() => {
+    const calendar = calendarRef.current;
+
+    if (calendar && calendar.value !== value) {
+      calendar.value = value || "";
+    }
+  }, [value]);
+
+  return (
+    <div
+      className={joinClasses(
+        "rounded-[28px] bg-[linear-gradient(180deg,rgba(238,206,66,0.14)_0%,rgba(230,232,239,0.34)_100%)] p-[1px]",
+        className
+      )}
+    >
+      <calendar-date
+        ref={calendarRef}
+        className="service-cally block rounded-[27px] bg-white p-4"
+        value={value}
+        min={min}
+        locale="en-GB"
+        first-day-of-week="6"
+        format-weekday="short"
+        show-outside-days=""
+      >
+        <svg
+          aria-label="Previous"
+          className="h-4 w-4 fill-none stroke-current"
+          slot="previous"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M15.75 19.5L8.25 12L15.75 4.5"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <svg
+          aria-label="Next"
+          className="h-4 w-4 fill-none stroke-current"
+          slot="next"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M8.25 19.5L15.75 12L8.25 4.5"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <calendar-month className="service-cally-month"></calendar-month>
+      </calendar-date>
+    </div>
   );
 }
 

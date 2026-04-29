@@ -6,8 +6,8 @@ import {
   EmptyState,
   SearchInput,
   ServicePageIntro,
-} from "../components/Service-Flow/ServiceFlowShared";
-import { getServiceCategoryBySlug } from "../data/serviceFlowData";
+} from "../../components/Service-Flow/ServiceFlowShared";
+import { getServiceCategoryBySlug } from "../../data/serviceFlowData";
 
 export default function ServiceCategoryPage() {
   const navigate = useNavigate();
@@ -78,7 +78,7 @@ export default function ServiceCategoryPage() {
 
               <Link
                 to={`/services/${category.slug}/${service.slug}/providers`}
-                className="mt-6 flex h-9 w-full items-center justify-center gap-4 rounded-lg bg-[#EECE42] px-2 font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60] transition hover:-translate-y-0.5"
+                className="mt-6 flex h-9 w-full items-center justify-center gap-4 rounded-lg bg-[#EECE42] px-2 font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60] transition hover:-translate-y-0.5 hover:bg-[#f7d85a] hover:shadow-[0px_12px_24px_rgba(238,206,66,0.28)]"
               >
                 View All Provider
                 <ArrowRightIcon className="h-4 w-4" stroke="#011C60" />

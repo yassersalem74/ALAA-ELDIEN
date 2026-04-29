@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   BackCircleButton,
+  CreativeDropdown,
   EmptyState,
   LocationIcon,
   Pagination,
@@ -9,7 +10,7 @@ import {
   ServicePageIntro,
   StarIcon,
   formatReviewCount,
-} from "../components/Service-Flow/ServiceFlowShared";
+} from "../../components/Service-Flow/ServiceFlowShared";
 import {
   FALLBACK_GOVERNORATES,
   PRICE_RANGE_OPTIONS,
@@ -19,7 +20,7 @@ import {
   getProviderHeadlineBySlugs,
   getServiceCategoryBySlug,
   getSubServiceBySlugs,
-} from "../data/serviceFlowData";
+} from "../../data/serviceFlowData";
 
 const PROVIDERS_PER_PAGE = 6;
 
@@ -42,6 +43,28 @@ export default function ServiceProvidersPage() {
 
     return [...new Set([...providerGovernorates, ...FALLBACK_GOVERNORATES])];
   }, [service]);
+
+  const ratingDropdownOptions = useMemo(
+    () => [
+      { value: "all", label: "All Ratings" },
+      ...RATING_OPTIONS.map((rating) => ({
+        value: String(rating),
+        label: `${rating}+ Stars`,
+      })),
+    ],
+    []
+  );
+
+  const locationDropdownOptions = useMemo(
+    () => [
+      { value: "all", label: "All Locations" },
+      ...locationOptions.map((location) => ({
+        value: location,
+        label: location,
+      })),
+    ],
+    [locationOptions]
+  );
 
   const filteredProviders = useMemo(() => {
     const providers = service?.providers || [];
@@ -186,31 +209,43 @@ export default function ServiceProvidersPage() {
               </div>
 
               <div className="flex flex-col gap-3 lg:flex-row">
-                <select
+                <CreativeDropdown
+                  label="Rating"
                   value={selectedRating}
-                  onChange={(event) => setSelectedRating(event.target.value)}
-                  className="h-12 rounded-lg border border-[#808DAF] bg-white px-4 font-['Roboto'] text-[16px] text-[#011C60] shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)] outline-none"
-                >
-                  <option value="all">Rating</option>
-                  {RATING_OPTIONS.map((rating) => (
-                    <option key={rating} value={rating}>
-                      {rating}+ Stars
-                    </option>
-                  ))}
-                </select>
+                  options={ratingDropdownOptions}
+                  onChange={setSelectedRating}
+                  placeholder="All Ratings"
+                  className="w-full lg:min-w-[210px]"
+                  leading={<StarIcon className="h-4 w-4" />}
+                  renderValue={(option) => option.label}
+                  renderOption={(option) => (
+                    <div className="flex items-center gap-3">
+                      <StarIcon className="h-4 w-4" />
+                      <span className="font-['Roboto'] text-[14px] font-medium">
+                        {option.label}
+                      </span>
+                    </div>
+                  )}
+                />
 
-                <select
+                <CreativeDropdown
+                  label="Location"
                   value={selectedLocation}
-                  onChange={(event) => setSelectedLocation(event.target.value)}
-                  className="h-12 rounded-lg border border-[#808DAF] bg-white px-4 font-['Roboto'] text-[16px] text-[#011C60] shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)] outline-none"
-                >
-                  <option value="all">Location</option>
-                  {locationOptions.map((location) => (
-                    <option key={location} value={location}>
-                      {location}
-                    </option>
-                  ))}
-                </select>
+                  options={locationDropdownOptions}
+                  onChange={setSelectedLocation}
+                  placeholder="All Locations"
+                  className="w-full lg:min-w-[220px]"
+                  leading={<LocationIcon className="h-4 w-4" stroke="#011C60" />}
+                  renderValue={(option) => option.label}
+                  renderOption={(option) => (
+                    <div className="flex items-center gap-3">
+                      <LocationIcon className="h-4 w-4" stroke="#808DAF" />
+                      <span className="font-['Roboto'] text-[14px] font-medium">
+                        {option.label}
+                      </span>
+                    </div>
+                  )}
+                />
               </div>
             </div>
 
@@ -256,16 +291,10 @@ export default function ServiceProvidersPage() {
                 </div>
               </div>
 
-              <div className="mt-6 flex items-center justify-between gap-3">
+              <div className="mt-6">
                 <Link
                   to={`/services/${category.slug}/${service.slug}/providers/${provider.slug}`}
-                  className="font-['Roboto'] text-[14px] font-medium text-[#808DAF] transition hover:text-[#011C60]"
-                >
-                  View Details
-                </Link>
-                <Link
-                  to={`/services/${category.slug}/${service.slug}/providers/${provider.slug}`}
-                  className="rounded-lg bg-[#011C60] px-4 py-2 font-['Roboto'] text-[14px] font-semibold text-white transition hover:bg-[#02237a]"
+                  className="flex h-11 w-full items-center justify-center rounded-xl bg-[#011C60] px-4 font-['Roboto'] text-[15px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#02237a] hover:shadow-[0px_14px_26px_rgba(1,28,96,0.24)]"
                 >
                   Book Now
                 </Link>

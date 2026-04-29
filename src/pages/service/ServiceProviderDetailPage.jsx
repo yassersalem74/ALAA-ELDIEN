@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../context/useAuth";
+import { useAuth } from "../../context/useAuth";
 import {
   BackCircleButton,
+  CallyDatePicker,
   CalendarIcon,
   ChevronDownIcon,
   ClockIcon,
@@ -12,14 +13,14 @@ import {
   formatCurrency,
   formatReviewCount,
   getTodayInputValue,
-} from "../components/Service-Flow/ServiceFlowShared";
-import { createProfileDetails } from "../components/Profile-Page/profileData";
-import bookingSuccessImage from "../assets/images/service/bookin-successfully.png";
+} from "../../components/Service-Flow/ServiceFlowShared";
+import { createProfileDetails } from "../../components/Profile-Page/profileData";
+import bookingSuccessImage from "../../assets/images/service/bookin-successfully.png";
 import {
   getProviderBySlugs,
   getServiceCategoryBySlug,
   getSubServiceBySlugs,
-} from "../data/serviceFlowData";
+} from "../../data/serviceFlowData";
 
 const createInitialQuantities = (items = []) =>
   Object.fromEntries(
@@ -38,7 +39,7 @@ function BookingPanelSection({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 text-left"
+        className="flex w-full items-center justify-between gap-3 rounded-2xl text-left transition hover:bg-white/70"
       >
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-[0px_4px_12px_rgba(204,210,223,0.45)]">
@@ -332,7 +333,7 @@ export default function ServiceProviderDetailPage() {
                             <button
                               type="button"
                               onClick={() => changeQuantity(item.id, -1)}
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#011C60] shadow-[0px_4px_10px_rgba(204,210,223,0.35)]"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#011C60] shadow-[0px_4px_10px_rgba(204,210,223,0.35)] transition hover:bg-[#EECE42] hover:shadow-[0px_8px_16px_rgba(238,206,66,0.24)]"
                             >
                               -
                             </button>
@@ -342,7 +343,7 @@ export default function ServiceProviderDetailPage() {
                             <button
                               type="button"
                               onClick={() => changeQuantity(item.id, 1)}
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#011C60] shadow-[0px_4px_10px_rgba(204,210,223,0.35)]"
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#011C60] shadow-[0px_4px_10px_rgba(204,210,223,0.35)] transition hover:bg-[#EECE42] hover:shadow-[0px_8px_16px_rgba(238,206,66,0.24)]"
                             >
                               +
                             </button>
@@ -369,13 +370,22 @@ export default function ServiceProviderDetailPage() {
                     isOpen={isDateOpen}
                     onToggle={() => setIsDateOpen((current) => !current)}
                   >
-                    <input
-                      type="date"
-                      min={getTodayInputValue()}
-                      value={selectedDate}
-                      onChange={(event) => setSelectedDate(event.target.value)}
-                      className="h-14 w-full rounded-xl border border-[#D8DDEB] bg-white px-4 font-['Roboto'] text-[16px] text-[#011C60] outline-none"
-                    />
+                    <div className="rounded-[20px] bg-white p-4 shadow-[0px_10px_24px_rgba(204,210,223,0.22)]">
+                      <div className="mb-4 rounded-2xl bg-[#F8F9FC] px-4 py-3">
+                        <p className="font-['Roboto'] text-[12px] font-medium uppercase tracking-[0.08em] text-[#808DAF]">
+                          Selected date
+                        </p>
+                        <p className="mt-1 font-['Roboto'] text-[18px] font-semibold text-[#011C60]">
+                          {formatBookingDate(selectedDate)}
+                        </p>
+                      </div>
+
+                      <CallyDatePicker
+                        value={selectedDate}
+                        min={getTodayInputValue()}
+                        onChange={setSelectedDate}
+                      />
+                    </div>
                   </BookingPanelSection>
                 </div>
 
@@ -394,8 +404,8 @@ export default function ServiceProviderDetailPage() {
                           onClick={() => setSelectedTime(timeSlot)}
                           className={`rounded-xl border px-3 py-3 font-['Roboto'] text-[14px] font-medium transition ${
                             selectedTime === timeSlot
-                              ? "border-[#011C60] bg-[#011C60] text-white"
-                              : "border-[#D8DDEB] bg-white text-[#011C60] hover:bg-[#F5F7FC]"
+                              ? "border-[#011C60] bg-[#011C60] text-white shadow-[0px_14px_28px_rgba(1,28,96,0.18)]"
+                              : "border-[#D8DDEB] bg-white text-[#011C60] hover:-translate-y-0.5 hover:bg-[#F5F7FC] hover:shadow-[0px_12px_22px_rgba(204,210,223,0.24)]"
                           }`}
                         >
                           {timeSlot}
@@ -415,7 +425,7 @@ export default function ServiceProviderDetailPage() {
                   type="button"
                   onClick={() => canBook && setIsConfirmModalOpen(true)}
                   disabled={!canBook}
-                  className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#011C60] font-['Roboto'] text-[16px] font-semibold text-white transition hover:bg-[#02237a] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#011C60] font-['Roboto'] text-[16px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#02237a] hover:shadow-[0px_16px_32px_rgba(1,28,96,0.24)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Book Now
                 </button>
@@ -488,7 +498,7 @@ export default function ServiceProviderDetailPage() {
             <button
               type="button"
               onClick={confirmBooking}
-              className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-[#011C60] font-['Roboto'] text-[16px] font-semibold text-white transition hover:bg-[#02237a]"
+              className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-[#011C60] font-['Roboto'] text-[16px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#02237a] hover:shadow-[0px_16px_32px_rgba(1,28,96,0.24)]"
             >
               Confirm Booking
             </button>
@@ -516,7 +526,7 @@ export default function ServiceProviderDetailPage() {
             <button
               type="button"
               onClick={() => setIsSuccessModalOpen(false)}
-              className="mt-6 rounded-xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold text-white transition hover:bg-[#02237a]"
+              className="mt-6 rounded-xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#02237a] hover:shadow-[0px_16px_32px_rgba(1,28,96,0.24)]"
             >
               Done
             </button>

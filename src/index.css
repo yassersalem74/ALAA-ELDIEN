@@ -1,0 +1,101 @@
+calendar-date.service-cally {
+  color: #011c60;
+  --color-accent: #eece42;
+  --color-text-on-accent: #011c60;
+}
+
+calendar-date.service-cally::part(container) {
+  display: block;
+}
+
+calendar-date.service-cally::part(header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+calendar-date.service-cally::part(button) {
+  border: none;
+  border-radius: 999px;
+  background: #f8f9fc;
+  color: #011c60;
+  padding: 10px;
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+  box-shadow: 0 8px 18px rgba(204, 210, 223, 0.32);
+}
+
+calendar-date.service-cally::part(button):hover {
+  background: #eece42;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(238, 206, 66, 0.24);
+}
+
+calendar-date.service-cally::part(heading) {
+  font-family: "Roboto", sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #011c60;
+}
+
+calendar-date.service-cally::part(months) {
+  display: block;
+}
+
+calendar-month.service-cally-month::part(table) {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 8px 10px;
+}
+
+calendar-month.service-cally-month::part(th) {
+  text-align: center;
+}
+
+calendar-month.service-cally-month::part(weekday) {
+  font-family: "Roboto", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #808daf;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+calendar-month.service-cally-month::part(button) {
+  border-radius: 16px;
+  font-family: "Roboto", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #011c60;
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease;
+}
+
+calendar-month.service-cally-month::part(day):hover {
+  background: #f6e6a0;
+  color: #011c60;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(238, 206, 66, 0.22);
+}
+
+calendar-month.service-cally-month::part(selected) {
+  background: #eece42;
+  color: #011c60;
+  box-shadow: 0 10px 24px rgba(238, 206, 66, 0.26);
+}
+
+calendar-month.service-cally-month::part(today) {
+  box-shadow: inset 0 0 0 1px #eece42;
+}
+
+calendar-month.service-cally-month::part(outside) {
+  color: #b3bbcf;
+  opacity: 0.55;
+}
