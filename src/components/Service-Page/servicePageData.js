@@ -5,41 +5,30 @@ import homeServiceImage from "../../assets/images/service/home-service.png";
 import personalCareImage from "../../assets/images/service/personalcare-service.png";
 import realEstateImage from "../../assets/images/service/realstate-service.png";
 import selectProviderImage from "../../assets/images/service/select-provider.png";
+import { serviceCategories as serviceFlowCategories } from "../../data/serviceFlowData";
 
-export const serviceCategories = [
-  {
-    id: "home",
-    title: "Home Services & Maintenance",
-    description:
-      "Plumbing, electrical work, cleaning, and home repairs by trusted professionals.",
-    count: "+40 Service",
-    image: homeServiceImage,
-  },
-  {
-    id: "real-estate",
-    title: "Real Estate & Property",
-    description:
-      "Buy, rent, or manage properties with reliable real estate services.",
-    count: "+40 Service",
-    image: realEstateImage,
-  },
-  {
-    id: "car-care",
-    title: "Car Care & Automotive",
-    description:
-      "Car maintenance, washing, repairs, and roadside assistance services.",
-    count: "+40 Service",
-    image: carCareImage,
-  },
-  {
-    id: "personal-care",
-    title: "Personal & On-Demand Services",
-    description:
-      "Tailoring, beauty, fitness, and personal services delivered when you need them.",
-    count: "+40 Service",
-    image: personalCareImage,
-  },
-];
+export const serviceCategories = serviceFlowCategories.map((category) => ({
+  id: category.id,
+  slug: category.slug,
+  title: category.title,
+  description:
+    category.slug === "home-service"
+      ? "Plumbing, electrical work, cleaning, and home repairs by trusted professionals."
+      : category.slug === "real-estate"
+        ? "Buy, rent, or manage properties with reliable real estate services."
+        : category.slug === "car-care"
+          ? "Car maintenance, washing, repairs, and roadside assistance services."
+          : "Tailoring, beauty, fitness, and personal services delivered when you need them.",
+  count: category.count,
+  image:
+    category.slug === "home-service"
+      ? homeServiceImage
+      : category.slug === "real-estate"
+        ? realEstateImage
+        : category.slug === "car-care"
+          ? carCareImage
+          : personalCareImage,
+}));
 
 export const serviceSteps = [
   {

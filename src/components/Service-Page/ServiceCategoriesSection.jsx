@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import SectionHeader from "./SectionHeader";
 import { serviceCategories } from "./servicePageData";
 
@@ -37,12 +38,12 @@ export default function ServiceCategoriesSection() {
                 {category.description}
               </p>
 
-              <button
-                type="button"
-                className="cursor-pointer mt-6 h-14 w-full rounded-2xl bg-[#011C60] px-8 py-2.5 font-['Roboto'] font-semibold text-white transition duration-300 group-hover:bg-white group-hover:text-[#023AC6]"
+              <Link
+                to={`/services/${category.slug}`}
+                className="cursor-pointer mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-[#011C60] px-8 py-2.5 font-['Roboto'] font-semibold text-white transition duration-300 group-hover:bg-white group-hover:text-[#023AC6]"
               >
                 View Services
-              </button>
+              </Link>
             </div>
           </article>
         ))}

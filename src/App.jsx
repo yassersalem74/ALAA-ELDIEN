@@ -11,6 +11,9 @@ import ContactUsPage from "./pages/ContactUsPage";
 import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
 import ProfilePage from "./pages/ProfilePage";
+import ServiceCategoryPage from "./pages/ServiceCategoryPage";
+import ServiceProviderDetailPage from "./pages/ServiceProviderDetailPage";
+import ServiceProvidersPage from "./pages/ServiceProvidersPage";
 import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
 import LoginForm from "./components/auth/forms/login/LoginForm";
@@ -45,6 +48,18 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/services" element={<ServicesPage />} />
+            <Route
+              path="/services/:categorySlug"
+              element={<ServiceCategoryPage />}
+            />
+            <Route
+              path="/services/:categorySlug/:serviceSlug/providers"
+              element={<ServiceProvidersPage />}
+            />
+            <Route
+              path="/services/:categorySlug/:serviceSlug/providers/:providerSlug"
+              element={<ServiceProviderDetailPage />}
+            />
             <Route path="/marketplace" element={<MarketplacePage />} />
             <Route path="/store" element={<StorePage />} />
             <Route path="/contact" element={<ContactUsPage />} />
@@ -59,6 +74,3 @@ export default function App() {
     </>
   );
 }
-// new
-// new
-// new
