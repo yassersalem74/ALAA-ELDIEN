@@ -25,6 +25,8 @@ export default function ServiceItemsStep({
   onAddItem,
   onBack,
   onNext,
+  onStepClick,
+  canNavigateToStep,
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
@@ -78,7 +80,11 @@ export default function ServiceItemsStep({
   return (
     <>
       <div className="flex flex-col gap-6">
-        <ProgressStepper currentStep={3} />
+        <ProgressStepper
+          currentStep={3}
+          onStepClick={onStepClick}
+          canNavigateToStep={canNavigateToStep}
+        />
 
         <section className={PANEL_CLASS_NAME}>
           <div className="flex flex-col gap-8">

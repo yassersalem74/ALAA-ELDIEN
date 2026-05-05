@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import Toast from "../../../common/Toast";
 import {
   forgetPassword,
+  verifyForgetPasswordOtp,
   resetPassword,
 } from "../../../../api/auth/auth.api";
+import { extractAuthToken } from "../../../../api/api.utils";
 import ForgotPasswordEmailStep from "./ForgotPasswordEmailStep";
 import ForgotPasswordOtpStep from "./ForgotPasswordOtpStep";
 import ForgotPasswordResetStep from "./ForgotPasswordResetStep";
@@ -68,6 +70,7 @@ export default function ForgotPasswordForm() {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
+  const [resetToken, setResetToken] = useState("");
   const [apiError, setApiError] = useState("");
   const [activePopup, setActivePopup] = useState("");
   const [toast, setToast] = useState(null);
@@ -108,6 +111,7 @@ export default function ForgotPasswordForm() {
       await forgetPassword({ email: submittedEmail });
       setEmail(submittedEmail);
       setOtpCode("");
+      setResetToken("");
       setActivePopup("otp-sent");
     } catch (error) {
       const message = getApiErrorMessage(error);
@@ -133,6 +137,7 @@ export default function ForgotPasswordForm() {
 
     try {
       await forgetPassword({ email });
+      setResetToken("");
       setActivePopup("otp-sent");
     } catch (error) {
       const message = getApiErrorMessage(error);
@@ -144,13 +149,33 @@ export default function ForgotPasswordForm() {
     }
   };
 
-  const handleSaveOtp = (submittedOtpCode) => {
+  const handleSaveOtp = async (submittedOtpCode) => {
     setIsSavingOtp(true);
     setApiError("");
 
-    setOtpCode(submittedOtpCode);
-    setStep(3);
-    setIsSavingOtp(false);
+    try {
+      const response = await verifyForgetPasswordOtp({
+        email,
+        code: submittedOtpCode,
+      });
+      const token = extractAuthToken(response);
+
+      if (!token) {
+        throw new Error("OTP verification succeeded but no reset token was returned.");
+      }
+
+      setOtpCode(submittedOtpCode);
+      setResetToken(token);
+      setStep(3);
+      showToast("success", "OTP verified successfully.");
+    } catch (error) {
+      const message = getApiErrorMessage(error) || "Invalid OTP. Please try again.";
+
+      setApiError(message);
+      showToast("error", message);
+    } finally {
+      setIsSavingOtp(false);
+    }
   };
 
   const handleResetPassword = async (newPassword) => {
@@ -161,7 +186,7 @@ export default function ForgotPasswordForm() {
       await resetPassword({
         newPassword,
         email,
-        code: otpCode,
+        token: resetToken,
       });
 
       setActivePopup("password-reset");
@@ -246,6 +271,7 @@ export default function ForgotPasswordForm() {
                 navigate={navigate}
                 onBack={() => {
                   setApiError("");
+                  setResetToken("");
                   setStep(1);
                 }}
                 onClearError={() => setApiError("")}

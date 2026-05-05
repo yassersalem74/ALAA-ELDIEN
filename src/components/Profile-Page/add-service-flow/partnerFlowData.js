@@ -105,6 +105,7 @@ export const createEmptyServiceDetails = () => ({
   description: "",
   longDescription: "",
   price: "",
+  serviceTime: "",
   photos: [],
 });
 

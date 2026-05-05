@@ -29,8 +29,20 @@ export const loginUser = async (data) => {
   return res.data;
 };
 
+export const refreshAuthToken = async () => {
+  const res = await api.post(AUTH_ENDPOINTS.REFRESH_TOKEN);
+
+  return res.data;
+};
+
 export const forgetPassword = async (data) => {
   const res = await api.post(AUTH_ENDPOINTS.FORGET_PASSWORD, data);
+
+  return res.data;
+};
+
+export const verifyForgetPasswordOtp = async (data) => {
+  const res = await api.post(AUTH_ENDPOINTS.VERIFY_FORGET_PASSWORD_OTP, data);
 
   return res.data;
 };

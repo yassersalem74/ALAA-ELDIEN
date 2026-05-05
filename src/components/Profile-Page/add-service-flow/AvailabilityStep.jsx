@@ -22,6 +22,8 @@ export default function AvailabilityStep({
   onFieldChange,
   onBack,
   onSave,
+  onStepClick,
+  canNavigateToStep,
 }) {
   const totalHours = calculateTotalHours(
     availability.startHour,
@@ -33,7 +35,11 @@ export default function AvailabilityStep({
 
   return (
     <div className="flex flex-col gap-6">
-      <ProgressStepper currentStep={5} />
+      <ProgressStepper
+        currentStep={5}
+        onStepClick={onStepClick}
+        canNavigateToStep={canNavigateToStep}
+      />
 
       <section className={PANEL_CLASS_NAME}>
         <div className="flex flex-col gap-8">

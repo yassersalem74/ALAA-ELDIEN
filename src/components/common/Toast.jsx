@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 export default function Toast({ type = "success", message, onClose }) {
   const isSuccess = type === "success";
+  const isInfo = type === "info";
 
   useEffect(() => {
     if (!message) return undefined;
@@ -17,13 +18,13 @@ export default function Toast({ type = "success", message, onClose }) {
 
   return (
     <div
-      role={isSuccess ? "status" : "alert"}
-      aria-live={isSuccess ? "polite" : "assertive"}
+      role={isSuccess || isInfo ? "status" : "alert"}
+      aria-live={isSuccess || isInfo ? "polite" : "assertive"}
       className={`
         fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md
         rounded-2xl px-4 py-3 text-white
         shadow-[0px_12px_28px_rgba(23,26,30,0.25)]
-        ${isSuccess ? "bg-[#06B217]" : "bg-red-600"}
+        ${isSuccess ? "bg-[#06B217]" : isInfo ? "bg-[#1D4ED8]" : "bg-red-600"}
       `}
     >
       <div className="flex items-start gap-3">
@@ -38,6 +39,19 @@ export default function Toast({ type = "success", message, onClose }) {
               <path
                 fillRule="evenodd"
                 d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.03-2.78a.75.75 0 0 0-1.06-1.06l-4.72 4.72-1.72-1.72a.75.75 0 1 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.06 0l5.25-5.25Z"
+                clipRule="evenodd"
+              />
+            </svg>
+          ) : isInfo ? (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="h-5 w-5"
+            >
+              <path
+                fillRule="evenodd"
+                d="M2.25 12a9.75 9.75 0 1 1 19.5 0 9.75 9.75 0 0 1-19.5 0ZM12 7.5a.75.75 0 0 1 .75.75v.75a.75.75 0 0 1-1.5 0v-.75A.75.75 0 0 1 12 7.5Zm0 3a.75.75 0 0 1 .75.75v5.25a.75.75 0 0 1-1.5 0v-5.25A.75.75 0 0 1 12 10.5Z"
                 clipRule="evenodd"
               />
             </svg>

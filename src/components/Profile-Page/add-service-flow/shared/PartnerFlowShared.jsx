@@ -1,43 +1,48 @@
 /* eslint-disable react-refresh/only-export-components */
 
-import { FLOW_STEPS } from "./partnerFlowData";
-
 export const PANEL_CLASS_NAME =
   "rounded-[24px] border border-[#E6E8EF] bg-white p-5 shadow-[0px_12px_40px_rgba(17,27,71,0.06)] sm:p-6";
 
 export const INPUT_CLASS_NAME =
-  "h-12 w-full rounded-2xl border border-[#F3F4F7] bg-[#F3F4F7] px-4 font-['Roboto'] text-[15px] leading-6 text-[#011C60] outline-none transition placeholder:text-[#9AA6C7] focus:border-[#011C60] focus:bg-white";
+  "h-12 w-full rounded-2xl border border-[#F3F4F7] bg-[#F3F4F7] px-4 font-['Roboto'] text-[15px] leading-6 text-[#011C60] outline-none transition placeholder:text-[#9AA6C7] focus:border-[#011C60] focus:bg-white disabled:cursor-not-allowed disabled:opacity-70";
 
 export const TEXTAREA_CLASS_NAME =
-  "w-full rounded-2xl border border-[#F3F4F7] bg-[#F3F4F7] px-4 py-3 font-['Roboto'] text-[15px] leading-6 text-[#011C60] outline-none transition placeholder:text-[#9AA6C7] focus:border-[#011C60] focus:bg-white";
+  "w-full rounded-2xl border border-[#F3F4F7] bg-[#F3F4F7] px-4 py-3 font-['Roboto'] text-[15px] leading-6 text-[#011C60] outline-none transition placeholder:text-[#9AA6C7] focus:border-[#011C60] focus:bg-white disabled:cursor-not-allowed disabled:opacity-70";
 
 export const SELECT_CLASS_NAME =
-  "h-12 w-full appearance-none rounded-2xl border border-[#F3F4F7] bg-[#F3F4F7] px-4 pr-11 font-['Roboto'] text-[15px] leading-6 text-[#011C60] outline-none transition focus:border-[#011C60] focus:bg-white";
+  "h-12 w-full appearance-none rounded-2xl border border-[#F3F4F7] bg-[#F3F4F7] px-4 pr-11 font-['Roboto'] text-[15px] leading-6 text-[#011C60] outline-none transition focus:border-[#011C60] focus:bg-white disabled:cursor-not-allowed disabled:opacity-70";
 
 export const joinClasses = (...classes) => classes.filter(Boolean).join(" ");
 
-export function SectionHeading({ title, description }) {
+export function SectionHeading({ title, description, action }) {
   return (
-    <div>
-      <h2 className="font-['Roboto'] text-[28px] font-semibold leading-[40px] text-[#011C60] sm:text-[32px] sm:leading-[48px]">
-        {title}
-      </h2>
-      <p className="mt-2 max-w-2xl font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
-        {description}
-      </p>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 className="font-['Roboto'] text-[28px] font-semibold leading-[40px] text-[#011C60] sm:text-[32px] sm:leading-[48px]">
+          {title}
+        </h2>
+        {description && (
+          <p className="mt-2 max-w-2xl font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
+            {description}
+          </p>
+        )}
+      </div>
+
+      {action}
     </div>
   );
 }
 
 export function ProgressStepper({
+  steps,
   currentStep,
   onStepClick,
   canNavigateToStep = () => false,
 }) {
   return (
-    <div className="w-full" aria-label="Become a partner progress">
-      <div className="grid grid-cols-5 gap-2">
-        {FLOW_STEPS.map((step) => {
+    <div className="w-full" aria-label="Partner flow progress">
+      <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+        {steps.map((step) => {
           const isActive = currentStep === step.id;
           const isComplete = currentStep > step.id;
           const canNavigate = canNavigateToStep(step.id);
@@ -81,7 +86,7 @@ export function ProgressStepper({
         <div
           className="h-full rounded-full bg-[#011C60] transition-all duration-300"
           style={{
-            width: `${((currentStep - 1) / (FLOW_STEPS.length - 1)) * 100}%`,
+            width: `${((currentStep - 1) / Math.max(steps.length - 1, 1)) * 100}%`,
           }}
         />
       </div>
@@ -95,6 +100,7 @@ export function FlowActions({
   primaryLabel,
   onPrimary,
   primaryDisabled = false,
+  primaryLoading = false,
 }) {
   return (
     <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
@@ -109,15 +115,15 @@ export function FlowActions({
       <button
         type="button"
         onClick={onPrimary}
-        disabled={primaryDisabled}
+        disabled={primaryDisabled || primaryLoading}
         className={joinClasses(
           "min-h-12 min-w-[190px] rounded-2xl px-8 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition",
-          primaryDisabled
+          primaryDisabled || primaryLoading
             ? "cursor-not-allowed bg-[#B2BBD2]"
             : "cursor-pointer bg-[#011C60] hover:bg-[#02267F]"
         )}
       >
-        {primaryLabel}
+        {primaryLoading ? "Saving..." : primaryLabel}
       </button>
     </div>
   );
@@ -176,6 +182,53 @@ export function ModalShell({
   );
 }
 
+export function DashboardStatCard({
+  label,
+  count,
+  icon,
+  isActive,
+  onClick,
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={joinClasses(
+        "flex cursor-pointer items-center justify-between rounded-2xl border px-4 py-4 text-left transition",
+        isActive
+          ? "border-[#011C60] bg-white shadow-[0px_12px_26px_rgba(17,27,71,0.08)]"
+          : "border-[#E6E8EF] bg-[#F8F9FC] hover:border-[#011C60] hover:bg-white"
+      )}
+    >
+      <span className="flex items-center gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EFF3FF]">
+          {icon}
+        </span>
+        <span className="font-['Roboto'] text-[18px] font-medium leading-7 text-[#011C60]">
+          {label}
+        </span>
+      </span>
+
+      <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-[#EFF3FF] px-2 font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
+        {count}
+      </span>
+    </button>
+  );
+}
+
+export function BackButton({ onClick, label = "Back" }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-[#D7DDED] bg-white px-4 py-3 font-['Roboto'] text-[15px] font-medium text-[#011C60] transition hover:border-[#011C60] hover:bg-[#F8F9FC]"
+    >
+      <ArrowLeftIcon className="h-4 w-4" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
 export function CheckIcon({ className = "h-4 w-4", stroke = "white" }) {
   return (
     <svg
@@ -205,18 +258,8 @@ export function PlusIcon({ className = "h-5 w-5", stroke = "#011C60" }) {
       className={className}
       aria-hidden="true"
     >
-      <path
-        d="M10 4V16"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M4 10H16"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M10 4V16" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 10H16" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -230,15 +273,7 @@ export function BriefcaseIcon({ className = "h-5 w-5", stroke = "#011C60" }) {
       className={className}
       aria-hidden="true"
     >
-      <rect
-        x="3.5"
-        y="7.5"
-        width="17"
-        height="12"
-        rx="2.5"
-        stroke={stroke}
-        strokeWidth="1.8"
-      />
+      <rect x="3.5" y="7.5" width="17" height="12" rx="2.5" stroke={stroke} strokeWidth="1.8" />
       <path
         d="M9 7V6C9 4.9 9.9 4 11 4H13C14.1 4 15 4.9 15 6V7"
         stroke={stroke}
@@ -283,6 +318,66 @@ export function ClockIcon({ className = "h-5 w-5", stroke = "#011C60" }) {
       <circle cx="12" cy="12" r="8.5" stroke={stroke} strokeWidth="1.8" />
       <path
         d="M12 7.5V12L15 14"
+        stroke={stroke}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function EditIcon({ className = "h-4 w-4", stroke = "#011C60" }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M11.9 4.1L15.9 8.1M4.5 15.5L7.6 14.8C7.9 14.7 8.1 14.6 8.3 14.4L15 7.7C15.8 6.9 15.8 5.7 15 4.9L15.1 5C14.3 4.2 13.1 4.2 12.3 5L5.6 11.7C5.4 11.9 5.3 12.1 5.2 12.4L4.5 15.5Z"
+        stroke={stroke}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function TrashIcon({ className = "h-4 w-4", stroke = "#DC2626" }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M4.5 6H15.5M7.5 6V4.8C7.5 4.36 7.86 4 8.3 4H11.7C12.14 4 12.5 4.36 12.5 4.8V6M6.5 6L7 14.3C7.05 15.05 7.67 15.63 8.42 15.63H11.58C12.33 15.63 12.95 15.05 13 14.3L13.5 6"
+        stroke={stroke}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function ArrowLeftIcon({ className = "h-4 w-4", stroke = "currentColor" }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M11.5 4.5L6 10L11.5 15.5"
         stroke={stroke}
         strokeWidth="1.8"
         strokeLinecap="round"

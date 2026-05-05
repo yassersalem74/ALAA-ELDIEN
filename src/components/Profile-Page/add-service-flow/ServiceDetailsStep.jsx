@@ -22,6 +22,8 @@ export default function ServiceDetailsStep({
   onChange,
   onBack,
   onNext,
+  onStepClick,
+  canNavigateToStep,
   onPhotoChange,
   canContinue,
   uploadError,
@@ -30,7 +32,11 @@ export default function ServiceDetailsStep({
 
   return (
     <div className="flex flex-col gap-6">
-      <ProgressStepper currentStep={2} />
+      <ProgressStepper
+        currentStep={2}
+        onStepClick={onStepClick}
+        canNavigateToStep={canNavigateToStep}
+      />
 
       <section className={PANEL_CLASS_NAME}>
         <div className="flex flex-col gap-8">
@@ -199,9 +205,9 @@ export default function ServiceDetailsStep({
             </div>
           </div>
 
-          <div className="max-w-[400px]">
-            <FieldLabel>Price</FieldLabel>
+          <div className="grid gap-4 md:grid-cols-2">
             <label>
+              <FieldLabel>Price</FieldLabel>
               <input
                 type="number"
                 min="0"
@@ -209,6 +215,19 @@ export default function ServiceDetailsStep({
                 value={details.price}
                 onChange={(event) => onChange("price", event.target.value)}
                 placeholder="Price"
+                className={INPUT_CLASS_NAME}
+              />
+            </label>
+
+            <label>
+              <FieldLabel>Service Time</FieldLabel>
+              <input
+                type="text"
+                value={details.serviceTime}
+                onChange={(event) =>
+                  onChange("serviceTime", event.target.value)
+                }
+                placeholder="1 hour"
                 className={INPUT_CLASS_NAME}
               />
             </label>
