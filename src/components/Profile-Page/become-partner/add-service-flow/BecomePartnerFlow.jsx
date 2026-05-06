@@ -22,10 +22,19 @@ import {
 } from "./PartnerFlowShared";
 
 const STORAGE_KEY = "alaa-partner-services";
+const PACKAGE_STORAGE_KEY = "alaa-partner-packages";
 
 const readStoredServices = () => {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const readStoredPackages = () => {
+  try {
+    return JSON.parse(localStorage.getItem(PACKAGE_STORAGE_KEY) || "[]");
   } catch {
     return [];
   }
@@ -64,6 +73,7 @@ export default function BecomePartnerFlow() {
   const [availability, setAvailability] = useState(createEmptyAvailabilityData);
   const [uploadError, setUploadError] = useState("");
   const [savedServices, setSavedServices] = useState(readStoredServices);
+  const [savedPackages, setSavedPackages] = useState(readStoredPackages);
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -85,6 +95,11 @@ export default function BecomePartnerFlow() {
     resetDraft();
     setActiveTab("services");
     setView("services");
+  };
+
+  const openPackageList = () => {
+    setSavedPackages(readStoredPackages());
+    setView("package-list");
   };
 
   const openServiceFlow = () => {
@@ -252,7 +267,7 @@ export default function BecomePartnerFlow() {
 
           <button
             type="button"
-            onClick={() => setView("packages")}
+            onClick={openPackageList}
             className="group cursor-pointer rounded-[20px] border border-[#E6E8EF] bg-white p-5 text-left shadow-[0px_16px_36px_rgba(17,27,71,0.12)] transition hover:-translate-y-1 hover:border-[#011C60]"
           >
             <div className="flex h-[170px] items-center justify-center rounded-2xl bg-[#EFF3FF]">
@@ -269,6 +284,102 @@ export default function BecomePartnerFlow() {
               Start Creating Package
             </span>
           </button>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderEmptyPackageState = () => (
+    <section className={PANEL_CLASS_NAME}>
+      <div className="mx-auto flex max-w-[700px] flex-col items-center text-center">
+        <span className="flex h-28 w-28 items-center justify-center rounded-[28px] bg-[#EFF3FF]">
+          <PackageIcon className="h-14 w-14" />
+        </span>
+        <h3 className="mt-6 font-['Roboto'] text-center text-[30px] font-medium leading-[46px] text-[#011C60] sm:text-[36px] sm:leading-[56px]">
+          You don&apos;t have any package yet
+        </h3>
+        <p className="mt-3 max-w-[540px] font-['Roboto'] text-center text-[16px] leading-6 text-[#6777A0]">
+          Create a package from your saved service items and publish it when it
+          looks right.
+        </p>
+        <button
+          type="button"
+          onClick={() => setView("packages")}
+          className="mt-8 min-h-12 w-full cursor-pointer rounded-2xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition hover:bg-[#02267F]"
+        >
+          Add New Package
+        </button>
+      </div>
+    </section>
+  );
+
+  const renderSavedPackages = () => (
+    <section className={PANEL_CLASS_NAME}>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-['Roboto'] text-[28px] font-semibold leading-[40px] text-[#011C60]">
+              My Packages
+            </h3>
+            <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
+              Manage the packages customers can book from your profile.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setView("packages")}
+            className="min-h-12 min-w-[190px] cursor-pointer rounded-2xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition hover:bg-[#02267F]"
+          >
+            Add New Package
+          </button>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          {savedPackages.map((savedPackage) => (
+            <article
+              key={savedPackage.id}
+              className="rounded-[20px] border border-[#E6E8EF] bg-white p-5 shadow-[0px_12px_30px_rgba(17,27,71,0.05)]"
+            >
+              <div className="flex items-start gap-4">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#EFF3FF]">
+                  <PackageIcon className="h-6 w-6" />
+                </span>
+                <div className="min-w-0">
+                  <h4 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60]">
+                    {savedPackage.packageName}
+                  </h4>
+                  <p className="mt-1 font-['Roboto'] text-[14px] font-medium leading-5 text-[#6777A0]">
+                    {savedPackage.serviceName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <span className="rounded-full bg-[#EFF3FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium capitalize text-[#011C60]">
+                  {savedPackage.pricingType}
+                </span>
+                <span className="rounded-full bg-[#EFF3FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#011C60]">
+                  {savedPackage.times} times
+                </span>
+                <span className="rounded-full bg-[#EFF3FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#011C60]">
+                  EGP {savedPackage.price}
+                </span>
+              </div>
+
+              {savedPackage.includedFeatures?.length > 0 && (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {savedPackage.includedFeatures.map((feature) => (
+                    <span
+                      key={feature}
+                      className="rounded-full bg-[#F3F4F7] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#6777A0]"
+                    >
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </article>
+          ))}
         </div>
       </div>
     </section>
@@ -429,8 +540,22 @@ export default function BecomePartnerFlow() {
       {view === "entry" && renderEntryChoice()}
 
       {view === "packages" && (
-        <AddPackageFlow onBack={() => setView("entry")} onToast={setToast} />
+        <AddPackageFlow
+          onBack={openPackageList}
+          onToast={setToast}
+          onPackageSaved={(nextPackage) =>
+            setSavedPackages((currentPackages) => [
+              nextPackage,
+              ...currentPackages,
+            ])
+          }
+        />
       )}
+
+      {view === "package-list" &&
+        (savedPackages.length > 0
+          ? renderSavedPackages()
+          : renderEmptyPackageState())}
 
       {view === "wizard" && (
         <>
