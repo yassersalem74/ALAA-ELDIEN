@@ -1,10 +1,10 @@
-import emptyServiceImage from "../../../assets/images/service/add-service/empty-service.png";
-import addImageIllustration from "../../../assets/images/service/add-service/add-image.png";
-import marketplaceIllustration from "../../../assets/images/service/add-service/market-place.png";
-import servicesIllustration from "../../../assets/images/service/add-service/services.png";
-import storeIllustration from "../../../assets/images/service/add-service/store.png";
-import successAddServiceImage from "../../../assets/images/service/add-service/success-add-service.png";
-import { serviceCategories } from "../../../data/serviceFlowData";
+import emptyServiceImage from "../../../../assets/images/service/add-service/empty-service.png";
+import addImageIllustration from "../../../../assets/images/service/add-service/add-image.png";
+import marketplaceIllustration from "../../../../assets/images/service/add-service/market-place.png";
+import servicesIllustration from "../../../../assets/images/service/add-service/services.png";
+import storeIllustration from "../../../../assets/images/service/add-service/store.png";
+import successAddServiceImage from "../../../../assets/images/service/add-service/success-add-service.png";
+import { serviceCategories } from "../../../../data/serviceFlowData";
 
 export const PARTNER_ENTRY_OPTIONS = [
   {
@@ -39,11 +39,10 @@ export const PARTNER_TABS = PARTNER_ENTRY_OPTIONS.map(
 );
 
 export const FLOW_STEPS = [
-  { id: 1, label: "My services" },
+  { id: 1, label: "My service" },
   { id: 2, label: "Service details" },
   { id: 3, label: "Service items" },
-  { id: 4, label: "Packages" },
-  { id: 5, label: "Availability" },
+  { id: 4, label: "Availability" },
 ];
 
 export const SERVICE_CATEGORY_OPTIONS = serviceCategories
@@ -91,6 +90,12 @@ export const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => ({
   label: `${String(hour).padStart(2, "0")}:00`,
 }));
 
+export const AVAILABILITY_TYPE_OPTIONS = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
 export const FLOW_ASSETS = {
   emptyServiceImage,
   addImageIllustration,
@@ -105,6 +110,7 @@ export const createEmptyServiceDetails = () => ({
   description: "",
   longDescription: "",
   price: "",
+  serviceTimeHours: "",
   photos: [],
 });
 
@@ -118,6 +124,7 @@ export const createEmptyPackageData = () => ({
 
 export const createEmptyAvailabilityData = () => ({
   days: [],
+  type: "weekly",
   startHour: "9",
   endHour: "17",
   dailyWindow: false,
@@ -155,6 +162,10 @@ export const formatHourLabel = (hourValue) => {
 export const calculateTotalHours = (startHour, endHour) => {
   const start = Number(startHour);
   const end = Number(endHour);
+
+  if (start === 0 && end === 0) {
+    return 24;
+  }
 
   if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
     return 0;

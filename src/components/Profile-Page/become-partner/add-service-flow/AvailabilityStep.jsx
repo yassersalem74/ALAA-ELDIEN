@@ -1,4 +1,5 @@
 import {
+  AVAILABILITY_TYPE_OPTIONS,
   HOUR_OPTIONS,
   WEEKDAY_OPTIONS,
   calculateTotalHours,
@@ -27,13 +28,13 @@ export default function AvailabilityStep({
     availability.startHour,
     availability.endHour
   );
-  const isTimeValid = totalHours > 0;
+  const isTimeValid = availability.dailyWindow || totalHours > 0;
   const hasSelectedDays = availability.days.length > 0;
   const canSave = isTimeValid && hasSelectedDays;
 
   return (
     <div className="flex flex-col gap-6">
-      <ProgressStepper currentStep={5} />
+      <ProgressStepper currentStep={4} />
 
       <section className={PANEL_CLASS_NAME}>
         <div className="flex flex-col gap-8">
@@ -68,6 +69,26 @@ export default function AvailabilityStep({
               </div>
             </div>
 
+            <div className="mt-6">
+              <label className="relative block max-w-[320px]">
+                <FieldLabel>Type</FieldLabel>
+                <select
+                  value={availability.type}
+                  onChange={(event) =>
+                    onFieldChange("type", event.target.value)
+                  }
+                  className={SELECT_CLASS_NAME}
+                >
+                  {AVAILABILITY_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <SelectArrow />
+              </label>
+            </div>
+
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="relative">
                 <FieldLabel>From</FieldLabel>
@@ -77,6 +98,7 @@ export default function AvailabilityStep({
                     onFieldChange("startHour", event.target.value)
                   }
                   className={SELECT_CLASS_NAME}
+                  disabled={availability.dailyWindow}
                 >
                   {HOUR_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -95,6 +117,7 @@ export default function AvailabilityStep({
                     onFieldChange("endHour", event.target.value)
                   }
                   className={SELECT_CLASS_NAME}
+                  disabled={availability.dailyWindow}
                 >
                   {HOUR_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -109,9 +132,16 @@ export default function AvailabilityStep({
             <div className="mt-6 rounded-2xl bg-[#F3F4F7] p-4">
               <button
                 type="button"
-                onClick={() =>
-                  onFieldChange("dailyWindow", !availability.dailyWindow)
-                }
+                onClick={() => {
+                  const nextValue = !availability.dailyWindow;
+
+                  onFieldChange("dailyWindow", nextValue);
+
+                  if (nextValue) {
+                    onFieldChange("startHour", "0");
+                    onFieldChange("endHour", "0");
+                  }
+                }}
                 className="flex w-full cursor-pointer items-center justify-between gap-4"
               >
                 <div className="flex items-center gap-3 text-left">
@@ -150,11 +180,14 @@ export default function AvailabilityStep({
                 Working window
               </p>
               <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
-                {formatHourLabel(availability.startHour)} to{" "}
-                {formatHourLabel(availability.endHour)}
+                {availability.dailyWindow
+                  ? "12:00 AM to 12:00 AM"
+                  : `${formatHourLabel(
+                      availability.startHour
+                    )} to ${formatHourLabel(availability.endHour)}`}
               </p>
               <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#011C60]">
-                Total hours: {totalHours}
+                Total hours: {availability.dailyWindow ? 24 : totalHours}
               </p>
             </div>
 

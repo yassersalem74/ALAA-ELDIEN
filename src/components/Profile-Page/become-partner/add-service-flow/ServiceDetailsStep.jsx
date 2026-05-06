@@ -199,9 +199,9 @@ export default function ServiceDetailsStep({
             </div>
           </div>
 
-          <div className="max-w-[400px]">
-            <FieldLabel>Price</FieldLabel>
+          <div className="grid gap-4 md:grid-cols-2">
             <label>
+              <FieldLabel>Price</FieldLabel>
               <input
                 type="number"
                 min="0"
@@ -209,6 +209,21 @@ export default function ServiceDetailsStep({
                 value={details.price}
                 onChange={(event) => onChange("price", event.target.value)}
                 placeholder="Price"
+                className={INPUT_CLASS_NAME}
+              />
+            </label>
+
+            <label>
+              <FieldLabel>Service Time</FieldLabel>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={details.serviceTimeHours}
+                onChange={(event) =>
+                  onChange("serviceTimeHours", event.target.value)
+                }
+                placeholder="Number of hours"
                 className={INPUT_CLASS_NAME}
               />
             </label>

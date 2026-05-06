@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { FLOW_STEPS } from "./partnerFlowData";
 
 export const PANEL_CLASS_NAME =
@@ -30,7 +31,10 @@ export function SectionHeading({ title, description }) {
 export function ProgressStepper({ currentStep }) {
   return (
     <div className="w-full" aria-label="Become a partner progress">
-      <div className="grid grid-cols-5 gap-2">
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${FLOW_STEPS.length}, minmax(0, 1fr))` }}
+      >
         {FLOW_STEPS.map((step) => {
           const isActive = currentStep === step.id;
           const isComplete = currentStep > step.id;

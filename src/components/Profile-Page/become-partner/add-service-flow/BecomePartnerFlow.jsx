@@ -1,27 +1,39 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import Toast from "../../common/Toast";
+import Toast from "../../../common/Toast";
+import AddPackageFlow from "../add-package-flow/AddPackageFlow";
 import AvailabilityStep from "./AvailabilityStep";
 import MyServicesStep from "./MyServicesStep";
-import PackagesStep from "./PackagesStep";
 import ServiceDetailsStep from "./ServiceDetailsStep";
 import ServiceItemsStep from "./ServiceItemsStep";
 import {
   FLOW_ASSETS,
   PARTNER_TABS,
   createEmptyAvailabilityData,
-  createEmptyPackageData,
   createEmptyServiceDetails,
   getCategoryLabel,
   getGovernorateLabel,
-  isPackageComplete,
-  isPackageEmpty,
 } from "./partnerFlowData";
 import {
   BriefcaseIcon,
+  PackageIcon,
   PANEL_CLASS_NAME,
   joinClasses,
 } from "./PartnerFlowShared";
+
+const STORAGE_KEY = "alaa-partner-services";
+
+const readStoredServices = () => {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const writeStoredServices = (services) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(services));
+};
 
 const isServiceDetailsComplete = (details) =>
   [
@@ -32,29 +44,31 @@ const isServiceDetailsComplete = (details) =>
     details.description,
     details.longDescription,
     details.price,
+    details.serviceTimeHours,
   ].every((value) => String(value || "").trim());
 
 const createEmptyDraft = () => ({
   selectedPartnerType: "",
   serviceDetails: createEmptyServiceDetails(),
   serviceItems: [],
-  packageData: createEmptyPackageData(),
   availability: createEmptyAvailabilityData(),
 });
 
 export default function BecomePartnerFlow() {
+  const [view, setView] = useState("entry");
   const [activeTab, setActiveTab] = useState("services");
-  const [isCreating, setIsCreating] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedPartnerType, setSelectedPartnerType] = useState("");
   const [serviceDetails, setServiceDetails] = useState(createEmptyServiceDetails);
   const [serviceItems, setServiceItems] = useState([]);
-  const [packageData, setPackageData] = useState(createEmptyPackageData);
   const [availability, setAvailability] = useState(createEmptyAvailabilityData);
   const [uploadError, setUploadError] = useState("");
-  const [packageError, setPackageError] = useState("");
-  const [savedServices, setSavedServices] = useState([]);
+  const [savedServices, setSavedServices] = useState(readStoredServices);
   const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    writeStoredServices(savedServices);
+  }, [savedServices]);
 
   const resetDraft = () => {
     const emptyDraft = createEmptyDraft();
@@ -63,27 +77,31 @@ export default function BecomePartnerFlow() {
     setSelectedPartnerType(emptyDraft.selectedPartnerType);
     setServiceDetails(emptyDraft.serviceDetails);
     setServiceItems(emptyDraft.serviceItems);
-    setPackageData(emptyDraft.packageData);
     setAvailability(emptyDraft.availability);
     setUploadError("");
-    setPackageError("");
+  };
+
+  const openServiceList = () => {
+    resetDraft();
+    setActiveTab("services");
+    setView("services");
   };
 
   const openServiceFlow = () => {
     resetDraft();
     setActiveTab("services");
-    setIsCreating(true);
+    setView("wizard");
   };
 
   const cancelServiceFlow = () => {
     resetDraft();
-    setIsCreating(false);
+    setView("services");
     setActiveTab("services");
   };
 
   const handleTopTabChange = (tabId) => {
     setActiveTab(tabId);
-    setIsCreating(false);
+    setView("services");
   };
 
   const handleMyServicesNext = () => {
@@ -91,7 +109,7 @@ export default function BecomePartnerFlow() {
 
     if (selectedPartnerType !== "services") {
       setActiveTab(selectedPartnerType);
-      setIsCreating(false);
+      setView("services");
       return;
     }
 
@@ -138,39 +156,6 @@ export default function BecomePartnerFlow() {
     setServiceItems((currentItems) => [...currentItems, nextItem]);
   };
 
-  const handlePackageFieldChange = (fieldName, value) => {
-    setPackageError("");
-    setPackageData((currentPackage) => ({
-      ...currentPackage,
-      [fieldName]: value,
-    }));
-  };
-
-  const handleToggleFeature = (itemId) => {
-    setPackageData((currentPackage) => {
-      const hasFeature = currentPackage.includedItemIds.includes(itemId);
-
-      return {
-        ...currentPackage,
-        includedItemIds: hasFeature
-          ? currentPackage.includedItemIds.filter((id) => id !== itemId)
-          : [...currentPackage.includedItemIds, itemId],
-      };
-    });
-  };
-
-  const handlePackageNext = () => {
-    if (isPackageEmpty(packageData) || isPackageComplete(packageData)) {
-      setPackageError("");
-      setCurrentStep(5);
-      return;
-    }
-
-    setPackageError(
-      "Complete every package field or leave the package empty to skip it."
-    );
-  };
-
   const handleAvailabilityFieldChange = (fieldName, value) => {
     setAvailability((currentAvailability) => ({
       ...currentAvailability,
@@ -192,41 +177,102 @@ export default function BecomePartnerFlow() {
   };
 
   const handleSaveService = () => {
-    setSavedServices((currentServices) => [
-      {
-        id: `partner-service-${Date.now()}`,
-        serviceName: serviceDetails.serviceName.trim(),
-        categoryLabel: getCategoryLabel(serviceDetails.category),
-        location: `${serviceDetails.coverageArea}, ${getGovernorateLabel(
-          serviceDetails.governorate
-        )}`,
-        description: serviceDetails.description.trim(),
-        longDescription: serviceDetails.longDescription.trim(),
-        price: serviceDetails.price,
-        items: serviceItems,
-        packageData: isPackageEmpty(packageData) ? null : packageData,
-        availability,
-      },
-      ...currentServices,
-    ]);
+    const nextService = {
+      id: `partner-service-${Date.now()}`,
+      serviceName: serviceDetails.serviceName.trim(),
+      category: serviceDetails.category,
+      categoryLabel: getCategoryLabel(serviceDetails.category),
+      location: `${serviceDetails.coverageArea}, ${getGovernorateLabel(
+        serviceDetails.governorate
+      )}`,
+      governorate: serviceDetails.governorate,
+      coverageArea: serviceDetails.coverageArea,
+      description: serviceDetails.description.trim(),
+      longDescription: serviceDetails.longDescription.trim(),
+      price: serviceDetails.price,
+      serviceTimeHours: serviceDetails.serviceTimeHours,
+      photoNames: serviceDetails.photos.map((photo) => photo.name),
+      items: serviceItems,
+      availability,
+    };
 
+    setSavedServices((currentServices) => [nextService, ...currentServices]);
     setToast({
       id: Date.now(),
       type: "success",
       message: "Your service has been saved successfully.",
     });
 
-    setIsCreating(false);
-    setActiveTab("services");
     resetDraft();
+    setView("services");
+    setActiveTab("services");
   };
 
-  const serviceCount = savedServices.length;
   const tabCounts = {
-    services: serviceCount,
+    services: savedServices.length,
     store: 0,
     marketplace: 0,
   };
+
+  const renderEntryChoice = () => (
+    <section className="rounded-[24px] bg-white p-5 sm:p-8">
+      <div className="mx-auto max-w-[900px]">
+        <h1 className="font-['Roboto'] text-[30px] font-bold leading-[42px] text-[#011C60] sm:text-[36px] sm:leading-[52px]">
+          Start Your Journey as a Partner
+        </h1>
+        <p className="mt-3 max-w-2xl font-['Roboto'] text-[16px] leading-6 text-[#6777A0]">
+          Choose how you want to offer your services on our platform. We provide
+          the tools you need to excel in your profession.
+        </p>
+
+        <div className="mt-10 grid gap-8 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={openServiceList}
+            className="group cursor-pointer rounded-[20px] border border-[#E6E8EF] bg-white p-5 text-left shadow-[0px_16px_36px_rgba(17,27,71,0.12)] transition hover:-translate-y-1 hover:border-[#011C60]"
+          >
+            <div className="flex h-[170px] items-center justify-center rounded-2xl bg-[#EFF3FF]">
+              <img
+                src={PARTNER_TABS[0].image}
+                alt=""
+                className="h-24 w-24 object-contain"
+              />
+            </div>
+            <h2 className="mt-5 font-['Roboto'] text-[24px] font-semibold leading-9 text-[#011C60]">
+              Offer a Service
+            </h2>
+            <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
+              Provide services directly and interact with clients for tailored
+              care.
+            </p>
+            <span className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#011C60] px-5 font-['Roboto'] text-[16px] font-semibold text-white transition group-hover:bg-[#02267F]">
+              Start as Service Provider
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setView("packages")}
+            className="group cursor-pointer rounded-[20px] border border-[#E6E8EF] bg-white p-5 text-left shadow-[0px_16px_36px_rgba(17,27,71,0.12)] transition hover:-translate-y-1 hover:border-[#011C60]"
+          >
+            <div className="flex h-[170px] items-center justify-center rounded-2xl bg-[#EFF3FF]">
+              <PackageIcon className="h-24 w-24" />
+            </div>
+            <h2 className="mt-5 font-['Roboto'] text-[24px] font-semibold leading-9 text-[#011C60]">
+              Create a Package
+            </h2>
+            <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
+              Create predefined service packages with fixed pricing and included
+              features.
+            </p>
+            <span className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#011C60] px-5 font-['Roboto'] text-[16px] font-semibold text-white transition group-hover:bg-[#02267F]">
+              Start Creating Package
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+  );
 
   const renderPartnerTabs = () => (
     <div className="grid gap-3 sm:grid-cols-3">
@@ -253,7 +299,6 @@ export default function BecomePartnerFlow() {
                 {tab.label}
               </span>
             </span>
-
             <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-[#EFF3FF] px-2 font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
               {tabCounts[tab.id]}
             </span>
@@ -271,16 +316,13 @@ export default function BecomePartnerFlow() {
           alt="Empty services illustration"
           className="h-auto w-full max-w-[619px] object-contain"
         />
-
         <h3 className="mt-6 font-['Roboto'] text-center text-[30px] font-medium leading-[46px] text-[#011C60] sm:text-[36px] sm:leading-[56px]">
           You don&apos;t have any service yet
         </h3>
-
         <p className="mt-3 max-w-[540px] font-['Roboto'] text-center text-[16px] leading-6 text-[#6777A0]">
-          A single friendly character standing in an empty space, looking
-          around or slightly confused, holding nothing or an empty card.
+          Add your first service with dummy data now, then connect it to the API
+          later.
         </p>
-
         <button
           type="button"
           onClick={openServiceFlow}
@@ -304,7 +346,6 @@ export default function BecomePartnerFlow() {
               Manage the services your clients can book through the platform.
             </p>
           </div>
-
           <button
             type="button"
             onClick={openServiceFlow}
@@ -324,7 +365,6 @@ export default function BecomePartnerFlow() {
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#EFF3FF]">
                   <BriefcaseIcon className="h-6 w-6" />
                 </span>
-
                 <div className="min-w-0">
                   <h4 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60]">
                     {service.serviceName}
@@ -334,11 +374,9 @@ export default function BecomePartnerFlow() {
                   </p>
                 </div>
               </div>
-
               <p className="mt-5 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
                 {service.description}
               </p>
-
               <div className="mt-5 flex flex-wrap gap-2">
                 <span className="rounded-full bg-[#EFF3FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#011C60]">
                   {service.location}
@@ -350,15 +388,12 @@ export default function BecomePartnerFlow() {
                   EGP {service.price}
                 </span>
                 <span className="rounded-full bg-[#EFF3FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#011C60]">
+                  {service.serviceTimeHours} hours
+                </span>
+                <span className="rounded-full bg-[#EFF3FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#011C60]">
                   {service.availability.days.length} days available
                 </span>
               </div>
-
-              {service.packageData?.packageName && (
-                <p className="mt-5 font-['Roboto'] text-[14px] leading-5 text-[#6777A0]">
-                  Package: {service.packageData.packageName}
-                </p>
-              )}
             </article>
           ))}
         </div>
@@ -373,11 +408,10 @@ export default function BecomePartnerFlow() {
           <BriefcaseIcon className="h-7 w-7" />
         </span>
         <h3 className="mt-6 font-['Roboto'] text-[30px] font-medium leading-[42px] text-[#011C60]">
-          {tabLabel} flow is not ready yet
+          {tabLabel} setup is ready for API integration
         </h3>
         <p className="mt-3 max-w-xl font-['Roboto'] text-[16px] leading-6 text-[#6777A0]">
-          This page is intentionally left blank until the {tabLabel.toLowerCase()} onboarding
-          flow is implemented.
+          Dummy counters are wired now. The next step is connecting real data.
         </p>
       </div>
     </section>
@@ -392,13 +426,13 @@ export default function BecomePartnerFlow() {
         onClose={() => setToast(null)}
       />
 
-      <div>
-        <p className="font-['Roboto'] text-[28px] font-medium leading-[40px] text-[#9AA6C7] sm:text-[32px] sm:leading-[48px]">
-          Add service
-        </p>
-      </div>
+      {view === "entry" && renderEntryChoice()}
 
-      {isCreating ? (
+      {view === "packages" && (
+        <AddPackageFlow onBack={() => setView("entry")} onToast={setToast} />
+      )}
+
+      {view === "wizard" && (
         <>
           {currentStep === 1 && (
             <MyServicesStep
@@ -408,7 +442,6 @@ export default function BecomePartnerFlow() {
               onNext={handleMyServicesNext}
             />
           )}
-
           {currentStep === 2 && (
             <ServiceDetailsStep
               details={serviceDetails}
@@ -420,7 +453,6 @@ export default function BecomePartnerFlow() {
               uploadError={uploadError}
             />
           )}
-
           {currentStep === 3 && (
             <ServiceItemsStep
               items={serviceItems}
@@ -429,38 +461,25 @@ export default function BecomePartnerFlow() {
               onNext={() => setCurrentStep(4)}
             />
           )}
-
           {currentStep === 4 && (
-            <PackagesStep
-              packageData={packageData}
-              items={serviceItems}
-              onFieldChange={handlePackageFieldChange}
-              onToggleFeature={handleToggleFeature}
-              onBack={() => setCurrentStep(3)}
-              onNext={handlePackageNext}
-              error={packageError}
-            />
-          )}
-
-          {currentStep === 5 && (
             <AvailabilityStep
               availability={availability}
               onToggleDay={handleToggleDay}
               onFieldChange={handleAvailabilityFieldChange}
-              onBack={() => setCurrentStep(4)}
+              onBack={() => setCurrentStep(3)}
               onSave={handleSaveService}
             />
           )}
         </>
-      ) : (
+      )}
+
+      {view === "services" && (
         <>
           {renderPartnerTabs()}
-
           {activeTab === "services" &&
             (savedServices.length > 0
               ? renderSavedServices()
               : renderEmptyServiceState())}
-
           {activeTab === "store" && renderBlankState("Store")}
           {activeTab === "marketplace" && renderBlankState("Marketplace")}
         </>
