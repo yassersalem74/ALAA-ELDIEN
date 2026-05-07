@@ -319,9 +319,9 @@ export default function BecomePartnerFlow() {
           >
             <div className="flex h-[170px] items-center justify-center rounded-2xl bg-[#EFF3FF]">
               <img
-                src={PARTNER_TABS[0].image}
+                src={FLOW_ASSETS.addServiceFlowImage}
                 alt=""
-                className="h-24 w-24 object-contain"
+                className="h-full w-full object-contain"
               />
             </div>
             <h2 className="mt-5 font-['Roboto'] text-[24px] font-semibold leading-9 text-[#011C60]">
@@ -342,7 +342,11 @@ export default function BecomePartnerFlow() {
             className="group cursor-pointer rounded-[20px] border border-[#E6E8EF] bg-white p-5 text-left shadow-[0px_16px_36px_rgba(17,27,71,0.12)] transition hover:-translate-y-1 hover:border-[#011C60]"
           >
             <div className="flex h-[170px] items-center justify-center rounded-2xl bg-[#EFF3FF]">
-              <PackageIcon className="h-24 w-24" />
+              <img
+                src={FLOW_ASSETS.addPackageFlowImage}
+                alt=""
+                className="h-full w-full object-contain"
+              />
             </div>
             <h2 className="mt-5 font-['Roboto'] text-[24px] font-semibold leading-9 text-[#011C60]">
               Create a Package

@@ -1,5 +1,7 @@
-import emptyServiceImage from "../../../../assets/images/service/add-service/empty-service.png";
+import emptyServiceImage from "../../../../assets/images/service/add-service/image 174.png";
 import addImageIllustration from "../../../../assets/images/service/add-service/add-image.png";
+import addPackageFlowImage from "../../../../assets/images/service/add-service/add-package-flow.png";
+import addServiceFlowImage from "../../../../assets/images/service/add-service/add-service-flow.png";
 import marketplaceIllustration from "../../../../assets/images/service/add-service/market-place.png";
 import servicesIllustration from "../../../../assets/images/service/add-service/services.png";
 import storeIllustration from "../../../../assets/images/service/add-service/store.png";
@@ -99,6 +101,8 @@ export const AVAILABILITY_TYPE_OPTIONS = [
 export const FLOW_ASSETS = {
   emptyServiceImage,
   addImageIllustration,
+  addPackageFlowImage,
+  addServiceFlowImage,
   successAddServiceImage,
 };
 
