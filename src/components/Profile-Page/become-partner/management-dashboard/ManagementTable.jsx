@@ -112,7 +112,7 @@ export default function ManagementTable({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onDelete(item.id)}
+                    onClick={() => onDelete(item)}
                     aria-label={`Delete ${getName(item)}`}
                     className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-[#F3C8C8] text-[#C83232] transition hover:bg-[#FFF0F0]"
                   >

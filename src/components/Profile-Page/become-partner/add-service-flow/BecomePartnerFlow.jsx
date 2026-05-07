@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Toast from "../../../common/Toast";
 import AddPackageFlow from "../add-package-flow/AddPackageFlow";
 import AvailabilityStep from "./AvailabilityStep";
+import DeleteConfirmModal from "../management-dashboard/DeleteConfirmModal";
 import ManagementTable from "../management-dashboard/ManagementTable";
 import PackageEditModal from "../management-dashboard/PackageEditModal";
 import ServiceEditModal from "../management-dashboard/ServiceEditModal";
@@ -66,6 +67,7 @@ export default function BecomePartnerFlow() {
   );
   const [editingService, setEditingService] = useState(null);
   const [editingPackage, setEditingPackage] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -228,10 +230,23 @@ export default function BecomePartnerFlow() {
     });
   };
 
-  const handleDeleteService = (serviceId) => {
+  const handleRequestDeleteService = (service) => {
+    setPendingDelete({
+      id: service.id,
+      type: "service",
+      name: service.serviceName,
+    });
+  };
+
+  const confirmDeleteService = (serviceId) => {
     setSavedServices((currentServices) =>
       currentServices.filter((service) => service.id !== serviceId)
     );
+    setToast({
+      id: Date.now(),
+      type: "success",
+      message: "Service deleted successfully.",
+    });
   };
 
   const handleSavePackageEdit = (nextPackage) => {
@@ -248,10 +263,35 @@ export default function BecomePartnerFlow() {
     });
   };
 
-  const handleDeletePackage = (packageId) => {
+  const handleRequestDeletePackage = (packageItem) => {
+    setPendingDelete({
+      id: packageItem.id,
+      type: "package",
+      name: packageItem.packageName,
+    });
+  };
+
+  const confirmDeletePackage = (packageId) => {
     setSavedPackages((currentPackages) =>
       currentPackages.filter((packageItem) => packageItem.id !== packageId)
     );
+    setToast({
+      id: Date.now(),
+      type: "success",
+      message: "Package deleted successfully.",
+    });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!pendingDelete) return;
+
+    if (pendingDelete.type === "service") {
+      confirmDeleteService(pendingDelete.id);
+    } else {
+      confirmDeletePackage(pendingDelete.id);
+    }
+
+    setPendingDelete(null);
   };
 
   const tabCounts = {
@@ -392,7 +432,7 @@ export default function BecomePartnerFlow() {
       getPrice={(service) => service.price}
       onAdd={openServiceFlow}
       onEdit={setEditingService}
-      onDelete={handleDeleteService}
+      onDelete={handleRequestDeleteService}
     />
   );
 
@@ -409,12 +449,13 @@ export default function BecomePartnerFlow() {
         getPrice={(packageItem) => packageItem.price}
         onAdd={() => setView("package-form")}
         onEdit={setEditingPackage}
-        onDelete={handleDeletePackage}
+        onDelete={handleRequestDeletePackage}
       />
     ) : (
       <AddPackageFlow
         onBack={() => setView("entry")}
         onToast={setToast}
+        savedServices={savedServices}
         savedPackages={savedPackages}
         setSavedPackages={setSavedPackages}
         onSaved={() => setView("packages")}
@@ -454,6 +495,7 @@ export default function BecomePartnerFlow() {
         <AddPackageFlow
           onBack={() => setView("packages")}
           onToast={setToast}
+          savedServices={savedServices}
           savedPackages={savedPackages}
           setSavedPackages={setSavedPackages}
           onSaved={() => setView("packages")}
@@ -524,10 +566,19 @@ export default function BecomePartnerFlow() {
       {editingPackage && (
         <PackageEditModal
           packageItem={editingPackage}
+          savedServices={savedServices}
           onClose={() => setEditingPackage(null)}
           onSave={handleSavePackageEdit}
         />
       )}
+
+      <DeleteConfirmModal
+        isOpen={Boolean(pendingDelete)}
+        itemType={pendingDelete?.type}
+        itemName={pendingDelete?.name}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

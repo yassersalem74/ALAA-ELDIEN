@@ -4,12 +4,31 @@ import {
   FieldLabel,
   INPUT_CLASS_NAME,
   ModalShell,
-  TEXTAREA_CLASS_NAME,
+  SELECT_CLASS_NAME,
+  SelectArrow,
 } from "../add-service-flow/PartnerFlowShared";
 
-export default function PackageEditModal({ packageItem, onClose, onSave }) {
+const PRICING_TYPE_OPTIONS = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+const getServiceItems = (service) =>
+  (service?.items || [])
+    .map((item) => item.itemName)
+    .filter((itemName) => String(itemName || "").trim());
+
+export default function PackageEditModal({
+  packageItem,
+  savedServices = [],
+  onClose,
+  onSave,
+}) {
   const [draft, setDraft] = useState({
     ...packageItem,
+    pricingType: packageItem.pricingType || packageItem.packageType || "",
+    times: packageItem.times || packageItem.durationHours || "",
     includedItemsText: Array.isArray(packageItem.includedItems)
       ? packageItem.includedItems.join(", ")
       : packageItem.includedItems || "",
@@ -22,12 +41,25 @@ export default function PackageEditModal({ packageItem, onClose, onSave }) {
     }));
   };
 
+  const handleServiceChange = (serviceId) => {
+    const nextService = savedServices.find((service) => service.id === serviceId);
+
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      serviceId,
+      serviceName: nextService?.serviceName || "",
+      includedItemsText: getServiceItems(nextService).join(", "),
+    }));
+  };
+
   const handleSave = () => {
     const nextPackage = {
       ...draft,
       packageName: draft.packageName.trim(),
       serviceName: draft.serviceName.trim(),
-      description: draft.description.trim(),
+      pricingType: draft.pricingType,
+      times: draft.times,
+      price: String(draft.price || "").trim(),
       includedItems: draft.includedItemsText
         .split(",")
         .map((item) => item.trim())
@@ -51,23 +83,76 @@ export default function PackageEditModal({ packageItem, onClose, onSave }) {
             </p>
           </div>
 
+          <label className="relative">
+            <FieldLabel>Service Name</FieldLabel>
+            <select
+              value={draft.serviceId || ""}
+              onChange={(event) => handleServiceChange(event.target.value)}
+              className={SELECT_CLASS_NAME}
+            >
+              <option value="">Select service</option>
+              {savedServices.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.serviceName}
+                </option>
+              ))}
+            </select>
+            <SelectArrow />
+          </label>
+
+          {!savedServices.some((service) => service.id === draft.serviceId) &&
+            draft.serviceName && (
+              <label>
+                <FieldLabel>Saved Service Name</FieldLabel>
+                <input
+                  type="text"
+                  value={draft.serviceName}
+                  onChange={(event) =>
+                    handleFieldChange("serviceName", event.target.value)
+                  }
+                  className={INPUT_CLASS_NAME}
+                />
+              </label>
+            )}
+
+          <label>
+            <FieldLabel>Package Name</FieldLabel>
+            <input
+              type="text"
+              value={draft.packageName}
+              onChange={(event) =>
+                handleFieldChange("packageName", event.target.value)
+              }
+              className={INPUT_CLASS_NAME}
+            />
+          </label>
+
           <div className="grid gap-4 md:grid-cols-2">
-            <label>
-              <FieldLabel>Package Name</FieldLabel>
-              <input
-                type="text"
-                value={draft.packageName}
-                onChange={(event) => handleFieldChange("packageName", event.target.value)}
-                className={INPUT_CLASS_NAME}
-              />
+            <label className="relative">
+              <FieldLabel>Pricing Type</FieldLabel>
+              <select
+                value={draft.pricingType}
+                onChange={(event) =>
+                  handleFieldChange("pricingType", event.target.value)
+                }
+                className={SELECT_CLASS_NAME}
+              >
+                <option value="">Pricing Type</option>
+                {PRICING_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <SelectArrow />
             </label>
 
             <label>
-              <FieldLabel>Service Name</FieldLabel>
+              <FieldLabel>Times</FieldLabel>
               <input
                 type="text"
-                value={draft.serviceName}
-                onChange={(event) => handleFieldChange("serviceName", event.target.value)}
+                value={draft.times}
+                onChange={(event) => handleFieldChange("times", event.target.value)}
                 className={INPUT_CLASS_NAME}
               />
             </label>
@@ -83,37 +168,17 @@ export default function PackageEditModal({ packageItem, onClose, onSave }) {
                 className={INPUT_CLASS_NAME}
               />
             </label>
-
-            <label>
-              <FieldLabel>Duration</FieldLabel>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={draft.durationHours}
-                onChange={(event) => handleFieldChange("durationHours", event.target.value)}
-                className={INPUT_CLASS_NAME}
-              />
-            </label>
           </div>
 
           <label>
-            <FieldLabel>Included Items</FieldLabel>
+            <FieldLabel>Included Features</FieldLabel>
             <input
               type="text"
               value={draft.includedItemsText}
-              onChange={(event) => handleFieldChange("includedItemsText", event.target.value)}
+              onChange={(event) =>
+                handleFieldChange("includedItemsText", event.target.value)
+              }
               className={INPUT_CLASS_NAME}
-            />
-          </label>
-
-          <label>
-            <FieldLabel>Description</FieldLabel>
-            <textarea
-              rows="5"
-              value={draft.description}
-              onChange={(event) => handleFieldChange("description", event.target.value)}
-              className={TEXTAREA_CLASS_NAME}
             />
           </label>
 
