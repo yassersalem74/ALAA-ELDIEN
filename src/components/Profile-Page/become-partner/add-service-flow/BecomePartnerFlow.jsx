@@ -1,5 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import {
+  changeRole,
+  getGovernorates,
+  getNeighborhoods,
+} from "../../../../api/auth/auth.api";
+import {
+  addService,
+  createOrUpdateAgendas,
+  createOrUpdateItems,
+  deletePackage,
+  deleteService,
+  getMyPackages,
+  getMyServices,
+  getPackageDetails,
+  getServiceDetails,
+  updatePackage,
+  updateService,
+} from "../../../../api/services/service.api";
 import Toast from "../../../common/Toast";
 import AddPackageFlow from "../add-package-flow/AddPackageFlow";
 import AvailabilityStep from "./AvailabilityStep";
@@ -11,22 +29,13 @@ import MyServicesStep from "./MyServicesStep";
 import ServiceDetailsStep from "./ServiceDetailsStep";
 import ServiceItemsStep from "./ServiceItemsStep";
 import {
-  PACKAGE_STORAGE_KEY,
-  SERVICE_STORAGE_KEY,
-  readStoredList,
-  writeStoredList,
-} from "../management-dashboard/storage";
-import {
   FLOW_ASSETS,
   PARTNER_TABS,
   createEmptyAvailabilityData,
   createEmptyServiceDetails,
-  getCategoryLabel,
-  getGovernorateLabel,
 } from "./partnerFlowData";
 import {
   BriefcaseIcon,
-  PackageIcon,
   PANEL_CLASS_NAME,
   joinClasses,
 } from "./PartnerFlowShared";
@@ -41,7 +50,8 @@ const isServiceDetailsComplete = (details) =>
     details.longDescription,
     details.price,
     details.serviceTimeHours,
-  ].every((value) => String(value || "").trim());
+  ].every((value) => String(value || "").trim()) &&
+  (details.photos || []).some((photo) => photo instanceof File);
 
 const createEmptyDraft = () => ({
   selectedPartnerType: "",
@@ -49,6 +59,351 @@ const createEmptyDraft = () => ({
   serviceItems: [],
   availability: createEmptyAvailabilityData(),
 });
+
+const LANGUAGE = "en";
+const PROVIDER_ROLE = "Provider";
+const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+const SERVICE_API_CURRENCY = "EGY";
+
+const CATEGORY_API_VALUES = {
+  "car-care": "Car_Care",
+  "home-service": "Home_Care",
+  "personal-care": "Personal_Care",
+  Car_Care: "Car_Care",
+  Home_Care: "Home_Care",
+  Personal_Care: "Personal_Care",
+};
+
+const CATEGORY_UI_VALUES = {
+  Car_Care: "car-care",
+  Home_Care: "home-service",
+  Personal_Care: "personal-care",
+};
+
+const extractPayloadData = (response) => response?.data ?? response;
+
+const extractList = (response) => {
+  const data = extractPayloadData(response);
+
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.result)) return data.result;
+  if (Array.isArray(data?.results)) return data.results;
+
+  return [];
+};
+
+const toOption = (item) => ({
+  value: item.id,
+  label: item.name,
+});
+
+const getServiceIdFromResponse = (response) => {
+  const data = extractPayloadData(response);
+
+  if (typeof data === "string") return data;
+
+  return data?.id || data?.serviceId || response?.id || response?.serviceId;
+};
+
+const buildServiceFormData = (details, isUpdate = false) => {
+  const formData = new FormData();
+
+  formData.append("name", details.serviceName.trim());
+  formData.append("price", Number(details.price) || 0);
+  formData.append("currency", SERVICE_API_CURRENCY);
+  formData.append(
+    "categoryName",
+    CATEGORY_API_VALUES[details.category] || details.category
+  );
+  formData.append("timeslotDurationInMin", Number(details.serviceTimeHours) * 60 || 60);
+  formData.append("numberOfCustomerPerTimeSlots", 1);
+  formData.append("description", details.description.trim());
+  formData.append("subDescription", details.longDescription.trim());
+  formData.append("neighborhoodId", details.coverageArea);
+
+  if (isUpdate) {
+    formData.append("isAvailable", true);
+  }
+
+  (details.photos || []).forEach((photo) => {
+    if (photo instanceof File) {
+      formData.append("imageFiles", photo);
+    }
+  });
+
+  return formData;
+};
+
+const validateServiceDetailsForApi = (details) => {
+  const price = Number(details.price);
+  const durationInHours = Number(details.serviceTimeHours);
+
+  if (!CATEGORY_API_VALUES[details.category]) {
+    return "Please choose a valid service category.";
+  }
+
+  if (!Number.isFinite(price) || price < 0) {
+    return "Please enter a valid service price.";
+  }
+
+  if (!Number.isFinite(durationInHours) || durationInHours <= 0) {
+    return "Please enter a valid service duration.";
+  }
+
+  if (!(details.photos || []).some((photo) => photo instanceof File)) {
+    return "Please upload at least one service photo.";
+  }
+
+  return "";
+};
+
+const toAgendaTime = (hour) => `${String(hour).padStart(2, "0")}:00`;
+
+const buildAgendasPayload = (availability) => ({
+  agendas: (availability.days || []).map((day) => ({
+    day,
+    from: availability.dailyWindow ? "00:01" : toAgendaTime(availability.startHour),
+    to: availability.dailyWindow ? "23:59" : toAgendaTime(availability.endHour),
+  })),
+});
+
+const buildItemsPayload = (items) => ({
+  items: (items || []).map((item) => ({
+    name: item.itemName,
+    price: Number(item.price) || 0,
+    description: item.description,
+  })),
+});
+
+const normalizeService = (service) => {
+  const categoryName = service.categoryName || service.category || "";
+  const neighborhood = service.neighborhood || service.neighborhoodDto || {};
+  const governorate = service.governorate || neighborhood.governorate || {};
+  const items = service.items || service.serviceItems || [];
+  const agendas = service.agendas || service.availabilities || [];
+
+  return {
+    id: service.id,
+    serviceName: service.name || service.serviceName || "",
+    category: CATEGORY_UI_VALUES[categoryName] || categoryName,
+    categoryLabel: service.categoryLabel || categoryName || "Service",
+    location:
+      service.location ||
+      [neighborhood.name, governorate.name].filter(Boolean).join(", "),
+    governorate: service.governorateId || governorate.id || "",
+    coverageArea: service.neighborhoodId || neighborhood.id || "",
+    description: service.description || "",
+    longDescription: service.subDescription || service.longDescription || "",
+    price: String(service.price ?? ""),
+    serviceTimeHours: String(
+      service.serviceTimeHours ||
+        Math.max(1, Math.round((service.timeslotDurationInMin || 60) / 60))
+    ),
+    photoNames: (service.images || service.imageUrls || []).map((image) =>
+      typeof image === "string" ? image : image.name || image.url || ""
+    ),
+    photos: [],
+    items: items.map((item) => ({
+      id: item.id || item.name,
+      itemName: item.name || item.itemName || "",
+      price: String(item.price ?? ""),
+      description: item.description || "",
+    })),
+    availability: {
+      days: agendas.map((agenda) => agenda.day).filter(Boolean),
+      startHour: agendas[0]?.from ? String(Number(agendas[0].from.split(":")[0])) : "9",
+      endHour: agendas[0]?.to ? String(Number(agendas[0].to.split(":")[0])) : "17",
+      dailyWindow:
+        (agendas[0]?.from === "00:00" && agendas[0]?.to === "00:00") ||
+        (agendas[0]?.from === "00:01" && agendas[0]?.to === "23:59"),
+    },
+  };
+};
+
+const normalizePackage = (packageItem) => ({
+  id: packageItem.id,
+  packageName: packageItem.name || packageItem.packageName || "",
+  serviceId: packageItem.serviceIds?.[0] || packageItem.serviceId || "",
+  serviceName:
+    packageItem.serviceName ||
+    packageItem.services?.[0]?.name ||
+    packageItem.service?.name ||
+    "",
+  pricingType:
+    (packageItem.recurrence || packageItem.pricingType || "").charAt(0).toUpperCase() +
+    (packageItem.recurrence || packageItem.pricingType || "").slice(1).toLowerCase(),
+  times: String(packageItem.daysPerInterval ?? packageItem.times ?? ""),
+  price: String(packageItem.price ?? ""),
+  includedItems: packageItem.includedItems || [],
+});
+
+const buildPackagePayload = (packageItem) => ({
+  name: packageItem.packageName.trim(),
+  recurrence:
+    packageItem.pricingType?.charAt(0).toUpperCase() +
+    packageItem.pricingType?.slice(1).toLowerCase(),
+  daysPerInterval: Number(packageItem.times) || 1,
+  price: Number(packageItem.price) || 0,
+  serviceIds: [packageItem.serviceId].filter(Boolean),
+});
+
+const getCookie = (name) => {
+  if (typeof document === "undefined") return "";
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.split("=").slice(1).join("=")) : "";
+};
+
+const getAuthToken = () =>
+  typeof window !== "undefined"
+    ? localStorage.getItem("token") || getCookie("alaa_auth_token")
+    : "";
+
+const setCookie = (name, value) => {
+  if (typeof document === "undefined") return;
+
+  document.cookie = `${name}=${encodeURIComponent(
+    value
+  )}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+};
+
+const isJwtLike = (value) =>
+  typeof value === "string" && value.split(".").length === 3;
+
+const decodeJwtPayload = (token) => {
+  if (!isJwtLike(token) || typeof window === "undefined") return null;
+
+  try {
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const paddedBase64 = base64.padEnd(
+      base64.length + ((4 - (base64.length % 4)) % 4),
+      "="
+    );
+
+    return JSON.parse(window.atob(paddedBase64));
+  } catch {
+    return null;
+  }
+};
+
+const getTokenRoles = (token) => {
+  const payload = decodeJwtPayload(token);
+  const roleClaims = [
+    payload?.role,
+    payload?.roles,
+    payload?.Role,
+    payload?.Roles,
+    payload?.[
+      "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+    ],
+  ];
+
+  return roleClaims
+    .flatMap((claim) => (Array.isArray(claim) ? claim : [claim]))
+    .filter(Boolean)
+    .map((role) => String(role));
+};
+
+const hasProviderToken = () =>
+  getTokenRoles(getAuthToken()).some(
+    (role) => role.toLowerCase() === PROVIDER_ROLE.toLowerCase()
+  );
+
+const extractAuthToken = (response) =>
+  [
+    response?.token,
+    response?.accessToken,
+    response?.data?.token,
+    response?.data?.accessToken,
+    response?.user?.token,
+    response?.data?.user?.token,
+    typeof response?.data === "string" && isJwtLike(response.data)
+      ? response.data
+      : null,
+    isJwtLike(response) ? response : null,
+  ].find(Boolean) || "";
+
+const storeAuthToken = (token) => {
+  if (!token || typeof window === "undefined") return;
+
+  localStorage.setItem("token", token);
+  setCookie(AUTH_TOKEN_COOKIE_NAME, token);
+};
+
+const deleteCookie = (name) => {
+  if (typeof document === "undefined") return;
+
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+};
+
+const clearAuthSession = () => {
+  if (typeof window === "undefined") return;
+
+  ["token", "user", "accountType", "loggedInAs"].forEach((key) => {
+    localStorage.removeItem(key);
+  });
+
+  deleteCookie("alaa_auth_session");
+  deleteCookie("alaa_auth_token");
+  deleteCookie("alaa_account_type");
+};
+
+const isUnauthorizedError = (error) => error?.response?.status === 401;
+const isForbiddenError = (error) => error?.response?.status === 403;
+const isConflictError = (error) => error?.response?.status === 409;
+const isStaleProviderTokenError = (error) =>
+  error?.message === "PROVIDER_TOKEN_REFRESH_REQUIRED";
+const getApiErrorMessage = (error, fallbackMessage) => {
+  const data = error?.response?.data;
+  const validationMessage =
+    data?.errors && typeof data.errors === "object"
+      ? Object.values(data.errors).flat().filter(Boolean).join(" ")
+      : "";
+  const message =
+    data?.error?.message ||
+    data?.message ||
+    data?.title ||
+    validationMessage ||
+    (typeof data === "string" ? data : "");
+
+  return message || fallbackMessage;
+};
+const getProviderForbiddenMessage = (fallbackMessage) =>
+  hasProviderToken()
+    ? fallbackMessage
+    : "Provider mode is ready. Please sign in again so your session gets provider access.";
+const ensureProviderRole = async () => {
+  if (hasProviderToken()) {
+    return true;
+  }
+
+  let response;
+
+  try {
+    response = await changeRole(PROVIDER_ROLE);
+  } catch (error) {
+    if (isConflictError(error)) {
+      return true;
+    }
+
+    throw error;
+  }
+
+  const nextToken = extractAuthToken(response);
+  storeAuthToken(nextToken);
+
+  if (nextToken && !hasProviderToken()) {
+    throw new Error("PROVIDER_TOKEN_REFRESH_REQUIRED");
+  }
+
+  return true;
+};
 
 export default function BecomePartnerFlow() {
   const [view, setView] = useState("entry");
@@ -59,24 +414,193 @@ export default function BecomePartnerFlow() {
   const [serviceItems, setServiceItems] = useState([]);
   const [availability, setAvailability] = useState(createEmptyAvailabilityData);
   const [uploadError, setUploadError] = useState("");
-  const [savedServices, setSavedServices] = useState(() =>
-    readStoredList(SERVICE_STORAGE_KEY)
-  );
-  const [savedPackages, setSavedPackages] = useState(() =>
-    readStoredList(PACKAGE_STORAGE_KEY)
-  );
+  const [savedServices, setSavedServices] = useState([]);
+  const [savedPackages, setSavedPackages] = useState([]);
   const [editingService, setEditingService] = useState(null);
   const [editingPackage, setEditingPackage] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [governorateOptions, setGovernorateOptions] = useState([]);
+  const [neighborhoodOptions, setNeighborhoodOptions] = useState([]);
+  const [isLoadingGovernorates, setIsLoadingGovernorates] = useState(false);
+  const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
+  const [hasProviderAccess, setHasProviderAccess] = useState(false);
+  const [isActivatingProvider, setIsActivatingProvider] = useState(false);
   const [toast, setToast] = useState(null);
+  const hasFetchedInitialData = useRef(false);
+
+  const loadProviderData = async ({ showPartialError = true } = {}) => {
+    const [servicesResult, packagesResult] = await Promise.allSettled([
+      getMyServices({ language: LANGUAGE, page: 1, search: "" }),
+      getMyPackages({ page: 1 }),
+    ]);
+
+    const hasUnauthorizedResponse =
+      (servicesResult.status === "rejected" &&
+        isUnauthorizedError(servicesResult.reason)) ||
+      (packagesResult.status === "rejected" &&
+        isUnauthorizedError(packagesResult.reason));
+    const hasForbiddenResponse =
+      (servicesResult.status === "rejected" &&
+        isForbiddenError(servicesResult.reason)) ||
+      (packagesResult.status === "rejected" &&
+        isForbiddenError(packagesResult.reason));
+
+    if (hasUnauthorizedResponse) {
+      clearAuthSession();
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: "Your session expired. Please sign in again.",
+      });
+      return false;
+    }
+
+    if (hasForbiddenResponse) {
+      setHasProviderAccess(false);
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: getProviderForbiddenMessage(
+          "Your account does not have permission to manage provider services or packages."
+        ),
+      });
+      return false;
+    }
+
+    if (servicesResult.status === "fulfilled") {
+      setSavedServices(extractList(servicesResult.value).map(normalizeService));
+    }
+
+    if (packagesResult.status === "fulfilled") {
+      setSavedPackages(extractList(packagesResult.value).map(normalizePackage));
+    }
+
+    if (
+      showPartialError &&
+      (servicesResult.status === "rejected" ||
+        packagesResult.status === "rejected")
+    ) {
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: "Failed to load all provider data from the API.",
+      });
+    }
+
+    return true;
+  };
 
   useEffect(() => {
-    writeStoredList(SERVICE_STORAGE_KEY, savedServices);
-  }, [savedServices]);
+    if (hasFetchedInitialData.current) return;
+    hasFetchedInitialData.current = true;
+
+    const fetchInitialData = async () => {
+      setIsLoadingGovernorates(true);
+
+      try {
+        const governoratesResponse = await getGovernorates(LANGUAGE);
+        setGovernorateOptions(extractList(governoratesResponse).map(toOption));
+      } catch (error) {
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Failed to load governorates. Please try again.",
+        });
+      } finally {
+        setIsLoadingGovernorates(false);
+      }
+
+      if (!getAuthToken()) {
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Please sign in again to manage your services and packages.",
+        });
+        return;
+      }
+
+      if (!hasProviderToken()) {
+        setHasProviderAccess(false);
+        return;
+      }
+
+      try {
+        await ensureProviderRole();
+        setHasProviderAccess(true);
+      } catch (error) {
+        if (isUnauthorizedError(error)) {
+          clearAuthSession();
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message: "Your session expired. Please sign in again.",
+          });
+          return;
+        }
+
+        if (isForbiddenError(error)) {
+          setHasProviderAccess(false);
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message: getProviderForbiddenMessage(
+              "The API refused provider access for this account. Please try signing in again."
+            ),
+          });
+          return;
+        }
+
+        if (isStaleProviderTokenError(error)) {
+          setHasProviderAccess(false);
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message:
+              "Provider mode is ready. Please sign in again so your session gets provider access.",
+          });
+          return;
+        }
+
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Failed to activate provider mode. Please try again.",
+        });
+        return;
+      }
+
+      await loadProviderData();
+    };
+
+    fetchInitialData();
+  }, []);
 
   useEffect(() => {
-    writeStoredList(PACKAGE_STORAGE_KEY, savedPackages);
-  }, [savedPackages]);
+    if (!serviceDetails.governorate) {
+      setNeighborhoodOptions([]);
+      return;
+    }
+
+    const fetchNeighborhoodOptions = async () => {
+      setIsLoadingNeighborhoods(true);
+
+      try {
+        const response = await getNeighborhoods(serviceDetails.governorate, LANGUAGE);
+        setNeighborhoodOptions(extractList(response).map(toOption));
+      } catch (error) {
+        setNeighborhoodOptions([]);
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Failed to load neighborhoods for this governorate.",
+        });
+      } finally {
+        setIsLoadingNeighborhoods(false);
+      }
+    };
+
+    fetchNeighborhoodOptions();
+  }, [serviceDetails.governorate]);
 
   const resetDraft = () => {
     const emptyDraft = createEmptyDraft();
@@ -95,7 +619,80 @@ export default function BecomePartnerFlow() {
     setView("services");
   };
 
-  const openServiceFlow = () => {
+  const activateProviderForFlow = async () => {
+    if (!getAuthToken()) {
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: "Please sign in again to become a service provider.",
+      });
+      return false;
+    }
+
+    setIsActivatingProvider(true);
+
+    try {
+      if (!hasProviderAccess) {
+        await ensureProviderRole();
+      }
+      setHasProviderAccess(true);
+      return true;
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession();
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Your session expired. Please sign in again.",
+        });
+        return false;
+      }
+
+      if (isStaleProviderTokenError(error)) {
+        setHasProviderAccess(false);
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message:
+            "Provider mode is ready. Please sign in again so your session gets provider access.",
+        });
+        return false;
+      }
+
+      setHasProviderAccess(false);
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message:
+          isForbiddenError(error)
+            ? getProviderForbiddenMessage(
+                "The API refused provider access for this account. Please try signing in again."
+              )
+            : "Failed to activate provider mode. Please try again.",
+      });
+      return false;
+    } finally {
+      setIsActivatingProvider(false);
+    }
+  };
+
+  const openServiceListFromEntry = async () => {
+    if (!(await activateProviderForFlow())) return;
+    if (!(await loadProviderData({ showPartialError: false }))) return;
+
+    openServiceList();
+  };
+
+  const openPackageFlowFromEntry = async () => {
+    if (!(await activateProviderForFlow())) return;
+    if (!(await loadProviderData({ showPartialError: false }))) return;
+
+    setView("packages");
+  };
+
+  const openServiceFlow = async () => {
+    if (!(await activateProviderForFlow())) return;
+
     resetDraft();
     setActiveTab("services");
     setView("wizard");
@@ -184,50 +781,290 @@ export default function BecomePartnerFlow() {
     });
   };
 
-  const handleSaveService = () => {
-    const nextService = {
-      id: `partner-service-${Date.now()}`,
-      serviceName: serviceDetails.serviceName.trim(),
-      category: serviceDetails.category,
-      categoryLabel: getCategoryLabel(serviceDetails.category),
-      location: `${serviceDetails.coverageArea}, ${getGovernorateLabel(
-        serviceDetails.governorate
-      )}`,
-      governorate: serviceDetails.governorate,
-      coverageArea: serviceDetails.coverageArea,
-      description: serviceDetails.description.trim(),
-      longDescription: serviceDetails.longDescription.trim(),
-      price: serviceDetails.price,
-      serviceTimeHours: serviceDetails.serviceTimeHours,
-      photoNames: serviceDetails.photos.map((photo) => photo.name),
-      items: serviceItems,
-      availability,
-    };
+  const handleSaveService = async () => {
+    const validationMessage = validateServiceDetailsForApi(serviceDetails);
 
-    setSavedServices((currentServices) => [nextService, ...currentServices]);
-    setToast({
-      id: Date.now(),
-      type: "success",
-      message: "Your service has been saved successfully.",
-    });
+    if (validationMessage) {
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: validationMessage,
+      });
+      return;
+    }
 
-    resetDraft();
-    setView("services");
-    setActiveTab("services");
+    if (!getAuthToken()) {
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: "Please sign in again before saving a service.",
+      });
+      return;
+    }
+
+    if (!hasProviderAccess) {
+      try {
+        await ensureProviderRole();
+        setHasProviderAccess(true);
+      } catch (error) {
+        if (isStaleProviderTokenError(error)) {
+          setHasProviderAccess(false);
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message:
+              "Provider mode is ready. Please sign in again so your session gets provider access.",
+          });
+          return;
+        }
+
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message:
+            isForbiddenError(error)
+              ? getProviderForbiddenMessage(
+                  "The API refused provider access for this account. Please try signing in again."
+                )
+              : "Failed to activate provider mode. Please try again.",
+        });
+        return;
+      }
+    }
+
+    let createdServiceId = "";
+
+    try {
+      const response = await addService(buildServiceFormData(serviceDetails));
+      const serviceId = getServiceIdFromResponse(response);
+
+      if (!serviceId) {
+        throw new Error("SERVICE_ID_MISSING");
+      }
+
+      createdServiceId = serviceId;
+
+      if (serviceId && serviceItems.length > 0) {
+        await createOrUpdateItems(serviceId, buildItemsPayload(serviceItems));
+      }
+
+      if (serviceId && availability.days.length > 0) {
+        await createOrUpdateAgendas(serviceId, buildAgendasPayload(availability));
+      }
+
+      if (!(await loadProviderData({ showPartialError: false }))) {
+        return;
+      }
+      setToast({
+        id: Date.now(),
+        type: "success",
+        message: "Your service has been saved successfully.",
+      });
+
+      resetDraft();
+      setView("services");
+      setActiveTab("services");
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession();
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Your session expired. Please sign in again.",
+        });
+        return;
+      }
+
+      if (isForbiddenError(error)) {
+        setHasProviderAccess(false);
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: getProviderForbiddenMessage(
+            "Your account does not have permission to create provider services."
+          ),
+        });
+        return;
+      }
+
+      if (createdServiceId) {
+        await loadProviderData({ showPartialError: false });
+        const apiMessage = getApiErrorMessage(
+          error,
+          "items or availability could not be saved. Open the service to finish setup."
+        );
+
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: `Service was created, but ${apiMessage}`,
+        });
+        resetDraft();
+        setView("services");
+        setActiveTab("services");
+        return;
+      }
+
+      if (error.message === "SERVICE_ID_MISSING") {
+        await loadProviderData({ showPartialError: false });
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message:
+            "Service was saved, but the API did not return its id to save items and availability.",
+        });
+        return;
+      }
+
+      if (error?.response?.status === 400) {
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: getApiErrorMessage(
+            error,
+            "The service data was rejected. Please review the required fields and try again."
+          ),
+        });
+        return;
+      }
+
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: getApiErrorMessage(error, "Failed to save service. Please try again."),
+      });
+    }
   };
 
-  const handleSaveServiceEdit = (nextService) => {
-    setSavedServices((currentServices) =>
-      currentServices.map((service) =>
-        service.id === nextService.id ? nextService : service
-      )
-    );
-    setEditingService(null);
-    setToast({
-      id: Date.now(),
-      type: "success",
-      message: "Service saved successfully.",
-    });
+  const handleEditService = async (service) => {
+    if (!getAuthToken()) {
+      setEditingService(service);
+      return;
+    }
+
+    try {
+      const response = await getServiceDetails(service.id, LANGUAGE);
+      setEditingService(normalizeService(extractPayloadData(response)));
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession();
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Your session expired. Please sign in again.",
+        });
+        return;
+      }
+
+      if (isForbiddenError(error)) {
+        setHasProviderAccess(false);
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: getProviderForbiddenMessage(
+            "Your account does not have permission to view provider services."
+          ),
+        });
+        return;
+      }
+
+      setEditingService(service);
+    }
+  };
+
+  const handleSaveServiceEdit = async (nextService) => {
+    if (!getAuthToken()) {
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: "Please sign in again before updating a service.",
+      });
+      return;
+    }
+
+    if (!hasProviderAccess) {
+      try {
+        await ensureProviderRole();
+        setHasProviderAccess(true);
+      } catch (error) {
+        if (isStaleProviderTokenError(error)) {
+          setHasProviderAccess(false);
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message:
+              "Provider mode is ready. Please sign in again so your session gets provider access.",
+          });
+          return;
+        }
+
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message:
+            isForbiddenError(error)
+              ? getProviderForbiddenMessage(
+                  "The API refused provider access for this account. Please try signing in again."
+                )
+              : "Failed to activate provider mode. Please try again.",
+        });
+        return;
+      }
+    }
+
+    try {
+      await updateService(nextService.id, buildServiceFormData(nextService, true));
+
+      if (nextService.items?.length > 0) {
+        await createOrUpdateItems(nextService.id, buildItemsPayload(nextService.items));
+      }
+
+      if (nextService.availability?.days?.length > 0) {
+        await createOrUpdateAgendas(
+          nextService.id,
+          buildAgendasPayload(nextService.availability)
+        );
+      }
+
+      await loadProviderData({ showPartialError: false });
+      setEditingService(null);
+      setToast({
+        id: Date.now(),
+        type: "success",
+        message: "Service saved successfully.",
+      });
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession();
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Your session expired. Please sign in again.",
+        });
+        return;
+      }
+
+      if (isForbiddenError(error)) {
+        setHasProviderAccess(false);
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: getProviderForbiddenMessage(
+            "Your account does not have permission to update provider services."
+          ),
+        });
+        return;
+      }
+
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: getApiErrorMessage(
+          error,
+          "Failed to update service. Please try again."
+        ),
+      });
+    }
   };
 
   const handleRequestDeleteService = (service) => {
@@ -238,10 +1075,17 @@ export default function BecomePartnerFlow() {
     });
   };
 
-  const confirmDeleteService = (serviceId) => {
-    setSavedServices((currentServices) =>
-      currentServices.filter((service) => service.id !== serviceId)
-    );
+  const confirmDeleteService = async (serviceId) => {
+    if (!getAuthToken()) {
+      throw new Error("Missing authentication token");
+    }
+
+    if (!hasProviderAccess) {
+      throw new Error("Missing provider permission");
+    }
+
+    await deleteService(serviceId);
+    await loadProviderData({ showPartialError: false });
     setToast({
       id: Date.now(),
       type: "success",
@@ -249,18 +1093,104 @@ export default function BecomePartnerFlow() {
     });
   };
 
-  const handleSavePackageEdit = (nextPackage) => {
-    setSavedPackages((currentPackages) =>
-      currentPackages.map((packageItem) =>
-        packageItem.id === nextPackage.id ? nextPackage : packageItem
-      )
-    );
-    setEditingPackage(null);
-    setToast({
-      id: Date.now(),
-      type: "success",
-      message: "Package saved successfully.",
-    });
+  const handleEditPackage = async (packageItem) => {
+    if (!getAuthToken()) {
+      setEditingPackage(packageItem);
+      return;
+    }
+
+    try {
+      const response = await getPackageDetails(packageItem.id, LANGUAGE);
+      setEditingPackage(normalizePackage(extractPayloadData(response)));
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession();
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Your session expired. Please sign in again.",
+        });
+        return;
+      }
+
+      if (isForbiddenError(error)) {
+        setHasProviderAccess(false);
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: getProviderForbiddenMessage(
+            "Your account does not have permission to view provider packages."
+          ),
+        });
+        return;
+      }
+
+      setEditingPackage(packageItem);
+    }
+  };
+
+  const handleSavePackageEdit = async (nextPackage) => {
+    if (!getAuthToken()) {
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: "Please sign in again before updating a package.",
+      });
+      return;
+    }
+
+    if (!hasProviderAccess) {
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: getProviderForbiddenMessage(
+          "Your account does not have permission to update provider packages."
+        ),
+      });
+      return;
+    }
+
+    try {
+      await updatePackage(nextPackage.id, buildPackagePayload(nextPackage));
+      await loadProviderData({ showPartialError: false });
+      setEditingPackage(null);
+      setToast({
+        id: Date.now(),
+        type: "success",
+        message: "Package saved successfully.",
+      });
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession();
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Your session expired. Please sign in again.",
+        });
+        return;
+      }
+
+      if (isForbiddenError(error)) {
+        setHasProviderAccess(false);
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: getProviderForbiddenMessage(
+            "Your account does not have permission to update provider packages."
+          ),
+        });
+        return;
+      }
+
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: getApiErrorMessage(
+          error,
+          "Failed to update package. Please try again."
+        ),
+      });
+    }
   };
 
   const handleRequestDeletePackage = (packageItem) => {
@@ -271,10 +1201,17 @@ export default function BecomePartnerFlow() {
     });
   };
 
-  const confirmDeletePackage = (packageId) => {
-    setSavedPackages((currentPackages) =>
-      currentPackages.filter((packageItem) => packageItem.id !== packageId)
-    );
+  const confirmDeletePackage = async (packageId) => {
+    if (!getAuthToken()) {
+      throw new Error("Missing authentication token");
+    }
+
+    if (!hasProviderAccess) {
+      throw new Error("Missing provider permission");
+    }
+
+    await deletePackage(packageId);
+    await loadProviderData({ showPartialError: false });
     setToast({
       id: Date.now(),
       type: "success",
@@ -282,16 +1219,61 @@ export default function BecomePartnerFlow() {
     });
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!pendingDelete) return;
 
-    if (pendingDelete.type === "service") {
-      confirmDeleteService(pendingDelete.id);
-    } else {
-      confirmDeletePackage(pendingDelete.id);
+    try {
+      if (pendingDelete.type === "service") {
+        await confirmDeleteService(pendingDelete.id);
+      } else {
+        await confirmDeletePackage(pendingDelete.id);
+      }
+
+      setPendingDelete(null);
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession();
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Your session expired. Please sign in again.",
+        });
+        setPendingDelete(null);
+        return;
+      }
+
+      if (isForbiddenError(error) || error.message === "Missing provider permission") {
+        setHasProviderAccess(false);
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: getProviderForbiddenMessage(
+            "Your account does not have permission to delete provider data."
+          ),
+        });
+        setPendingDelete(null);
+        return;
+      }
+
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: getApiErrorMessage(
+          error,
+          `Failed to delete ${pendingDelete.type}. Please try again.`
+        ),
+      });
+    }
+  };
+
+  const handlePackageSaved = async () => {
+    const didLoad = await loadProviderData({ showPartialError: false });
+
+    if (didLoad) {
+      setView("packages");
     }
 
-    setPendingDelete(null);
+    return didLoad;
   };
 
   const tabCounts = {
@@ -314,8 +1296,9 @@ export default function BecomePartnerFlow() {
         <div className="mt-10 grid gap-8 md:grid-cols-2">
           <button
             type="button"
-            onClick={openServiceList}
-            className="group cursor-pointer rounded-[20px] border border-[#E6E8EF] bg-white p-5 text-left shadow-[0px_16px_36px_rgba(17,27,71,0.12)] transition hover:-translate-y-1 hover:border-[#011C60]"
+            onClick={openServiceListFromEntry}
+            disabled={isActivatingProvider}
+            className="group cursor-pointer rounded-[20px] border border-[#E6E8EF] bg-white p-5 text-left shadow-[0px_16px_36px_rgba(17,27,71,0.12)] transition hover:-translate-y-1 hover:border-[#011C60] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
           >
             <div className="flex h-[170px] items-center justify-center rounded-2xl bg-[#EFF3FF]">
               <img
@@ -332,14 +1315,15 @@ export default function BecomePartnerFlow() {
               care.
             </p>
             <span className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#011C60] px-5 font-['Roboto'] text-[16px] font-semibold text-white transition group-hover:bg-[#02267F]">
-              Start as Service Provider
+              {isActivatingProvider ? "Activating..." : "Start as Service Provider"}
             </span>
           </button>
 
           <button
             type="button"
-            onClick={() => setView("packages")}
-            className="group cursor-pointer rounded-[20px] border border-[#E6E8EF] bg-white p-5 text-left shadow-[0px_16px_36px_rgba(17,27,71,0.12)] transition hover:-translate-y-1 hover:border-[#011C60]"
+            onClick={openPackageFlowFromEntry}
+            disabled={isActivatingProvider}
+            className="group cursor-pointer rounded-[20px] border border-[#E6E8EF] bg-white p-5 text-left shadow-[0px_16px_36px_rgba(17,27,71,0.12)] transition hover:-translate-y-1 hover:border-[#011C60] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
           >
             <div className="flex h-[170px] items-center justify-center rounded-2xl bg-[#EFF3FF]">
               <img
@@ -356,7 +1340,7 @@ export default function BecomePartnerFlow() {
               features.
             </p>
             <span className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#011C60] px-5 font-['Roboto'] text-[16px] font-semibold text-white transition group-hover:bg-[#02267F]">
-              Start Creating Package
+              {isActivatingProvider ? "Activating..." : "Start Creating Package"}
             </span>
           </button>
         </div>
@@ -410,8 +1394,7 @@ export default function BecomePartnerFlow() {
           You don&apos;t have any service yet
         </h3>
         <p className="mt-3 max-w-[540px] font-['Roboto'] text-center text-[16px] leading-6 text-[#6777A0]">
-          Add your first service with dummy data now, then connect it to the API
-          later.
+          Add your first service and publish it through the provider API.
         </p>
         <button
           type="button"
@@ -435,7 +1418,7 @@ export default function BecomePartnerFlow() {
       getName={(service) => service.serviceName}
       getPrice={(service) => service.price}
       onAdd={openServiceFlow}
-      onEdit={setEditingService}
+      onEdit={handleEditService}
       onDelete={handleRequestDeleteService}
     />
   );
@@ -444,7 +1427,7 @@ export default function BecomePartnerFlow() {
     savedPackages.length > 0 ? (
       <ManagementTable
         title="Manage Packages"
-        description="Manage all packages saved in local storage until API integration is ready."
+        description="Manage the packages your clients can book through the platform."
         itemType="package"
         items={savedPackages}
         nameHeader="Package Name"
@@ -452,7 +1435,7 @@ export default function BecomePartnerFlow() {
         getName={(packageItem) => packageItem.packageName}
         getPrice={(packageItem) => packageItem.price}
         onAdd={() => setView("package-form")}
-        onEdit={setEditingPackage}
+        onEdit={handleEditPackage}
         onDelete={handleRequestDeletePackage}
       />
     ) : (
@@ -460,9 +1443,8 @@ export default function BecomePartnerFlow() {
         onBack={() => setView("entry")}
         onToast={setToast}
         savedServices={savedServices}
-        savedPackages={savedPackages}
-        setSavedPackages={setSavedPackages}
-        onSaved={() => setView("packages")}
+        onSaved={handlePackageSaved}
+        hasProviderAccess={hasProviderAccess}
       />
     );
 
@@ -476,7 +1458,7 @@ export default function BecomePartnerFlow() {
           {tabLabel} setup is ready for API integration
         </h3>
         <p className="mt-3 max-w-xl font-['Roboto'] text-[16px] leading-6 text-[#6777A0]">
-          Dummy counters are wired now. The next step is connecting real data.
+          This area is ready for the next provider API integration.
         </p>
       </div>
     </section>
@@ -500,9 +1482,8 @@ export default function BecomePartnerFlow() {
           onBack={() => setView("packages")}
           onToast={setToast}
           savedServices={savedServices}
-          savedPackages={savedPackages}
-          setSavedPackages={setSavedPackages}
-          onSaved={() => setView("packages")}
+          onSaved={handlePackageSaved}
+          hasProviderAccess={hasProviderAccess}
         />
       )}
 
@@ -525,6 +1506,10 @@ export default function BecomePartnerFlow() {
               onPhotoChange={handlePhotoChange}
               canContinue={isServiceDetailsComplete(serviceDetails)}
               uploadError={uploadError}
+              governorateOptions={governorateOptions}
+              neighborhoodOptions={neighborhoodOptions}
+              isLoadingGovernorates={isLoadingGovernorates}
+              isLoadingNeighborhoods={isLoadingNeighborhoods}
             />
           )}
           {currentStep === 3 && (
@@ -562,6 +1547,7 @@ export default function BecomePartnerFlow() {
       {editingService && (
         <ServiceEditModal
           service={editingService}
+          governorateOptions={governorateOptions}
           onClose={() => setEditingService(null)}
           onSave={handleSaveServiceEdit}
         />

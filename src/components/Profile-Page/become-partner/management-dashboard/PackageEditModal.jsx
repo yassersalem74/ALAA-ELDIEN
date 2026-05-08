@@ -9,9 +9,9 @@ import {
 } from "../add-service-flow/PartnerFlowShared";
 
 const PRICING_TYPE_OPTIONS = [
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
+  { value: "Daily", label: "Daily" },
+  { value: "Weekly", label: "Weekly" },
+  { value: "Monthly", label: "Monthly" },
 ];
 
 const getServiceItems = (service) =>
@@ -27,7 +27,9 @@ export default function PackageEditModal({
 }) {
   const [draft, setDraft] = useState({
     ...packageItem,
-    pricingType: packageItem.pricingType || packageItem.packageType || "",
+    pricingType:
+      (packageItem.pricingType || packageItem.packageType || "").charAt(0).toUpperCase() +
+      (packageItem.pricingType || packageItem.packageType || "").slice(1).toLowerCase(),
     times: packageItem.times || packageItem.durationHours || "",
     includedItemsText: Array.isArray(packageItem.includedItems)
       ? packageItem.includedItems.join(", ")
@@ -79,7 +81,7 @@ export default function PackageEditModal({
               Edit Package
             </h3>
             <p className="mt-1 font-['Roboto'] text-[14px] leading-5 text-[#6777A0]">
-              Update the full package data saved in local storage.
+              Update the full package data saved through the provider API.
             </p>
           </div>
 

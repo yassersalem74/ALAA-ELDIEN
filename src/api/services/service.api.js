@@ -2,7 +2,9 @@ import api from "../api.js";
 import { SERVICE_ENDPOINTS } from "./service.endpoints.js";
 
 export const addService = async (data) => {
-  const res = await api.post(SERVICE_ENDPOINTS.ADD_SERVICE, data);
+  const res = await api.post(SERVICE_ENDPOINTS.ADD_SERVICE, data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return res.data;
 };
 
@@ -12,7 +14,14 @@ export const getServices = async (params) => {
 };
 
 export const updateService = async (id, data) => {
-  const res = await api.put(`${SERVICE_ENDPOINTS.UPDATE_SERVICE}/${id}`, data);
+  const res = await api.put(`${SERVICE_ENDPOINTS.UPDATE_SERVICE}/${id}`, data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+};
+
+export const deleteService = async (id) => {
+  const res = await api.delete(`${SERVICE_ENDPOINTS.DELETE_SERVICE}/${id}`);
   return res.data;
 };
 
@@ -40,5 +49,32 @@ export const createOrUpdateItems = async (serviceId, data) => {
 
 export const createOrUpdateAgendas = async (serviceId, data) => {
   const res = await api.post(`${SERVICE_ENDPOINTS.CREATE_UPDATE_AGENDAS}/${serviceId}`, data);
+  return res.data;
+};
+
+export const addPackage = async (data) => {
+  const res = await api.post(SERVICE_ENDPOINTS.ADD_PACKAGE, data);
+  return res.data;
+};
+
+export const updatePackage = async (id, data) => {
+  const res = await api.put(`${SERVICE_ENDPOINTS.UPDATE_PACKAGE}/${id}`, data);
+  return res.data;
+};
+
+export const deletePackage = async (id) => {
+  const res = await api.delete(`${SERVICE_ENDPOINTS.DELETE_PACKAGE}/${id}`);
+  return res.data;
+};
+
+export const getPackageDetails = async (id, language = "en") => {
+  const res = await api.get(`${SERVICE_ENDPOINTS.GET_PACKAGE_DETAILS}/${id}`, {
+    params: { language },
+  });
+  return res.data;
+};
+
+export const getMyPackages = async (params) => {
+  const res = await api.get(SERVICE_ENDPOINTS.GET_MY_PACKAGES, { params });
   return res.data;
 };

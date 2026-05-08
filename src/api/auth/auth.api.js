@@ -41,6 +41,18 @@ export const resetPassword = async (data) => {
   return res.data;
 };
 
+export const getPersonalInformation = async () => {
+  const res = await api.get(AUTH_ENDPOINTS.PERSONAL_INFORMATION);
+
+  return res.data;
+};
+
+export const changeRole = async (role = "Provider") => {
+  const res = await api.post(AUTH_ENDPOINTS.CHANGE_ROLE, { role });
+
+  return res.data;
+};
+
 export const getGovernorates = async (language = "en") => {
   const res = await api.get(AUTH_ENDPOINTS.GOVERNORATES, {
     params: {

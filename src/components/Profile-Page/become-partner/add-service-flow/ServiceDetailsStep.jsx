@@ -1,8 +1,6 @@
 import {
   FLOW_ASSETS,
-  GOVERNORATE_OPTIONS,
   SERVICE_CATEGORY_OPTIONS,
-  getCoverageAreaOptions,
 } from "./partnerFlowData";
 import {
   FieldLabel,
@@ -25,9 +23,11 @@ export default function ServiceDetailsStep({
   onPhotoChange,
   canContinue,
   uploadError,
+  governorateOptions = [],
+  neighborhoodOptions = [],
+  isLoadingGovernorates = false,
+  isLoadingNeighborhoods = false,
 }) {
-  const coverageAreaOptions = getCoverageAreaOptions(details.governorate);
-
   return (
     <div className="flex flex-col gap-6">
       <ProgressStepper currentStep={2} />
@@ -97,7 +97,7 @@ export default function ServiceDetailsStep({
                       Add Service Photo
                     </p>
                     <p className="font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
-                      you can upload up to 5 photos
+                      Upload 1 to 5 photos
                     </p>
                   </div>
                 </div>
@@ -139,8 +139,12 @@ export default function ServiceDetailsStep({
                   }
                   className={SELECT_CLASS_NAME}
                 >
-                  <option value="">Select governorate</option>
-                  {GOVERNORATE_OPTIONS.map((option) => (
+                  <option value="">
+                    {isLoadingGovernorates
+                      ? "Loading governorates..."
+                      : "Select governorate"}
+                  </option>
+                  {governorateOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -158,8 +162,12 @@ export default function ServiceDetailsStep({
                   className={SELECT_CLASS_NAME}
                   disabled={!details.governorate}
                 >
-                  <option value="">Coverage area</option>
-                  {coverageAreaOptions.map((option) => (
+                  <option value="">
+                    {isLoadingNeighborhoods
+                      ? "Loading neighborhoods..."
+                      : "Coverage area"}
+                  </option>
+                  {neighborhoodOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

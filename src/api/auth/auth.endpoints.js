@@ -5,6 +5,8 @@ export const AUTH_ENDPOINTS = {
   LOGIN: "/api/v1/authentication/login",
   FORGET_PASSWORD: "/api/v1/authentication/forget-password",
   RESET_PASSWORD: "/api/v1/authentication/reset-password",
+  PERSONAL_INFORMATION: "/api/v1/users/me/personal-information",
+  CHANGE_ROLE: "/api/v1/users/me/change-role",
   GOVERNORATES: "/api/v1/governorates",
   NEIGHBORHOODS: "/api/v1/neighborhoods",
 };

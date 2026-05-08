@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { getNeighborhoods } from "../../../../api/auth/auth.api";
 import {
   FieldLabel,
   INPUT_CLASS_NAME,
@@ -9,13 +10,10 @@ import {
   TEXTAREA_CLASS_NAME,
 } from "../add-service-flow/PartnerFlowShared";
 import {
-  GOVERNORATE_OPTIONS,
   HOUR_OPTIONS,
   SERVICE_CATEGORY_OPTIONS,
   WEEKDAY_OPTIONS,
   getCategoryLabel,
-  getCoverageAreaOptions,
-  getGovernorateLabel,
 } from "../add-service-flow/partnerFlowData";
 
 const itemsToText = (items = []) =>
@@ -42,7 +40,29 @@ const textToItems = (itemsText) =>
     })
     .filter(Boolean);
 
-export default function ServiceEditModal({ service, onClose, onSave }) {
+const extractPayloadData = (response) => response?.data ?? response;
+
+const extractList = (response) => {
+  const data = extractPayloadData(response);
+
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.data)) return data.data;
+
+  return [];
+};
+
+const toOption = (item) => ({
+  value: item.id,
+  label: item.name,
+});
+
+export default function ServiceEditModal({
+  service,
+  governorateOptions = [],
+  onClose,
+  onSave,
+}) {
   const [draft, setDraft] = useState({
     ...service,
     availability: {
@@ -55,8 +75,25 @@ export default function ServiceEditModal({ service, onClose, onSave }) {
     itemsText: itemsToText(service.items),
     photoNamesText: (service.photoNames || []).join(", "),
   });
+  const [neighborhoodOptions, setNeighborhoodOptions] = useState([]);
 
-  const coverageAreaOptions = getCoverageAreaOptions(draft.governorate);
+  useEffect(() => {
+    if (!draft.governorate) {
+      setNeighborhoodOptions([]);
+      return;
+    }
+
+    const fetchNeighborhoods = async () => {
+      try {
+        const response = await getNeighborhoods(draft.governorate, "en");
+        setNeighborhoodOptions(extractList(response).map(toOption));
+      } catch {
+        setNeighborhoodOptions([]);
+      }
+    };
+
+    fetchNeighborhoods();
+  }, [draft.governorate]);
 
   const handleFieldChange = (fieldName, value) => {
     setDraft((currentDraft) => {
@@ -107,7 +144,9 @@ export default function ServiceEditModal({ service, onClose, onSave }) {
       ...draft,
       serviceName: draft.serviceName.trim(),
       categoryLabel: getCategoryLabel(draft.category),
-      location: `${draft.coverageArea}, ${getGovernorateLabel(draft.governorate)}`,
+      location: `${neighborhoodOptions.find((option) => option.value === draft.coverageArea)?.label || draft.coverageArea}, ${
+        governorateOptions.find((option) => option.value === draft.governorate)?.label || draft.governorate
+      }`,
       description: draft.description.trim(),
       longDescription: draft.longDescription.trim(),
       items: textToItems(draft.itemsText),
@@ -132,7 +171,7 @@ export default function ServiceEditModal({ service, onClose, onSave }) {
               Edit Service
             </h3>
             <p className="mt-1 font-['Roboto'] text-[14px] leading-5 text-[#6777A0]">
-              Update the full service data saved in local storage.
+              Update the full service data saved through the provider API.
             </p>
           </div>
 
@@ -170,7 +209,7 @@ export default function ServiceEditModal({ service, onClose, onSave }) {
                 onChange={(event) => handleFieldChange("governorate", event.target.value)}
                 className={SELECT_CLASS_NAME}
               >
-                {GOVERNORATE_OPTIONS.map((option) => (
+                {governorateOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -186,7 +225,7 @@ export default function ServiceEditModal({ service, onClose, onSave }) {
                 onChange={(event) => handleFieldChange("coverageArea", event.target.value)}
                 className={SELECT_CLASS_NAME}
               >
-                {coverageAreaOptions.map((option) => (
+                {neighborhoodOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

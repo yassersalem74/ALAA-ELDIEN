@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { addPackage } from "../../../../api/services/service.api";
 import {
   FieldLabel,
   FlowActions,
@@ -32,10 +33,96 @@ const isPackageComplete = (draft) =>
   ].every((value) => String(value || "").trim());
 
 const PRICING_TYPE_OPTIONS = [
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
+  { value: "Daily", label: "Daily" },
+  { value: "Weekly", label: "Weekly" },
+  { value: "Monthly", label: "Monthly" },
 ];
+
+const getPackageValidationMessage = (draft) => {
+  const daysPerInterval = Number(draft.times);
+  const price = Number(draft.price);
+  const maxDaysByRecurrence = {
+    Daily: 1,
+    Weekly: 7,
+    Monthly: 30,
+  };
+  const maxDays = maxDaysByRecurrence[draft.pricingType];
+
+  if (!Number.isInteger(daysPerInterval) || daysPerInterval < 1) {
+    return "Please enter a valid number of days per interval.";
+  }
+
+  if (maxDays && daysPerInterval > maxDays) {
+    return `${draft.pricingType} packages can use 1 to ${maxDays} day${
+      maxDays === 1 ? "" : "s"
+    } per interval.`;
+  }
+
+  if (!Number.isFinite(price) || price < 0) {
+    return "Please enter a valid package price.";
+  }
+
+  return "";
+};
+
+const buildPackagePayload = (packageItem) => ({
+  name: packageItem.packageName.trim(),
+  recurrence: packageItem.pricingType,
+  daysPerInterval: Number(packageItem.times) || 1,
+  price: Number(packageItem.price) || 0,
+  serviceIds: [packageItem.serviceId].filter(Boolean),
+});
+
+const getApiErrorMessage = (error, fallbackMessage) => {
+  const data = error?.response?.data;
+  const validationMessage =
+    data?.errors && typeof data.errors === "object"
+      ? Object.values(data.errors).flat().filter(Boolean).join(" ")
+      : "";
+  const message =
+    data?.error?.message ||
+    data?.message ||
+    data?.title ||
+    validationMessage ||
+    (typeof data === "string" ? data : "");
+
+  return message || fallbackMessage;
+};
+
+const getCookie = (name) => {
+  if (typeof document === "undefined") return "";
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.split("=").slice(1).join("=")) : "";
+};
+
+const getAuthToken = () =>
+  typeof window !== "undefined"
+    ? localStorage.getItem("token") || getCookie("alaa_auth_token")
+    : "";
+
+const deleteCookie = (name) => {
+  if (typeof document === "undefined") return;
+
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+};
+
+const clearAuthSession = () => {
+  if (typeof window === "undefined") return;
+
+  ["token", "user", "accountType", "loggedInAs"].forEach((key) => {
+    localStorage.removeItem(key);
+  });
+
+  deleteCookie("alaa_auth_session");
+  deleteCookie("alaa_auth_token");
+  deleteCookie("alaa_account_type");
+};
+
+const isUnauthorizedError = (error) => error?.response?.status === 401;
 
 const getServiceItems = (service) =>
   (service?.items || [])
@@ -46,8 +133,8 @@ export default function AddPackageFlow({
   onBack,
   onToast,
   savedServices = [],
-  setSavedPackages,
   onSaved,
+  hasProviderAccess = true,
 }) {
   const [draftPackage, setDraftPackage] = useState(createEmptyPackage);
   const [newFeature, setNewFeature] = useState("");
@@ -98,25 +185,80 @@ export default function AddPackageFlow({
     setNewFeature("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isPackageComplete(draftPackage)) return;
 
-    const nextPackage = {
-      id: `partner-package-${Date.now()}`,
-      ...draftPackage,
-      packageName: draftPackage.packageName.trim(),
-      times: draftPackage.times.trim(),
-      price: draftPackage.price.trim(),
-    };
+    const validationMessage = getPackageValidationMessage(draftPackage);
 
-    setSavedPackages((currentPackages) => [nextPackage, ...currentPackages]);
-    setDraftPackage(createEmptyPackage());
-    onToast({
-      id: Date.now(),
-      type: "success",
-      message: "Your package has been saved successfully.",
-    });
-    onSaved?.();
+    if (validationMessage) {
+      onToast({
+        id: Date.now(),
+        type: "error",
+        message: validationMessage,
+      });
+      return;
+    }
+
+    if (!getAuthToken()) {
+      onToast({
+        id: Date.now(),
+        type: "error",
+        message: "Please sign in again before saving a package.",
+      });
+      return;
+    }
+
+    if (!hasProviderAccess) {
+      onToast({
+        id: Date.now(),
+        type: "error",
+        message:
+          "Your account does not have permission to create provider packages.",
+      });
+      return;
+    }
+
+    try {
+      const response = await addPackage(buildPackagePayload(draftPackage));
+      const didRefresh = await onSaved?.(response);
+
+      if (didRefresh === false) {
+        return;
+      }
+
+      setDraftPackage(createEmptyPackage());
+      onToast({
+        id: Date.now(),
+        type: "success",
+        message: "Your package has been saved successfully.",
+      });
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession();
+        onToast({
+          id: Date.now(),
+          type: "error",
+          message: "Your session expired. Please sign in again.",
+        });
+        return;
+      }
+
+      if (error?.response?.status === 403) {
+        onToast({
+          id: Date.now(),
+          type: "error",
+          message:
+            "Your account does not have permission to create provider packages.",
+        });
+        return;
+      }
+
+      onToast({
+        id: Date.now(),
+        type: "error",
+        message: getApiErrorMessage(error, "Failed to save package. Please try again."),
+      });
+    }
   };
 
   return (
