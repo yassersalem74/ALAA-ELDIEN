@@ -28,7 +28,7 @@ export function SectionHeading({ title, description }) {
   );
 }
 
-export function ProgressStepper({ currentStep }) {
+export function ProgressStepper({ currentStep, onStepClick }) {
   return (
     <div className="w-full" aria-label="Become a partner progress">
       <div
@@ -38,9 +38,18 @@ export function ProgressStepper({ currentStep }) {
         {FLOW_STEPS.map((step) => {
           const isActive = currentStep === step.id;
           const isComplete = currentStep > step.id;
+          const StepElement = onStepClick ? "button" : "div";
 
           return (
-            <div key={step.id} className="min-w-0 text-center">
+            <StepElement
+              key={step.id}
+              type={onStepClick ? "button" : undefined}
+              onClick={onStepClick ? () => onStepClick(step.id) : undefined}
+              className={joinClasses(
+                "min-w-0 text-center",
+                onStepClick && "cursor-pointer rounded-2xl px-2 py-1 transition hover:bg-[#F5F7FC]"
+              )}
+            >
               <div
                 className={joinClasses(
                   "mx-auto flex h-9 w-9 items-center justify-center rounded-full border text-[13px] font-semibold transition",
@@ -59,7 +68,7 @@ export function ProgressStepper({ currentStep }) {
               >
                 {step.label}
               </p>
-            </div>
+            </StepElement>
           );
         })}
       </div>

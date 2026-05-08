@@ -5,6 +5,7 @@ import {
   FieldLabel,
   INPUT_CLASS_NAME,
   ModalShell,
+  PlusIcon,
   SELECT_CLASS_NAME,
   SelectArrow,
   TEXTAREA_CLASS_NAME,
@@ -73,9 +74,21 @@ export default function ServiceEditModal({
       ...(service.availability || {}),
     },
     itemsText: itemsToText(service.items),
-    photoNamesText: (service.photoNames || []).join(", "),
+    photoNames: service.photoNames || [],
+    photos: service.photos || [],
+    deletedImages: service.deletedImages || [],
   });
   const [neighborhoodOptions, setNeighborhoodOptions] = useState([]);
+  const [uploadError, setUploadError] = useState("");
+  const hasSelectedCategoryOption = SERVICE_CATEGORY_OPTIONS.some(
+    (option) => option.value === draft.category
+  );
+  const hasSelectedGovernorateOption = governorateOptions.some(
+    (option) => option.value === draft.governorate
+  );
+  const hasSelectedNeighborhoodOption = neighborhoodOptions.some(
+    (option) => option.value === draft.coverageArea
+  );
 
   useEffect(() => {
     if (!draft.governorate) {
@@ -139,6 +152,58 @@ export default function ServiceEditModal({
     });
   };
 
+  const handlePhotoChange = (fileList) => {
+    const files = Array.from(fileList || []);
+
+    setDraft((currentDraft) => {
+      const existingCount = currentDraft.photoNames.length;
+      const nextFiles = [...(currentDraft.photos || [])];
+
+      files.forEach((file) => {
+        const alreadySelected = nextFiles.some(
+          (currentFile) =>
+            currentFile.name === file.name &&
+            currentFile.size === file.size &&
+            currentFile.lastModified === file.lastModified
+        );
+
+        if (!alreadySelected && existingCount + nextFiles.length < 5) {
+          nextFiles.push(file);
+        }
+      });
+
+      if (existingCount + (currentDraft.photos || []).length + files.length > 5) {
+        setUploadError("You can keep up to 5 photos only.");
+      } else {
+        setUploadError("");
+      }
+
+      return {
+        ...currentDraft,
+        photos: nextFiles,
+      };
+    });
+  };
+
+  const handleRemoveExistingPhoto = (photoName) => {
+    setUploadError("");
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      photoNames: currentDraft.photoNames.filter((name) => name !== photoName),
+      deletedImages: currentDraft.deletedImages.includes(photoName)
+        ? currentDraft.deletedImages
+        : [...currentDraft.deletedImages, photoName],
+    }));
+  };
+
+  const handleRemoveNewPhoto = (photoIndex) => {
+    setUploadError("");
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      photos: currentDraft.photos.filter((_, index) => index !== photoIndex),
+    }));
+  };
+
   const handleSave = () => {
     const nextService = {
       ...draft,
@@ -150,14 +215,12 @@ export default function ServiceEditModal({
       description: draft.description.trim(),
       longDescription: draft.longDescription.trim(),
       items: textToItems(draft.itemsText),
-      photoNames: draft.photoNamesText
-        .split(",")
-        .map((photoName) => photoName.trim())
-        .filter(Boolean),
+      photoNames: draft.photoNames,
+      photos: draft.photos,
+      deletedImages: draft.deletedImages,
     };
 
     delete nextService.itemsText;
-    delete nextService.photoNamesText;
 
     onSave(nextService);
   };
@@ -193,6 +256,9 @@ export default function ServiceEditModal({
                 onChange={(event) => handleFieldChange("category", event.target.value)}
                 className={SELECT_CLASS_NAME}
               >
+                {!hasSelectedCategoryOption && draft.category && (
+                  <option value={draft.category}>{draft.categoryLabel || draft.category}</option>
+                )}
                 {SERVICE_CATEGORY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -209,6 +275,9 @@ export default function ServiceEditModal({
                 onChange={(event) => handleFieldChange("governorate", event.target.value)}
                 className={SELECT_CLASS_NAME}
               >
+                {!hasSelectedGovernorateOption && draft.governorate && (
+                  <option value={draft.governorate}>{draft.governorate}</option>
+                )}
                 {governorateOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -225,6 +294,9 @@ export default function ServiceEditModal({
                 onChange={(event) => handleFieldChange("coverageArea", event.target.value)}
                 className={SELECT_CLASS_NAME}
               >
+                {!hasSelectedNeighborhoodOption && draft.coverageArea && (
+                  <option value={draft.coverageArea}>{draft.coverageArea}</option>
+                )}
                 {neighborhoodOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -279,15 +351,69 @@ export default function ServiceEditModal({
             />
           </label>
 
-          <label>
-            <FieldLabel>Photo Names</FieldLabel>
-            <input
-              type="text"
-              value={draft.photoNamesText}
-              onChange={(event) => handleFieldChange("photoNamesText", event.target.value)}
-              className={INPUT_CLASS_NAME}
-            />
-          </label>
+          <div>
+            <FieldLabel>Images</FieldLabel>
+            <label className="block cursor-pointer rounded-2xl border border-dashed border-[#D7DDED] bg-white p-4 transition hover:border-[#011C60]">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  handlePhotoChange(event.target.files);
+                  event.target.value = "";
+                }}
+              />
+              <span className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#EFF3FF] px-4 font-['Roboto'] text-[14px] font-medium text-[#011C60]">
+                <PlusIcon className="h-4 w-4" />
+                Add images
+              </span>
+            </label>
+
+            {(draft.photoNames.length > 0 || draft.photos.length > 0) && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {draft.photoNames.map((photoName) => (
+                  <span
+                    key={photoName}
+                    className="inline-flex min-h-8 items-center gap-2 rounded-full bg-[#EAF0FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#011C60]"
+                  >
+                    {photoName}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExistingPhoto(photoName)}
+                      aria-label={`Remove ${photoName}`}
+                      className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[#6777A0] transition hover:bg-white hover:text-[#011C60]"
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
+
+                {draft.photos.map((file, index) => (
+                  <span
+                    key={`${file.name}-${file.lastModified}`}
+                    className="inline-flex min-h-8 items-center gap-2 rounded-full bg-[#EAF0FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#011C60]"
+                  >
+                    {file.name}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveNewPhoto(index)}
+                      aria-label={`Remove ${file.name}`}
+                      className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[#6777A0] transition hover:bg-white hover:text-[#011C60]"
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {uploadError && (
+              <p className="mt-2 font-['Roboto'] text-[14px] leading-5 text-[#DC2626]">
+                {uploadError}
+              </p>
+            )}
+          </div>
 
           <label>
             <FieldLabel>Service Items</FieldLabel>

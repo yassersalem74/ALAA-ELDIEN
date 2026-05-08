@@ -21,8 +21,10 @@ export default function ServiceDetailsStep({
   onBack,
   onNext,
   onPhotoChange,
+  onRemovePhoto,
   canContinue,
   uploadError,
+  onStepClick,
   governorateOptions = [],
   neighborhoodOptions = [],
   isLoadingGovernorates = false,
@@ -30,7 +32,7 @@ export default function ServiceDetailsStep({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <ProgressStepper currentStep={2} />
+      <ProgressStepper currentStep={2} onStepClick={onStepClick} />
 
       <section className={PANEL_CLASS_NAME}>
         <div className="flex flex-col gap-8">
@@ -79,7 +81,10 @@ export default function ServiceDetailsStep({
                 accept="image/*"
                 multiple
                 className="hidden"
-                onChange={(event) => onPhotoChange(event.target.files)}
+                onChange={(event) => {
+                  onPhotoChange(event.target.files);
+                  event.target.value = "";
+                }}
               />
 
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -110,12 +115,20 @@ export default function ServiceDetailsStep({
 
             {details.photos.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
-                {details.photos.map((file) => (
+                {details.photos.map((file, index) => (
                   <span
                     key={`${file.name}-${file.lastModified}`}
-                    className="rounded-full bg-[#EAF0FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#011C60]"
+                    className="inline-flex min-h-8 items-center gap-2 rounded-full bg-[#EAF0FF] px-3 py-1.5 font-['Roboto'] text-[13px] font-medium text-[#011C60]"
                   >
                     {file.name}
+                    <button
+                      type="button"
+                      onClick={() => onRemovePhoto(index)}
+                      aria-label={`Remove ${file.name}`}
+                      className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-[#6777A0] transition hover:bg-white hover:text-[#011C60]"
+                    >
+                      x
+                    </button>
                   </span>
                 ))}
               </div>

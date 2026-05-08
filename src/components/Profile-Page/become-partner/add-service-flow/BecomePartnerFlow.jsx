@@ -108,10 +108,12 @@ const getServiceIdFromResponse = (response) => {
   return data?.id || data?.serviceId || response?.id || response?.serviceId;
 };
 
+const normalizeTextValue = (value) => String(value || "").trim().replace(/\s+/g, " ");
+
 const buildServiceFormData = (details, isUpdate = false) => {
   const formData = new FormData();
 
-  formData.append("name", details.serviceName.trim());
+  formData.append("name", normalizeTextValue(details.serviceName));
   formData.append("price", Number(details.price) || 0);
   formData.append("currency", SERVICE_API_CURRENCY);
   formData.append(
@@ -120,13 +122,17 @@ const buildServiceFormData = (details, isUpdate = false) => {
   );
   formData.append("timeslotDurationInMin", Number(details.serviceTimeHours) * 60 || 60);
   formData.append("numberOfCustomerPerTimeSlots", 1);
-  formData.append("description", details.description.trim());
-  formData.append("subDescription", details.longDescription.trim());
+  formData.append("description", normalizeTextValue(details.description));
+  formData.append("subDescription", String(details.longDescription || "").trim());
   formData.append("neighborhoodId", details.coverageArea);
 
   if (isUpdate) {
     formData.append("isAvailable", true);
   }
+
+  (details.deletedImages || []).forEach((imageName) => {
+    formData.append("deletedImages", imageName);
+  });
 
   (details.photos || []).forEach((photo) => {
     if (photo instanceof File) {
@@ -140,9 +146,29 @@ const buildServiceFormData = (details, isUpdate = false) => {
 const validateServiceDetailsForApi = (details) => {
   const price = Number(details.price);
   const durationInHours = Number(details.serviceTimeHours);
+  const hasNewPhoto = (details.photos || []).some((photo) => photo instanceof File);
+  const hasExistingPhoto = (details.photoNames || []).some((photoName) =>
+    String(photoName || "").trim()
+  );
+
+  if (!normalizeTextValue(details.serviceName)) {
+    return "Please enter a service name.";
+  }
 
   if (!CATEGORY_API_VALUES[details.category]) {
     return "Please choose a valid service category.";
+  }
+
+  if (!String(details.coverageArea || "").trim()) {
+    return "Please choose a coverage area.";
+  }
+
+  if (!normalizeTextValue(details.description)) {
+    return "Please enter a short service description.";
+  }
+
+  if (!String(details.longDescription || "").trim()) {
+    return "Please enter a detailed service description.";
   }
 
   if (!Number.isFinite(price) || price < 0) {
@@ -153,8 +179,27 @@ const validateServiceDetailsForApi = (details) => {
     return "Please enter a valid service duration.";
   }
 
-  if (!(details.photos || []).some((photo) => photo instanceof File)) {
+  if (!hasNewPhoto && !hasExistingPhoto) {
     return "Please upload at least one service photo.";
+  }
+
+  return "";
+};
+
+const validateAvailabilityForApi = (availability) => {
+  const days = availability?.days || [];
+  const startHour = Number(availability?.startHour);
+  const endHour = Number(availability?.endHour);
+
+  if (days.length === 0) {
+    return "Please select at least one availability day.";
+  }
+
+  if (
+    !availability?.dailyWindow &&
+    (!Number.isFinite(startHour) || !Number.isFinite(endHour) || endHour <= startHour)
+  ) {
+    return "Availability end hour must be after the start hour.";
   }
 
   return "";
@@ -181,12 +226,29 @@ const buildItemsPayload = (items) => ({
 const normalizeService = (service) => {
   const categoryName = service.categoryName || service.category || "";
   const neighborhood = service.neighborhood || service.neighborhoodDto || {};
-  const governorate = service.governorate || neighborhood.governorate || {};
+  const governorate =
+    service.governorate ||
+    service.governorateDto ||
+    neighborhood.governorate ||
+    neighborhood.governorateDto ||
+    {};
   const items = service.items || service.serviceItems || [];
   const agendas = service.agendas || service.availabilities || [];
+  const images =
+    service.images ||
+    service.imageUrls ||
+    service.serviceImages ||
+    service.imageFiles ||
+    [];
+  const id =
+    service.id ||
+    service.serviceId ||
+    service.providerServiceId ||
+    service.service?.id ||
+    "";
 
   return {
-    id: service.id,
+    id,
     serviceName: service.name || service.serviceName || "",
     category: CATEGORY_UI_VALUES[categoryName] || categoryName,
     categoryLabel: service.categoryLabel || categoryName || "Service",
@@ -202,9 +264,13 @@ const normalizeService = (service) => {
       service.serviceTimeHours ||
         Math.max(1, Math.round((service.timeslotDurationInMin || 60) / 60))
     ),
-    photoNames: (service.images || service.imageUrls || []).map((image) =>
-      typeof image === "string" ? image : image.name || image.url || ""
-    ),
+    photoNames: images
+      .map((image) =>
+        typeof image === "string"
+          ? image
+          : image.name || image.fileName || image.url || image.imageUrl || ""
+      )
+      .filter(Boolean),
     photos: [],
     items: items.map((item) => ({
       id: item.id || item.name,
@@ -721,6 +787,14 @@ export default function BecomePartnerFlow() {
     setCurrentStep(2);
   };
 
+  const handleWizardStepClick = (stepId) => {
+    if (stepId > 1 && !selectedPartnerType) {
+      setSelectedPartnerType("services");
+    }
+
+    setCurrentStep(stepId);
+  };
+
   const handleDetailsChange = (fieldName, value) => {
     setServiceDetails((currentDetails) => {
       if (fieldName === "governorate") {
@@ -741,19 +815,40 @@ export default function BecomePartnerFlow() {
   const handlePhotoChange = (fileList) => {
     const files = Array.from(fileList || []);
 
-    if (files.length > 5) {
-      setUploadError("You can upload up to 5 photos only.");
-      setServiceDetails((currentDetails) => ({
-        ...currentDetails,
-        photos: files.slice(0, 5),
-      }));
-      return;
-    }
+    setServiceDetails((currentDetails) => {
+      const nextFiles = [...(currentDetails.photos || [])];
 
+      files.forEach((file) => {
+        const alreadySelected = nextFiles.some(
+          (currentFile) =>
+            currentFile.name === file.name &&
+            currentFile.size === file.size &&
+            currentFile.lastModified === file.lastModified
+        );
+
+        if (!alreadySelected && nextFiles.length < 5) {
+          nextFiles.push(file);
+        }
+      });
+
+      setUploadError(
+        (currentDetails.photos || []).length + files.length > 5
+          ? "You can upload up to 5 photos only."
+          : ""
+      );
+
+      return {
+        ...currentDetails,
+        photos: nextFiles,
+      };
+    });
+  };
+
+  const handleRemovePhoto = (photoIndex) => {
     setUploadError("");
     setServiceDetails((currentDetails) => ({
       ...currentDetails,
-      photos: files,
+      photos: currentDetails.photos.filter((_, index) => index !== photoIndex),
     }));
   };
 
@@ -783,12 +878,13 @@ export default function BecomePartnerFlow() {
 
   const handleSaveService = async () => {
     const validationMessage = validateServiceDetailsForApi(serviceDetails);
+    const availabilityValidationMessage = validateAvailabilityForApi(availability);
 
-    if (validationMessage) {
+    if (validationMessage || availabilityValidationMessage) {
       setToast({
         id: Date.now(),
         type: "error",
-        message: validationMessage,
+        message: validationMessage || availabilityValidationMessage,
       });
       return;
     }
@@ -944,7 +1040,11 @@ export default function BecomePartnerFlow() {
 
     try {
       const response = await getServiceDetails(service.id, LANGUAGE);
-      setEditingService(normalizeService(extractPayloadData(response)));
+      const serviceDetails = normalizeService(extractPayloadData(response));
+      setEditingService({
+        ...serviceDetails,
+        id: serviceDetails.id || service.id,
+      });
     } catch (error) {
       if (isUnauthorizedError(error)) {
         clearAuthSession();
@@ -973,6 +1073,29 @@ export default function BecomePartnerFlow() {
   };
 
   const handleSaveServiceEdit = async (nextService) => {
+    if (!nextService.id) {
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: "Cannot update this service because the API did not return its id.",
+      });
+      return;
+    }
+
+    const validationMessage = validateServiceDetailsForApi(nextService);
+    const availabilityValidationMessage = validateAvailabilityForApi(
+      nextService.availability
+    );
+
+    if (validationMessage || availabilityValidationMessage) {
+      setToast({
+        id: Date.now(),
+        type: "error",
+        message: validationMessage || availabilityValidationMessage,
+      });
+      return;
+    }
+
     if (!getAuthToken()) {
       setToast({
         id: Date.now(),
@@ -1495,6 +1618,7 @@ export default function BecomePartnerFlow() {
               onSelect={setSelectedPartnerType}
               onCancel={cancelServiceFlow}
               onNext={handleMyServicesNext}
+              onStepClick={handleWizardStepClick}
             />
           )}
           {currentStep === 2 && (
@@ -1504,8 +1628,10 @@ export default function BecomePartnerFlow() {
               onBack={() => setCurrentStep(1)}
               onNext={() => setCurrentStep(3)}
               onPhotoChange={handlePhotoChange}
+              onRemovePhoto={handleRemovePhoto}
               canContinue={isServiceDetailsComplete(serviceDetails)}
               uploadError={uploadError}
+              onStepClick={handleWizardStepClick}
               governorateOptions={governorateOptions}
               neighborhoodOptions={neighborhoodOptions}
               isLoadingGovernorates={isLoadingGovernorates}
@@ -1518,6 +1644,7 @@ export default function BecomePartnerFlow() {
               onAddItem={handleAddItem}
               onBack={() => setCurrentStep(2)}
               onNext={() => setCurrentStep(4)}
+              onStepClick={handleWizardStepClick}
             />
           )}
           {currentStep === 4 && (
@@ -1527,6 +1654,7 @@ export default function BecomePartnerFlow() {
               onFieldChange={handleAvailabilityFieldChange}
               onBack={() => setCurrentStep(3)}
               onSave={handleSaveService}
+              onStepClick={handleWizardStepClick}
             />
           )}
         </>
