@@ -23,6 +23,7 @@ export default function AvailabilityStep({
   onBack,
   onSave,
   onStepClick,
+  isSaving = false,
 }) {
   const totalHours = calculateTotalHours(
     availability.startHour,
@@ -190,6 +191,7 @@ export default function AvailabilityStep({
             primaryLabel="Save Changes"
             onPrimary={onSave}
             primaryDisabled={!canSave}
+            primaryLoading={isSaving}
           />
         </div>
       </section>

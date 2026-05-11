@@ -425,6 +425,8 @@ const isForbiddenError = (error) => error?.response?.status === 403;
 const isConflictError = (error) => error?.response?.status === 409;
 const isStaleProviderTokenError = (error) =>
   error?.message === "PROVIDER_TOKEN_REFRESH_REQUIRED";
+const isIgnorableAgendaValidationError = (error) =>
+  getApiErrorMessage(error, "").includes("DayNotEmptyValidator");
 const getApiErrorMessage = (error, fallbackMessage) => {
   const data = error?.response?.data;
   const validationMessage =
@@ -491,6 +493,7 @@ export default function BecomePartnerFlow() {
   const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
   const [hasProviderAccess, setHasProviderAccess] = useState(false);
   const [isActivatingProvider, setIsActivatingProvider] = useState(false);
+  const [isSavingService, setIsSavingService] = useState(false);
   const [toast, setToast] = useState(null);
   const hasFetchedInitialData = useRef(false);
 
@@ -566,7 +569,7 @@ export default function BecomePartnerFlow() {
       try {
         const governoratesResponse = await getGovernorates(LANGUAGE);
         setGovernorateOptions(extractList(governoratesResponse).map(toOption));
-      } catch (error) {
+      } catch {
         setToast({
           id: Date.now(),
           type: "error",
@@ -653,7 +656,7 @@ export default function BecomePartnerFlow() {
       try {
         const response = await getNeighborhoods(serviceDetails.governorate, LANGUAGE);
         setNeighborhoodOptions(extractList(response).map(toOption));
-      } catch (error) {
+      } catch {
         setNeighborhoodOptions([]);
         setToast({
           id: Date.now(),
@@ -877,6 +880,8 @@ export default function BecomePartnerFlow() {
   };
 
   const handleSaveService = async () => {
+    if (isSavingService) return;
+
     const validationMessage = validateServiceDetailsForApi(serviceDetails);
     const availabilityValidationMessage = validateAvailabilityForApi(availability);
 
@@ -898,18 +903,141 @@ export default function BecomePartnerFlow() {
       return;
     }
 
-    if (!hasProviderAccess) {
-      try {
-        await ensureProviderRole();
-        setHasProviderAccess(true);
-      } catch (error) {
-        if (isStaleProviderTokenError(error)) {
-          setHasProviderAccess(false);
+    setIsSavingService(true);
+
+    try {
+      if (!hasProviderAccess) {
+        try {
+          await ensureProviderRole();
+          setHasProviderAccess(true);
+        } catch (error) {
+          if (isStaleProviderTokenError(error)) {
+            setHasProviderAccess(false);
+            setToast({
+              id: Date.now(),
+              type: "error",
+              message:
+                "Provider mode is ready. Please sign in again so your session gets provider access.",
+            });
+            return;
+          }
+
           setToast({
             id: Date.now(),
             type: "error",
             message:
-              "Provider mode is ready. Please sign in again so your session gets provider access.",
+              isForbiddenError(error)
+                ? getProviderForbiddenMessage(
+                    "The API refused provider access for this account. Please try signing in again."
+                  )
+                : "Failed to activate provider mode. Please try again.",
+          });
+          return;
+        }
+      }
+
+      let createdServiceId = "";
+
+      try {
+        const response = await addService(buildServiceFormData(serviceDetails));
+        const serviceId = getServiceIdFromResponse(response);
+
+        if (!serviceId) {
+          throw new Error("SERVICE_ID_MISSING");
+        }
+
+        createdServiceId = serviceId;
+
+        if (serviceId && serviceItems.length > 0) {
+          await createOrUpdateItems(serviceId, buildItemsPayload(serviceItems));
+        }
+
+        if (serviceId && availability.days.length > 0) {
+          await createOrUpdateAgendas(serviceId, buildAgendasPayload(availability));
+        }
+
+        if (!(await loadProviderData({ showPartialError: false }))) {
+          return;
+        }
+        setToast({
+          id: Date.now(),
+          type: "success",
+          message: "Your service has been saved successfully.",
+        });
+
+        resetDraft();
+        setView("services");
+        setActiveTab("services");
+      } catch (error) {
+        if (isUnauthorizedError(error)) {
+          clearAuthSession();
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message: "Your session expired. Please sign in again.",
+          });
+          return;
+        }
+
+        if (isForbiddenError(error)) {
+          setHasProviderAccess(false);
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message: getProviderForbiddenMessage(
+              "Your account does not have permission to create provider services."
+            ),
+          });
+          return;
+        }
+
+        if (createdServiceId) {
+          await loadProviderData({ showPartialError: false });
+
+          if (isIgnorableAgendaValidationError(error)) {
+            setToast({
+              id: Date.now(),
+              type: "success",
+              message: "Your service has been saved successfully.",
+            });
+          } else {
+            const apiMessage = getApiErrorMessage(
+              error,
+              "items or availability could not be saved. Open the service to finish setup."
+            );
+
+            setToast({
+              id: Date.now(),
+              type: "error",
+              message: `Service was created, but ${apiMessage}`,
+            });
+          }
+
+          resetDraft();
+          setView("services");
+          setActiveTab("services");
+          return;
+        }
+
+        if (error.message === "SERVICE_ID_MISSING") {
+          await loadProviderData({ showPartialError: false });
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message:
+              "Service was saved, but the API did not return its id to save items and availability.",
+          });
+          return;
+        }
+
+        if (error?.response?.status === 400) {
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message: getApiErrorMessage(
+              error,
+              "The service data was rejected. Please review the required fields and try again."
+            ),
           });
           return;
         }
@@ -917,118 +1045,11 @@ export default function BecomePartnerFlow() {
         setToast({
           id: Date.now(),
           type: "error",
-          message:
-            isForbiddenError(error)
-              ? getProviderForbiddenMessage(
-                  "The API refused provider access for this account. Please try signing in again."
-                )
-              : "Failed to activate provider mode. Please try again.",
+          message: getApiErrorMessage(error, "Failed to save service. Please try again."),
         });
-        return;
       }
-    }
-
-    let createdServiceId = "";
-
-    try {
-      const response = await addService(buildServiceFormData(serviceDetails));
-      const serviceId = getServiceIdFromResponse(response);
-
-      if (!serviceId) {
-        throw new Error("SERVICE_ID_MISSING");
-      }
-
-      createdServiceId = serviceId;
-
-      if (serviceId && serviceItems.length > 0) {
-        await createOrUpdateItems(serviceId, buildItemsPayload(serviceItems));
-      }
-
-      if (serviceId && availability.days.length > 0) {
-        await createOrUpdateAgendas(serviceId, buildAgendasPayload(availability));
-      }
-
-      if (!(await loadProviderData({ showPartialError: false }))) {
-        return;
-      }
-      setToast({
-        id: Date.now(),
-        type: "success",
-        message: "Your service has been saved successfully.",
-      });
-
-      resetDraft();
-      setView("services");
-      setActiveTab("services");
-    } catch (error) {
-      if (isUnauthorizedError(error)) {
-        clearAuthSession();
-        setToast({
-          id: Date.now(),
-          type: "error",
-          message: "Your session expired. Please sign in again.",
-        });
-        return;
-      }
-
-      if (isForbiddenError(error)) {
-        setHasProviderAccess(false);
-        setToast({
-          id: Date.now(),
-          type: "error",
-          message: getProviderForbiddenMessage(
-            "Your account does not have permission to create provider services."
-          ),
-        });
-        return;
-      }
-
-      if (createdServiceId) {
-        await loadProviderData({ showPartialError: false });
-        const apiMessage = getApiErrorMessage(
-          error,
-          "items or availability could not be saved. Open the service to finish setup."
-        );
-
-        setToast({
-          id: Date.now(),
-          type: "error",
-          message: `Service was created, but ${apiMessage}`,
-        });
-        resetDraft();
-        setView("services");
-        setActiveTab("services");
-        return;
-      }
-
-      if (error.message === "SERVICE_ID_MISSING") {
-        await loadProviderData({ showPartialError: false });
-        setToast({
-          id: Date.now(),
-          type: "error",
-          message:
-            "Service was saved, but the API did not return its id to save items and availability.",
-        });
-        return;
-      }
-
-      if (error?.response?.status === 400) {
-        setToast({
-          id: Date.now(),
-          type: "error",
-          message: getApiErrorMessage(
-            error,
-            "The service data was rejected. Please review the required fields and try again."
-          ),
-        });
-        return;
-      }
-
-      setToast({
-        id: Date.now(),
-        type: "error",
-        message: getApiErrorMessage(error, "Failed to save service. Please try again."),
-      });
+    } finally {
+      setIsSavingService(false);
     }
   };
 
@@ -1655,6 +1676,7 @@ export default function BecomePartnerFlow() {
               onBack={() => setCurrentStep(3)}
               onSave={handleSaveService}
               onStepClick={handleWizardStepClick}
+              isSaving={isSavingService}
             />
           )}
         </>

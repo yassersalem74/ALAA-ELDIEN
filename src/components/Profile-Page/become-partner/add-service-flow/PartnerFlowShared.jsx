@@ -91,7 +91,10 @@ export function FlowActions({
   primaryLabel,
   onPrimary,
   primaryDisabled = false,
+  primaryLoading = false,
 }) {
+  const isPrimaryDisabled = primaryDisabled || primaryLoading;
+
   return (
     <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
       <button
@@ -105,15 +108,21 @@ export function FlowActions({
       <button
         type="button"
         onClick={onPrimary}
-        disabled={primaryDisabled}
+        disabled={isPrimaryDisabled}
         className={joinClasses(
-          "min-h-12 min-w-[190px] rounded-2xl px-8 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition",
-          primaryDisabled
+          "inline-flex min-h-12 min-w-[190px] items-center justify-center gap-2 rounded-2xl px-8 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition",
+          isPrimaryDisabled
             ? "cursor-not-allowed bg-[#B2BBD2]"
             : "cursor-pointer bg-[#011C60] hover:bg-[#02267F]"
         )}
       >
-        {primaryLabel}
+        {primaryLoading && (
+          <span
+            className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+            aria-hidden="true"
+          />
+        )}
+        {primaryLoading ? "Saving..." : primaryLabel}
       </button>
     </div>
   );
