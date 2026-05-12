@@ -43,12 +43,16 @@ export const addReview = async (providerId, data) => {
 };
 
 export const createOrUpdateItems = async (serviceId, data) => {
-  const res = await api.post(`${SERVICE_ENDPOINTS.CREATE_UPDATE_ITEMS}/${serviceId}`, data);
+  const res = await api.post(`${SERVICE_ENDPOINTS.CREATE_UPDATE_ITEMS}/${serviceId}`, data, {
+    headers: { "Content-Type": "application/json" },
+  });
   return res.data;
 };
 
 export const createOrUpdateAgendas = async (serviceId, data) => {
-  const res = await api.post(`${SERVICE_ENDPOINTS.CREATE_UPDATE_AGENDAS}/${serviceId}`, data);
+  const res = await api.post(`${SERVICE_ENDPOINTS.CREATE_UPDATE_AGENDAS}/${serviceId}`, data, {
+    headers: { "Content-Type": "application/json" },
+  });
   return res.data;
 };
 

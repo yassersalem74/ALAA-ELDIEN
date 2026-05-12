@@ -26,6 +26,7 @@ export default function ServiceItemsStep({
   onBack,
   onNext,
   onStepClick,
+  isSaving = false,
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
@@ -138,6 +139,7 @@ export default function ServiceItemsStep({
               onSecondary={onBack}
               primaryLabel="Next"
               onPrimary={onNext}
+              primaryLoading={isSaving}
             />
           </div>
         </section>
