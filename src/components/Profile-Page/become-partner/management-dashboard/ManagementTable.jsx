@@ -34,14 +34,20 @@ export default function ManagementTable({
   itemType,
   items,
   nameHeader,
+  categoryHeader,
   priceHeader,
   getName,
+  getCategory,
   getPrice,
   onAdd,
   onEdit,
   onDelete,
 }) {
   const Icon = itemType === "package" ? PackageIcon : BriefcaseIcon;
+  const showCategory = Boolean(categoryHeader && getCategory);
+  const desktopGridClassName = showCategory
+    ? "md:min-w-[760px] md:grid-cols-[1.4fr_1fr_1fr_120px]"
+    : "md:min-w-[640px] md:grid-cols-[1.5fr_1fr_120px]";
 
   return (
     <section className={PANEL_CLASS_NAME}>
@@ -65,10 +71,17 @@ export default function ManagementTable({
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-[#E6E8EF] bg-white">
-          <div className="hidden min-w-[640px] grid-cols-[1.5fr_1fr_120px] border-b border-[#E6E8EF] bg-[#F8F9FC] px-5 py-4 md:grid">
+          <div
+            className={`hidden border-b border-[#E6E8EF] bg-[#F8F9FC] px-5 py-4 md:grid ${desktopGridClassName}`}
+          >
             <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
               {nameHeader}
             </span>
+            {showCategory && (
+              <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
+                {categoryHeader}
+              </span>
+            )}
             <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
               {priceHeader}
             </span>
@@ -81,7 +94,7 @@ export default function ManagementTable({
             {items.map((item) => (
               <article
                 key={item.id}
-                className="grid gap-4 px-4 py-4 md:min-w-[640px] md:grid-cols-[1.5fr_1fr_120px] md:items-center md:px-5"
+                className={`grid gap-4 px-4 py-4 md:items-center md:px-5 ${desktopGridClassName}`}
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EFF3FF]">
@@ -92,10 +105,19 @@ export default function ManagementTable({
                       {getName(item)}
                     </span>
                     <span className="block md:hidden font-['Roboto'] text-[13px] leading-5 text-[#6777A0]">
+                      {showCategory && getCategory(item)
+                        ? `${getCategory(item)} · `
+                        : ""}
                       EGP {getPrice(item)}
                     </span>
                   </div>
                 </div>
+
+                {showCategory && (
+                  <span className="hidden font-['Roboto'] text-[15px] font-medium leading-6 text-[#011C60] md:block">
+                    {getCategory(item)}
+                  </span>
+                )}
 
                 <span className="hidden font-['Roboto'] text-[15px] font-medium leading-6 text-[#011C60] md:block">
                   EGP {getPrice(item)}

@@ -17,29 +17,150 @@ import {
   getCategoryLabel,
 } from "../add-service-flow/partnerFlowData";
 
-const itemsToText = (items = []) =>
-  items
-    .map((item) => [item.itemName, item.price, item.description].join(" | "))
-    .join("\n");
+const createEmptyItem = () => ({
+  itemName: "",
+  price: "",
+  description: "",
+});
 
-const textToItems = (itemsText) =>
-  itemsText
-    .split("\n")
-    .map((line, index) => {
-      const [itemName = "", price = "", description = ""] = line
-        .split("|")
-        .map((part) => part.trim());
+const normalizeItems = (items = []) =>
+  items.map((item, index) => ({
+    id: item.id || `service-item-edit-${index}`,
+    itemName: item.itemName || item.name || "",
+    price: String(item.price ?? ""),
+    description: item.description || "",
+  }));
 
-      return itemName
-        ? {
-            id: `service-item-edit-${Date.now()}-${index}`,
-            itemName,
-            price,
-            description,
-          }
-        : null;
-    })
+const normalizeWeekdayValue = (value) => {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+
+  return (
+    WEEKDAY_OPTIONS.find((day) => day.toLowerCase() === rawValue.toLowerCase()) ||
+    rawValue.charAt(0).toUpperCase() + rawValue.slice(1).toLowerCase()
+  );
+};
+
+const firstPresentValue = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
+
+const getAgendaTime = (agenda, fieldNames) =>
+  fieldNames
+    .map((fieldName) => agenda?.[fieldName])
+    .find((value) => value !== undefined && value !== null && value !== "");
+
+const getHourValue = (timeValue, fallbackHour) => {
+  const rawValue = String(timeValue || "");
+  const match =
+    rawValue.match(/T(\d{1,2}):/) ||
+    rawValue.match(/(?:^|\s)(\d{1,2}):/) ||
+    rawValue.match(/^(\d{1,2})$/);
+  const hour = match ? Number(match[1] || match[0]) : Number.NaN;
+
+  return Number.isFinite(hour) ? String(Math.min(Math.max(hour, 0), 23)) : fallbackHour;
+};
+
+const normalizeAgendaList = (service) => {
+  const availability = service.availability || {};
+  const agendas =
+    service.agendas ||
+    service.agendaDtos ||
+    service.agendaDTOs ||
+    service.serviceAgendas ||
+    service.availabilities ||
+    service.availableDays ||
+    service.schedules ||
+    service.workingHours ||
+    availability.agendas ||
+    availability.items ||
+    [];
+
+  if (Array.isArray(agendas)) return agendas;
+  if (Array.isArray(agendas.agendas)) return agendas.agendas;
+  if (Array.isArray(agendas.items)) return agendas.items;
+
+  const days = Array.isArray(service.days)
+    ? service.days
+    : Array.isArray(availability.days)
+      ? availability.days
+      : [];
+
+  if (days.length > 0) {
+    return days.map((day) => ({
+      day,
+      from: firstPresentValue(
+        service.from,
+        service.fromTime,
+        service.start,
+        service.startTime,
+        service.startHour,
+        availability.from,
+        availability.fromTime,
+        availability.start,
+        availability.startTime,
+        availability.startHour
+      ),
+      to: firstPresentValue(
+        service.to,
+        service.toTime,
+        service.end,
+        service.endTime,
+        service.endHour,
+        availability.to,
+        availability.toTime,
+        availability.end,
+        availability.endTime,
+        availability.endHour
+      ),
+    }));
+  }
+
+  return [];
+};
+
+const normalizeAvailability = (service) => {
+  const availability = service.availability || {};
+  const agendaList = normalizeAgendaList(service);
+  const firstAgenda = agendaList[0] || {};
+  const fromTime = firstPresentValue(
+    availability.startHour,
+    availability.from,
+    availability.fromTime,
+    availability.start,
+    availability.startTime,
+    getAgendaTime(firstAgenda, ["from", "fromTime", "start", "startTime", "startHour"])
+  );
+  const toTime = firstPresentValue(
+    availability.endHour,
+    availability.to,
+    availability.toTime,
+    availability.end,
+    availability.endTime,
+    getAgendaTime(firstAgenda, ["to", "toTime", "end", "endTime", "endHour"])
+  );
+  const days = agendaList
+    .map((agenda) =>
+      normalizeWeekdayValue(
+        typeof agenda === "string"
+          ? agenda
+          : agenda.day || agenda.dayOfWeek || agenda.weekDay || agenda.name
+      )
+    )
     .filter(Boolean);
+
+  return {
+    days,
+    startHour: getHourValue(fromTime, "9"),
+    endHour: getHourValue(toTime, "17"),
+    dailyWindow:
+      Boolean(availability.dailyWindow) ||
+      (fromTime === "00:00" && toTime === "00:00") ||
+      (fromTime === "00:01" && toTime === "23:59") ||
+      (Boolean(fromTime) &&
+        Boolean(toTime) &&
+        getHourValue(fromTime, "") === getHourValue(toTime, "")),
+  };
+};
 
 const extractPayloadData = (response) => response?.data ?? response;
 
@@ -66,18 +187,15 @@ export default function ServiceEditModal({
 }) {
   const [draft, setDraft] = useState({
     ...service,
-    availability: {
-      days: [],
-      startHour: "9",
-      endHour: "17",
-      dailyWindow: false,
-      ...(service.availability || {}),
-    },
-    itemsText: itemsToText(service.items),
+    availability: normalizeAvailability(service),
+    items: normalizeItems(service.items),
     photoNames: service.photoNames || [],
     photos: service.photos || [],
     deletedImages: service.deletedImages || [],
   });
+  const [draftItem, setDraftItem] = useState(createEmptyItem);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [itemFormError, setItemFormError] = useState("");
   const [neighborhoodOptions, setNeighborhoodOptions] = useState([]);
   const [uploadError, setUploadError] = useState("");
   const hasSelectedCategoryOption = SERVICE_CATEGORY_OPTIONS.some(
@@ -92,7 +210,6 @@ export default function ServiceEditModal({
 
   useEffect(() => {
     if (!draft.governorate) {
-      setNeighborhoodOptions([]);
       return;
     }
 
@@ -109,6 +226,10 @@ export default function ServiceEditModal({
   }, [draft.governorate]);
 
   const handleFieldChange = (fieldName, value) => {
+    if (fieldName === "governorate" && !value) {
+      setNeighborhoodOptions([]);
+    }
+
     setDraft((currentDraft) => {
       if (fieldName === "governorate") {
         return {
@@ -150,6 +271,70 @@ export default function ServiceEditModal({
         },
       };
     });
+  };
+
+  const handleItemFieldChange = (fieldName, value) => {
+    setDraftItem((currentItem) => ({
+      ...currentItem,
+      [fieldName]: value,
+    }));
+  };
+
+  const handleAddItem = () => {
+    if (
+      !draftItem.itemName.trim() ||
+      !draftItem.price.trim() ||
+      !draftItem.description.trim()
+    ) {
+      setItemFormError("Please complete item name, price, and description.");
+      return;
+    }
+
+    const nextItem = {
+      id: editingItemId || `service-item-edit-${Date.now()}`,
+      itemName: draftItem.itemName.trim(),
+      price: draftItem.price.trim(),
+      description: draftItem.description.trim(),
+    };
+
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      items: editingItemId
+        ? (currentDraft.items || []).map((item) =>
+            item.id === editingItemId ? nextItem : item
+          )
+        : [...(currentDraft.items || []), nextItem],
+    }));
+    setDraftItem(createEmptyItem());
+    setEditingItemId(null);
+    setItemFormError("");
+  };
+
+  const handleEditItem = (item) => {
+    setDraftItem({
+      itemName: item.itemName || "",
+      price: String(item.price ?? ""),
+      description: item.description || "",
+    });
+    setEditingItemId(item.id);
+    setItemFormError("");
+  };
+
+  const handleCancelItemEdit = () => {
+    setDraftItem(createEmptyItem());
+    setEditingItemId(null);
+    setItemFormError("");
+  };
+
+  const handleRemoveItem = (itemId) => {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      items: (currentDraft.items || []).filter((item) => item.id !== itemId),
+    }));
+
+    if (editingItemId === itemId) {
+      handleCancelItemEdit();
+    }
   };
 
   const handlePhotoChange = (fileList) => {
@@ -214,13 +399,11 @@ export default function ServiceEditModal({
       }`,
       description: draft.description.trim(),
       longDescription: draft.longDescription.trim(),
-      items: textToItems(draft.itemsText),
+      items: draft.items || [],
       photoNames: draft.photoNames,
       photos: draft.photos,
       deletedImages: draft.deletedImages,
     };
-
-    delete nextService.itemsText;
 
     onSave(nextService);
   };
@@ -415,16 +598,102 @@ export default function ServiceEditModal({
             )}
           </div>
 
-          <label>
+          <div>
             <FieldLabel>Service Items</FieldLabel>
-            <textarea
-              rows="4"
-              value={draft.itemsText}
-              onChange={(event) => handleFieldChange("itemsText", event.target.value)}
-              placeholder="Item name | price | description"
-              className={TEXTAREA_CLASS_NAME}
-            />
-          </label>
+            {(draft.items || []).length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {draft.items.map((item) => (
+                  <span
+                    key={item.id}
+                    className="inline-flex max-w-full items-center gap-2 rounded-full bg-[#EAF0FF] px-3 py-2 font-['Roboto'] text-[13px] font-medium text-[#011C60]"
+                  >
+                    <span className="truncate">
+                      {item.itemName} - EGP {item.price}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleEditItem(item)}
+                      className="shrink-0 cursor-pointer rounded-full px-2 py-0.5 text-[12px] font-semibold text-[#011C60] transition hover:bg-white"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(item.id)}
+                      aria-label={`Remove ${item.itemName}`}
+                      className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#6777A0] transition hover:bg-white hover:text-[#011C60]"
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-[1fr_140px]">
+              <label>
+                <input
+                  type="text"
+                  value={draftItem.itemName}
+                  onChange={(event) =>
+                    handleItemFieldChange("itemName", event.target.value)
+                  }
+                  placeholder="Item name"
+                  className={INPUT_CLASS_NAME}
+                />
+              </label>
+              <label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={draftItem.price}
+                  onChange={(event) =>
+                    handleItemFieldChange("price", event.target.value)
+                  }
+                  placeholder="Price"
+                  className={INPUT_CLASS_NAME}
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-[1fr_150px] md:items-start">
+              <label>
+                <textarea
+                  rows="3"
+                  value={draftItem.description}
+                  onChange={(event) =>
+                    handleItemFieldChange("description", event.target.value)
+                  }
+                  placeholder="Item description"
+                  className={TEXTAREA_CLASS_NAME}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="min-h-12 cursor-pointer rounded-2xl bg-[#011C60] px-5 font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02267F]"
+              >
+                {editingItemId ? "Update Item" : "Add Item"}
+              </button>
+            </div>
+
+            {editingItemId && (
+              <button
+                type="button"
+                onClick={handleCancelItemEdit}
+                className="mt-3 cursor-pointer font-['Roboto'] text-[14px] font-medium text-[#6777A0] transition hover:text-[#011C60]"
+              >
+                Cancel item edit
+              </button>
+            )}
+
+            {itemFormError && (
+              <p className="mt-2 font-['Roboto'] text-[14px] leading-5 text-[#DC2626]">
+                {itemFormError}
+              </p>
+            )}
+          </div>
 
           <div className="rounded-2xl border border-[#E6E8EF] bg-[#FCFCFE] p-4">
             <FieldLabel>Availability Days</FieldLabel>

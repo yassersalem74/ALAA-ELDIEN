@@ -28,11 +28,14 @@ import ServiceEditModal from "../management-dashboard/ServiceEditModal";
 import MyServicesStep from "./MyServicesStep";
 import ServiceDetailsStep from "./ServiceDetailsStep";
 import ServiceItemsStep from "./ServiceItemsStep";
+import { serviceCategories } from "../../../../data/serviceFlowData";
 import {
   FLOW_ASSETS,
   PARTNER_TABS,
+  WEEKDAY_OPTIONS,
   createEmptyAvailabilityData,
   createEmptyServiceDetails,
+  getCategoryLabel,
 } from "./partnerFlowData";
 import {
   BriefcaseIcon,
@@ -79,6 +82,18 @@ const CATEGORY_UI_VALUES = {
   Car_Care: "car-care",
   Home_Care: "home-service",
   Personal_Care: "personal-care",
+  car_care: "car-care",
+  home_care: "home-service",
+  personal_care: "personal-care",
+  carcare: "car-care",
+  homecare: "home-service",
+  personalcare: "personal-care",
+  "car care": "car-care",
+  "home care": "home-service",
+  "personal care": "personal-care",
+  CarCare: "car-care",
+  HomeCare: "home-service",
+  PersonalCare: "personal-care",
 };
 
 const extractPayloadData = (response) => response?.data ?? response;
@@ -109,6 +124,200 @@ const getServiceIdFromResponse = (response) => {
 };
 
 const normalizeTextValue = (value) => String(value || "").trim().replace(/\s+/g, " ");
+
+const firstPresentValue = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
+
+const normalizeCategoryValue = (value) => {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+  const slugValue = rawValue
+    .replace(/_/g, "-")
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+  const parentCategory = serviceCategories.find(
+    (category) =>
+      category.slug === slugValue ||
+      category.title.toLowerCase() === rawValue.toLowerCase() ||
+      category.shortLabel?.toLowerCase() === rawValue.toLowerCase() ||
+      category.subServices?.some(
+        (subService) =>
+          subService.slug === slugValue ||
+          subService.title.toLowerCase() === rawValue.toLowerCase()
+      )
+  );
+
+  return (
+    CATEGORY_UI_VALUES[rawValue] ||
+    CATEGORY_UI_VALUES[rawValue.toLowerCase()] ||
+    parentCategory?.slug ||
+    slugValue
+  );
+};
+
+const getCategorySource = (service) =>
+  firstPresentValue(
+    typeof service.categoryName === "string" ? service.categoryName : "",
+    typeof service.category === "string" ? service.category : "",
+    service.categoryDto?.name,
+    service.categoryDto?.slug,
+    service.category?.name,
+    service.category?.slug,
+    service.mainCategory?.name,
+    service.mainCategory?.slug,
+    service.parentCategory?.name,
+    service.parentCategory?.slug,
+    service.serviceCategory?.name,
+    service.serviceCategory?.slug,
+    service.subCategory?.name,
+    service.subCategory?.slug
+  );
+
+const normalizeWeekdayValue = (value) => {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+
+  const normalizedValue = rawValue.toLowerCase();
+
+  return (
+    WEEKDAY_OPTIONS.find((day) => day.toLowerCase() === normalizedValue) ||
+    rawValue.charAt(0).toUpperCase() + rawValue.slice(1).toLowerCase()
+  );
+};
+
+const getAgendaTime = (agenda, fieldNames) =>
+  fieldNames
+    .map((fieldName) => agenda?.[fieldName])
+    .find((value) => value !== undefined && value !== null && value !== "");
+
+const getAgendaHour = (timeValue, fallbackHour) => {
+  const rawValue = String(timeValue || "");
+  const match =
+    rawValue.match(/T(\d{1,2}):/) ||
+    rawValue.match(/(?:^|\s)(\d{1,2}):/) ||
+    rawValue.match(/^(\d{1,2})$/);
+  const hour = match ? Number(match[1] || match[0]) : Number.NaN;
+
+  return Number.isFinite(hour) ? String(Math.min(Math.max(hour, 0), 23)) : fallbackHour;
+};
+
+const normalizeAgendaList = (service) => {
+  const agendas =
+    service.agendas ||
+    service.agendaDtos ||
+    service.agendaDTOs ||
+    service.serviceAgendas ||
+    service.availabilities ||
+    service.availability ||
+    service.availableDays ||
+    service.schedules ||
+    service.workingHours ||
+    [];
+
+  if (Array.isArray(agendas)) return agendas;
+  if (Array.isArray(agendas.agendas)) return agendas.agendas;
+  if (Array.isArray(agendas.items)) return agendas.items;
+  if (Array.isArray(service.days)) {
+    return service.days.map((day) => ({
+      day,
+      from:
+        service.from ||
+        service.fromTime ||
+        service.start ||
+        service.startTime ||
+        service.startHour,
+      to:
+        service.to ||
+        service.toTime ||
+        service.end ||
+        service.endTime ||
+        service.endHour,
+    }));
+  }
+  if (Array.isArray(agendas.days)) {
+    return agendas.days.map((day) => ({
+      day,
+      from:
+        agendas.from ||
+        agendas.fromTime ||
+        agendas.start ||
+        agendas.startTime ||
+        agendas.startHour,
+      to:
+        agendas.to ||
+        agendas.toTime ||
+        agendas.end ||
+        agendas.endTime ||
+        agendas.endHour,
+    }));
+  }
+  if (service.day || service.dayOfWeek || service.weekDay) {
+    return [
+      {
+        day: service.day || service.dayOfWeek || service.weekDay,
+        from:
+          service.from ||
+          service.fromTime ||
+          service.start ||
+          service.startTime ||
+          service.startHour,
+        to:
+          service.to ||
+          service.toTime ||
+          service.end ||
+          service.endTime ||
+          service.endHour,
+      },
+    ];
+  }
+
+  return [];
+};
+
+const normalizeServicePayload = (service) => {
+  const nestedService =
+    service.service ||
+    service.serviceDto ||
+    service.serviceDTO ||
+    service.serviceDetails ||
+    service.details ||
+    service.result ||
+    {};
+
+  if (!nestedService || typeof nestedService !== "object") {
+    return service;
+  }
+
+  return {
+    ...nestedService,
+    ...service,
+    items: firstPresentValue(
+      service.items,
+      service.serviceItems,
+      nestedService.items,
+      nestedService.serviceItems
+    ),
+    agendas: firstPresentValue(
+      service.agendas,
+      service.agendaDtos,
+      service.agendaDTOs,
+      service.serviceAgendas,
+      nestedService.agendas,
+      nestedService.agendaDtos,
+      nestedService.agendaDTOs,
+      nestedService.serviceAgendas
+    ),
+    availability: firstPresentValue(service.availability, nestedService.availability),
+    images: firstPresentValue(
+      service.images,
+      service.imageUrls,
+      service.serviceImages,
+      nestedService.images,
+      nestedService.imageUrls,
+      nestedService.serviceImages
+    ),
+  };
+};
 
 const buildServiceFormData = (details, isUpdate = false) => {
   const formData = new FormData();
@@ -205,14 +414,31 @@ const validateAvailabilityForApi = (availability) => {
   return "";
 };
 
-const toAgendaTime = (hour) => `${String(hour).padStart(2, "0")}:00`;
+const hasAvailabilityDays = (availability) =>
+  (availability?.days || []).some((day) => String(day || "").trim());
+
+const toAgendaTime = (hour) => {
+  const match = String(hour || "").match(/\d{1,2}/);
+  const hourNumber = match ? Number(match[0]) : 0;
+
+  return `${String(Math.min(Math.max(hourNumber, 0), 23)).padStart(2, "0")}:00`;
+};
+
+const toAgendaDay = (day) => {
+  const normalizedDay = normalizeWeekdayValue(day);
+
+  return WEEKDAY_OPTIONS.includes(normalizedDay) ? normalizedDay : "";
+};
 
 const buildAgendasPayload = (availability) => ({
-  agendas: (availability.days || []).map((day) => ({
-    day,
-    from: availability.dailyWindow ? "00:01" : toAgendaTime(availability.startHour),
-    to: availability.dailyWindow ? "23:59" : toAgendaTime(availability.endHour),
-  })),
+  agendas: (availability.days || [])
+    .map(toAgendaDay)
+    .filter(Boolean)
+    .map((day) => ({
+      day,
+      from: availability.dailyWindow ? "00:00" : toAgendaTime(availability.startHour),
+      to: availability.dailyWindow ? "23:59" : toAgendaTime(availability.endHour),
+    })),
 });
 
 const buildItemsPayload = (items) => ({
@@ -223,8 +449,10 @@ const buildItemsPayload = (items) => ({
   })),
 });
 
-const normalizeService = (service) => {
-  const categoryName = service.categoryName || service.category || "";
+const normalizeService = (servicePayload) => {
+  const service = normalizeServicePayload(servicePayload);
+  const categorySource = getCategorySource(service);
+  const category = normalizeCategoryValue(categorySource);
   const neighborhood = service.neighborhood || service.neighborhoodDto || {};
   const governorate =
     service.governorate ||
@@ -233,7 +461,24 @@ const normalizeService = (service) => {
     neighborhood.governorateDto ||
     {};
   const items = service.items || service.serviceItems || [];
-  const agendas = service.agendas || service.availabilities || [];
+  const agendaList = normalizeAgendaList(service);
+  const firstAgenda = agendaList[0] || {};
+  const agendaFrom = getAgendaTime(firstAgenda, [
+    "from",
+    "fromTime",
+    "start",
+    "startTime",
+    "startHour",
+    "startDate",
+  ]);
+  const agendaTo = getAgendaTime(firstAgenda, [
+    "to",
+    "toTime",
+    "end",
+    "endTime",
+    "endHour",
+    "endDate",
+  ]);
   const images =
     service.images ||
     service.imageUrls ||
@@ -250,8 +495,8 @@ const normalizeService = (service) => {
   return {
     id,
     serviceName: service.name || service.serviceName || "",
-    category: CATEGORY_UI_VALUES[categoryName] || categoryName,
-    categoryLabel: service.categoryLabel || categoryName || "Service",
+    category,
+    categoryLabel: service.categoryLabel || getCategoryLabel(category),
     location:
       service.location ||
       [neighborhood.name, governorate.name].filter(Boolean).join(", "),
@@ -259,7 +504,16 @@ const normalizeService = (service) => {
     coverageArea: service.neighborhoodId || neighborhood.id || "",
     description: service.description || "",
     longDescription: service.subDescription || service.longDescription || "",
-    price: String(service.price ?? ""),
+    price: String(
+      firstPresentValue(
+        service.price,
+        service.servicePrice,
+        service.basePrice,
+        service.startingPrice,
+        service.pricePerSlot,
+        service.amount
+      ) ?? ""
+    ),
     serviceTimeHours: String(
       service.serviceTimeHours ||
         Math.max(1, Math.round((service.timeslotDurationInMin || 60) / 60))
@@ -279,13 +533,57 @@ const normalizeService = (service) => {
       description: item.description || "",
     })),
     availability: {
-      days: agendas.map((agenda) => agenda.day).filter(Boolean),
-      startHour: agendas[0]?.from ? String(Number(agendas[0].from.split(":")[0])) : "9",
-      endHour: agendas[0]?.to ? String(Number(agendas[0].to.split(":")[0])) : "17",
+      days: agendaList
+        .map((agenda) =>
+          normalizeWeekdayValue(
+            agenda.day || agenda.dayOfWeek || agenda.weekDay || agenda.name
+          )
+        )
+        .filter(Boolean),
+      startHour: getAgendaHour(agendaFrom, "9"),
+      endHour: getAgendaHour(agendaTo, "17"),
       dailyWindow:
-        (agendas[0]?.from === "00:00" && agendas[0]?.to === "00:00") ||
-        (agendas[0]?.from === "00:01" && agendas[0]?.to === "23:59"),
+        (agendaFrom === "00:00" && agendaTo === "00:00") ||
+        (agendaFrom === "00:01" && agendaTo === "23:59") ||
+        (Boolean(agendaFrom) &&
+          Boolean(agendaTo) &&
+          getAgendaHour(agendaFrom, "") === getAgendaHour(agendaTo, "")),
     },
+  };
+};
+
+const mergeServiceForEdit = (baseService, detailsService) => {
+  const baseAvailability = baseService.availability || {};
+  const detailsAvailability = detailsService.availability || {};
+  const detailsHasAvailability =
+    (detailsAvailability.days || []).length > 0 ||
+    detailsAvailability.startHour !== "9" ||
+    detailsAvailability.endHour !== "17" ||
+    detailsAvailability.dailyWindow;
+
+  return {
+    ...baseService,
+    ...detailsService,
+    id: detailsService.id || baseService.id,
+    serviceName: detailsService.serviceName || baseService.serviceName,
+    category: detailsService.category || baseService.category,
+    categoryLabel:
+      detailsService.category && detailsService.category !== "service"
+        ? detailsService.categoryLabel
+        : baseService.categoryLabel,
+    location: detailsService.location || baseService.location,
+    governorate: detailsService.governorate || baseService.governorate,
+    coverageArea: detailsService.coverageArea || baseService.coverageArea,
+    description: detailsService.description || baseService.description,
+    longDescription: detailsService.longDescription || baseService.longDescription,
+    price: detailsService.price || baseService.price,
+    serviceTimeHours: detailsService.serviceTimeHours || baseService.serviceTimeHours,
+    photoNames:
+      detailsService.photoNames?.length > 0
+        ? detailsService.photoNames
+        : baseService.photoNames,
+    items: detailsService.items?.length > 0 ? detailsService.items : baseService.items,
+    availability: detailsHasAvailability ? detailsAvailability : baseAvailability,
   };
 };
 
@@ -427,6 +725,11 @@ const isStaleProviderTokenError = (error) =>
   error?.message === "PROVIDER_TOKEN_REFRESH_REQUIRED";
 const isIgnorableAgendaValidationError = (error) =>
   getApiErrorMessage(error, "").includes("DayNotEmptyValidator");
+const isNoChangesDetectedError = (error) =>
+  getApiErrorMessage(error, "").includes("NoChangesDetected");
+const isNonBlockingAgendaError = (error) =>
+  error?.response?.status === 400 || isIgnorableAgendaValidationError(error);
+const isNonBlockingRelatedDataError = (error) => error?.response?.status === 400;
 const getApiErrorMessage = (error, fallbackMessage) => {
   const data = error?.response?.data;
   const validationMessage =
@@ -446,6 +749,36 @@ const getProviderForbiddenMessage = (fallbackMessage) =>
   hasProviderToken()
     ? fallbackMessage
     : "Provider mode is ready. Please sign in again so your session gets provider access.";
+const saveAgendasIfPossible = async (serviceId, availability) => {
+  if (!hasAvailabilityDays(availability)) return;
+
+  try {
+    await createOrUpdateAgendas(serviceId, buildAgendasPayload(availability));
+  } catch (error) {
+    if (
+      isUnauthorizedError(error) ||
+      isForbiddenError(error) ||
+      !isNonBlockingAgendaError(error)
+    ) {
+      throw error;
+    }
+  }
+};
+const saveItemsIfPossible = async (serviceId, items) => {
+  if (!items || items.length === 0) return;
+
+  try {
+    await createOrUpdateItems(serviceId, buildItemsPayload(items));
+  } catch (error) {
+    if (
+      isUnauthorizedError(error) ||
+      isForbiddenError(error) ||
+      !isNonBlockingRelatedDataError(error)
+    ) {
+      throw error;
+    }
+  }
+};
 const ensureProviderRole = async () => {
   if (hasProviderToken()) {
     return true;
@@ -948,13 +1281,8 @@ export default function BecomePartnerFlow() {
 
         createdServiceId = serviceId;
 
-        if (serviceId && serviceItems.length > 0) {
-          await createOrUpdateItems(serviceId, buildItemsPayload(serviceItems));
-        }
-
-        if (serviceId && availability.days.length > 0) {
-          await createOrUpdateAgendas(serviceId, buildAgendasPayload(availability));
-        }
+        await saveItemsIfPossible(serviceId, serviceItems);
+        await saveAgendasIfPossible(serviceId, availability);
 
         if (!(await loadProviderData({ showPartialError: false }))) {
           return;
@@ -1062,10 +1390,12 @@ export default function BecomePartnerFlow() {
     try {
       const response = await getServiceDetails(service.id, LANGUAGE);
       const serviceDetails = normalizeService(extractPayloadData(response));
-      setEditingService({
-        ...serviceDetails,
-        id: serviceDetails.id || service.id,
-      });
+      setEditingService(
+        mergeServiceForEdit(normalizeService(service), {
+          ...serviceDetails,
+          id: serviceDetails.id || service.id,
+        })
+      );
     } catch (error) {
       if (isUnauthorizedError(error)) {
         clearAuthSession();
@@ -1104,9 +1434,9 @@ export default function BecomePartnerFlow() {
     }
 
     const validationMessage = validateServiceDetailsForApi(nextService);
-    const availabilityValidationMessage = validateAvailabilityForApi(
-      nextService.availability
-    );
+    const availabilityValidationMessage = hasAvailabilityDays(nextService.availability)
+      ? validateAvailabilityForApi(nextService.availability)
+      : "";
 
     if (validationMessage || availabilityValidationMessage) {
       setToast({
@@ -1157,18 +1487,16 @@ export default function BecomePartnerFlow() {
     }
 
     try {
-      await updateService(nextService.id, buildServiceFormData(nextService, true));
-
-      if (nextService.items?.length > 0) {
-        await createOrUpdateItems(nextService.id, buildItemsPayload(nextService.items));
+      try {
+        await updateService(nextService.id, buildServiceFormData(nextService, true));
+      } catch (error) {
+        if (!isNoChangesDetectedError(error)) {
+          throw error;
+        }
       }
 
-      if (nextService.availability?.days?.length > 0) {
-        await createOrUpdateAgendas(
-          nextService.id,
-          buildAgendasPayload(nextService.availability)
-        );
-      }
+      await saveItemsIfPossible(nextService.id, nextService.items || []);
+      await saveAgendasIfPossible(nextService.id, nextService.availability);
 
       await loadProviderData({ showPartialError: false });
       setEditingService(null);
@@ -1196,6 +1524,17 @@ export default function BecomePartnerFlow() {
           message: getProviderForbiddenMessage(
             "Your account does not have permission to update provider services."
           ),
+        });
+        return;
+      }
+
+      if (isIgnorableAgendaValidationError(error) || isNoChangesDetectedError(error)) {
+        await loadProviderData({ showPartialError: false });
+        setEditingService(null);
+        setToast({
+          id: Date.now(),
+          type: "success",
+          message: "Service saved successfully.",
         });
         return;
       }
@@ -1558,8 +1897,10 @@ export default function BecomePartnerFlow() {
       itemType="service"
       items={savedServices}
       nameHeader="Service Name"
+      categoryHeader="Category"
       priceHeader="Price"
       getName={(service) => service.serviceName}
+      getCategory={(service) => service.categoryLabel}
       getPrice={(service) => service.price}
       onAdd={openServiceFlow}
       onEdit={handleEditService}
