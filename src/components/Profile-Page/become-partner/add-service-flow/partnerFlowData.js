@@ -131,6 +131,7 @@ export const createEmptyAvailabilityData = () => ({
   startHour: "9",
   endHour: "17",
   dailyWindow: false,
+  dayWindows: {},
 });
 
 export const getCoverageAreaOptions = (governorateValue) => {

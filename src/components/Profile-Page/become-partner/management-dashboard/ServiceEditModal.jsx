@@ -14,6 +14,8 @@ import {
   HOUR_OPTIONS,
   SERVICE_CATEGORY_OPTIONS,
   WEEKDAY_OPTIONS,
+  calculateTotalHours,
+  formatHourLabel,
   getCategoryLabel,
 } from "../add-service-flow/partnerFlowData";
 
@@ -49,6 +51,104 @@ const getAgendaTime = (agenda, fieldNames) =>
     .map((fieldName) => agenda?.[fieldName])
     .find((value) => value !== undefined && value !== null && value !== "");
 
+const AGENDA_DAY_FIELDS = [
+  "day",
+  "Day",
+  "dayOfWeek",
+  "DayOfWeek",
+  "weekDay",
+  "WeekDay",
+  "weekday",
+  "Weekday",
+  "name",
+  "Name",
+];
+
+const AGENDA_FROM_FIELDS = [
+  "from",
+  "From",
+  "fromTime",
+  "FromTime",
+  "start",
+  "Start",
+  "startTime",
+  "StartTime",
+  "startHour",
+  "StartHour",
+  "startDate",
+  "StartDate",
+];
+
+const AGENDA_TO_FIELDS = [
+  "to",
+  "To",
+  "toTime",
+  "ToTime",
+  "end",
+  "End",
+  "endTime",
+  "EndTime",
+  "endHour",
+  "EndHour",
+  "endDate",
+  "EndDate",
+];
+
+const getAgendaDayValue = (agenda) =>
+  typeof agenda === "string" ? agenda : getAgendaTime(agenda, AGENDA_DAY_FIELDS);
+
+const isAgendaLike = (item) => {
+  if (typeof item === "string") {
+    return WEEKDAY_OPTIONS.includes(normalizeWeekdayValue(item));
+  }
+
+  if (!item || typeof item !== "object") return false;
+
+  return Boolean(getAgendaDayValue(item));
+};
+
+const findAgendaArray = (value, seen = new Set()) => {
+  if (!value || typeof value !== "object" || seen.has(value)) return [];
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.some(isAgendaLike) ? value : [];
+  }
+
+  const preferredKeys = [
+    "agendas",
+    "Agendas",
+    "agendaDtos",
+    "AgendaDtos",
+    "agendaDTOs",
+    "AgendaDTOs",
+    "serviceAgendas",
+    "ServiceAgendas",
+    "availabilities",
+    "Availabilities",
+    "availableDays",
+    "AvailableDays",
+    "schedules",
+    "Schedules",
+    "workingHours",
+    "WorkingHours",
+  ];
+
+  for (const key of preferredKeys) {
+    const nestedAgendas = findAgendaArray(value[key], seen);
+
+    if (nestedAgendas.length > 0) return nestedAgendas;
+  }
+
+  for (const nestedValue of Object.values(value)) {
+    const nestedAgendas = findAgendaArray(nestedValue, seen);
+
+    if (nestedAgendas.length > 0) return nestedAgendas;
+  }
+
+  return [];
+};
+
 const getHourValue = (timeValue, fallbackHour) => {
   const rawValue = String(timeValue || "");
   const match =
@@ -60,105 +160,191 @@ const getHourValue = (timeValue, fallbackHour) => {
   return Number.isFinite(hour) ? String(Math.min(Math.max(hour, 0), 23)) : fallbackHour;
 };
 
+const isFullDayAgendaWindow = (fromTime, toTime) => {
+  const fromValue = String(fromTime || "");
+  const toValue = String(toTime || "");
+  const startsAtMidnight = /^0?0:0?[01](?::0{2})?$/.test(fromValue);
+  const endsAtFullDay =
+    /^0?0:0?0(?::0{2})?$/.test(toValue) || /^23:59(?::0{2})?$/.test(toValue);
+
+  return (
+    (startsAtMidnight && endsAtFullDay) ||
+    (Boolean(fromTime) &&
+      Boolean(toTime) &&
+      getHourValue(fromTime, "") === getHourValue(toTime, ""))
+  );
+};
+
+const getAvailabilityDayWindow = (availability, day) => {
+  const normalizedDay = normalizeWeekdayValue(day);
+  const dayWindows = availability?.dayWindows || {};
+
+  return (
+    dayWindows[day] ||
+    dayWindows[normalizedDay] || {
+      startHour: availability?.startHour || "9",
+      endHour: availability?.endHour || "17",
+      dailyWindow: Boolean(availability?.dailyWindow),
+    }
+  );
+};
+
 const normalizeAgendaList = (service) => {
-  const availability = service.availability || {};
+  const availability = service.availability || service.Availability || {};
   const agendas =
-    service.agendas ||
-    service.agendaDtos ||
-    service.agendaDTOs ||
-    service.serviceAgendas ||
-    service.availabilities ||
-    service.availableDays ||
-    service.schedules ||
-    service.workingHours ||
-    availability.agendas ||
-    availability.items ||
-    [];
+    firstPresentValue(
+      service.agendas,
+      service.Agendas,
+      service.agendaDtos,
+      service.AgendaDtos,
+      service.agendaDTOs,
+      service.AgendaDTOs,
+      service.serviceAgendas,
+      service.ServiceAgendas,
+      service.availabilities,
+      service.Availabilities,
+      service.availableDays,
+      service.AvailableDays,
+      service.schedules,
+      service.Schedules,
+      service.workingHours,
+      service.WorkingHours,
+      availability.agendas,
+      availability.Agendas,
+      availability.items,
+      availability.Items
+    ) || [];
 
   if (Array.isArray(agendas)) return agendas;
   if (Array.isArray(agendas.agendas)) return agendas.agendas;
+  if (Array.isArray(agendas.Agendas)) return agendas.Agendas;
   if (Array.isArray(agendas.items)) return agendas.items;
+  if (Array.isArray(agendas.Items)) return agendas.Items;
 
-  const days = Array.isArray(service.days)
-    ? service.days
-    : Array.isArray(availability.days)
-      ? availability.days
-      : [];
+  const days = firstPresentValue(
+    service.days,
+    service.Days,
+    availability.days,
+    availability.Days
+  );
 
-  if (days.length > 0) {
+  if (Array.isArray(days) && days.length > 0) {
     return days.map((day) => ({
       day,
       from: firstPresentValue(
         service.from,
+        service.From,
         service.fromTime,
+        service.FromTime,
         service.start,
+        service.Start,
         service.startTime,
+        service.StartTime,
         service.startHour,
+        service.StartHour,
         availability.from,
+        availability.From,
         availability.fromTime,
+        availability.FromTime,
         availability.start,
+        availability.Start,
         availability.startTime,
-        availability.startHour
+        availability.StartTime,
+        availability.startHour,
+        availability.StartHour
       ),
       to: firstPresentValue(
         service.to,
+        service.To,
         service.toTime,
+        service.ToTime,
         service.end,
+        service.End,
         service.endTime,
+        service.EndTime,
         service.endHour,
+        service.EndHour,
         availability.to,
+        availability.To,
         availability.toTime,
+        availability.ToTime,
         availability.end,
+        availability.End,
         availability.endTime,
-        availability.endHour
+        availability.EndTime,
+        availability.endHour,
+        availability.EndHour
       ),
     }));
   }
 
-  return [];
+  return findAgendaArray(service);
 };
 
 const normalizeAvailability = (service) => {
-  const availability = service.availability || {};
+  const availability = service.availability || service.Availability || {};
   const agendaList = normalizeAgendaList(service);
   const firstAgenda = agendaList[0] || {};
   const fromTime = firstPresentValue(
     availability.startHour,
+    availability.StartHour,
     availability.from,
+    availability.From,
     availability.fromTime,
+    availability.FromTime,
     availability.start,
+    availability.Start,
     availability.startTime,
-    getAgendaTime(firstAgenda, ["from", "fromTime", "start", "startTime", "startHour"])
+    availability.StartTime,
+    getAgendaTime(firstAgenda, AGENDA_FROM_FIELDS)
   );
   const toTime = firstPresentValue(
     availability.endHour,
+    availability.EndHour,
     availability.to,
+    availability.To,
     availability.toTime,
+    availability.ToTime,
     availability.end,
+    availability.End,
     availability.endTime,
-    getAgendaTime(firstAgenda, ["to", "toTime", "end", "endTime", "endHour"])
+    availability.EndTime,
+    getAgendaTime(firstAgenda, AGENDA_TO_FIELDS)
   );
-  const days = agendaList
-    .map((agenda) =>
-      normalizeWeekdayValue(
-        typeof agenda === "string"
-          ? agenda
-          : agenda.day || agenda.dayOfWeek || agenda.weekDay || agenda.name
-      )
-    )
-    .filter(Boolean);
+  const days = [
+    ...new Set(
+      agendaList
+        .map((agenda) => normalizeWeekdayValue(getAgendaDayValue(agenda)))
+        .filter(Boolean)
+    ),
+  ];
+  const dayWindows = agendaList.reduce((windows, agenda) => {
+    const day = normalizeWeekdayValue(getAgendaDayValue(agenda));
+
+    if (!day) return windows;
+
+    const existingWindow = getAvailabilityDayWindow(availability, day);
+    const agendaFrom = getAgendaTime(agenda, AGENDA_FROM_FIELDS);
+    const agendaTo = getAgendaTime(agenda, AGENDA_TO_FIELDS);
+
+    return {
+      ...windows,
+      [day]: {
+        startHour: getHourValue(agendaFrom, existingWindow.startHour || "9"),
+        endHour: getHourValue(agendaTo, existingWindow.endHour || "17"),
+        dailyWindow:
+          Boolean(existingWindow.dailyWindow) ||
+          isFullDayAgendaWindow(agendaFrom, agendaTo),
+      },
+    };
+  }, {});
 
   return {
     days,
     startHour: getHourValue(fromTime, "9"),
     endHour: getHourValue(toTime, "17"),
-    dailyWindow:
-      Boolean(availability.dailyWindow) ||
-      (fromTime === "00:00" && toTime === "00:00") ||
-      (fromTime === "00:01" && toTime === "23:59") ||
-      (Boolean(fromTime) &&
-        Boolean(toTime) &&
-        getHourValue(fromTime, "") === getHourValue(toTime, "")),
+    dailyWindow: Boolean(availability.dailyWindow) || isFullDayAgendaWindow(fromTime, toTime),
+    dayWindows,
   };
 };
 
@@ -207,6 +393,17 @@ export default function ServiceEditModal({
   const hasSelectedNeighborhoodOption = neighborhoodOptions.some(
     (option) => option.value === draft.coverageArea
   );
+  const selectedAvailabilityRows = (draft.availability.days || []).map((day) => {
+    const window = getAvailabilityDayWindow(draft.availability, day);
+    const totalHours = calculateTotalHours(window.startHour, window.endHour);
+
+    return {
+      day,
+      window,
+      totalHours,
+      isValid: window.dailyWindow || totalHours > 0,
+    };
+  });
 
   useEffect(() => {
     if (!draft.governorate) {
@@ -246,14 +443,36 @@ export default function ServiceEditModal({
     });
   };
 
-  const handleAvailabilityChange = (fieldName, value) => {
-    setDraft((currentDraft) => ({
-      ...currentDraft,
-      availability: {
-        ...currentDraft.availability,
-        [fieldName]: value,
-      },
-    }));
+  const handleAvailabilityDayChange = (day, fieldName, value) => {
+    setDraft((currentDraft) => {
+      const currentWindow = getAvailabilityDayWindow(currentDraft.availability, day);
+
+      return {
+        ...currentDraft,
+        availability: {
+          ...currentDraft.availability,
+          dayWindows: {
+            ...(currentDraft.availability.dayWindows || {}),
+            [day]: {
+              ...currentWindow,
+              [fieldName]: value,
+            },
+          },
+        },
+      };
+    });
+  };
+
+  const handleDailyWindowChange = (day, nextValue) => {
+    handleAvailabilityDayChange(day, "dailyWindow", nextValue);
+
+    if (nextValue) {
+      handleAvailabilityDayChange(day, "startHour", "0");
+      handleAvailabilityDayChange(day, "endHour", "0");
+    } else {
+      handleAvailabilityDayChange(day, "startHour", "9");
+      handleAvailabilityDayChange(day, "endHour", "17");
+    }
   };
 
   const handleToggleDay = (day) => {
@@ -262,12 +481,24 @@ export default function ServiceEditModal({
       const nextDays = days.includes(day)
         ? days.filter((currentDay) => currentDay !== day)
         : [...days, day];
+      const nextDayWindows = { ...(currentDraft.availability.dayWindows || {}) };
+
+      if (days.includes(day)) {
+        delete nextDayWindows[day];
+      } else if (!nextDayWindows[day]) {
+        nextDayWindows[day] = {
+          startHour: currentDraft.availability.startHour || "9",
+          endHour: currentDraft.availability.endHour || "17",
+          dailyWindow: Boolean(currentDraft.availability.dailyWindow),
+        };
+      }
 
       return {
         ...currentDraft,
         availability: {
           ...currentDraft.availability,
           days: nextDays,
+          dayWindows: nextDayWindows,
         },
       };
     });
@@ -718,55 +949,99 @@ export default function ServiceEditModal({
               })}
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <label className="relative">
-                <FieldLabel>From</FieldLabel>
-                <select
-                  value={draft.availability.startHour}
-                  onChange={(event) => handleAvailabilityChange("startHour", event.target.value)}
-                  className={SELECT_CLASS_NAME}
-                  disabled={draft.availability.dailyWindow}
-                >
-                  {HOUR_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <SelectArrow />
-              </label>
+            {selectedAvailabilityRows.length > 0 && (
+              <div className="mt-4 flex flex-col gap-3">
+                {selectedAvailabilityRows.map(({ day, window, totalHours, isValid }) => (
+                  <div
+                    key={day}
+                    className="rounded-2xl border border-[#E6E8EF] bg-white p-4"
+                  >
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                      <div className="min-w-[130px]">
+                        <p className="font-['Roboto'] text-[16px] font-medium leading-6 text-[#011C60]">
+                          {day}
+                        </p>
+                        <p className="font-['Roboto'] text-[13px] leading-5 text-[#6777A0]">
+                          {window.dailyWindow
+                            ? "12:00 AM to 12:00 AM"
+                            : `${formatHourLabel(
+                                window.startHour
+                              )} to ${formatHourLabel(window.endHour)}`}
+                        </p>
+                      </div>
 
-              <label className="relative">
-                <FieldLabel>To</FieldLabel>
-                <select
-                  value={draft.availability.endHour}
-                  onChange={(event) => handleAvailabilityChange("endHour", event.target.value)}
-                  className={SELECT_CLASS_NAME}
-                  disabled={draft.availability.dailyWindow}
-                >
-                  {HOUR_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <SelectArrow />
-              </label>
-            </div>
+                      <label className="relative flex-1">
+                        <FieldLabel>From</FieldLabel>
+                        <select
+                          value={window.startHour}
+                          onChange={(event) =>
+                            handleAvailabilityDayChange(
+                              day,
+                              "startHour",
+                              event.target.value
+                            )
+                          }
+                          className={SELECT_CLASS_NAME}
+                          disabled={window.dailyWindow}
+                        >
+                          {HOUR_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <SelectArrow />
+                      </label>
 
-            <label className="mt-4 flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={draft.availability.dailyWindow}
-                onChange={(event) =>
-                  handleAvailabilityChange("dailyWindow", event.target.checked)
-                }
-                className="h-4 w-4"
-              />
-              <span className="font-['Roboto'] text-[14px] font-medium text-[#011C60]">
-                Daily Window
-              </span>
-            </label>
+                      <label className="relative flex-1">
+                        <FieldLabel>To</FieldLabel>
+                        <select
+                          value={window.endHour}
+                          onChange={(event) =>
+                            handleAvailabilityDayChange(
+                              day,
+                              "endHour",
+                              event.target.value
+                            )
+                          }
+                          className={SELECT_CLASS_NAME}
+                          disabled={window.dailyWindow}
+                        >
+                          {HOUR_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <SelectArrow />
+                      </label>
+
+                      <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-[#F3F4F7] px-4">
+                        <input
+                          type="checkbox"
+                          checked={window.dailyWindow}
+                          onChange={(event) =>
+                            handleDailyWindowChange(day, event.target.checked)
+                          }
+                          className="h-4 w-4"
+                        />
+                        <span className="font-['Roboto'] text-[14px] font-medium text-[#011C60]">
+                          Daily Window
+                        </span>
+                      </label>
+                    </div>
+
+                    <p
+                      className={`mt-3 font-['Roboto'] text-[14px] leading-5 ${
+                        isValid ? "text-[#6777A0]" : "text-[#DC2626]"
+                      }`}
+                    >
+                      Total hours: {window.dailyWindow ? 24 : totalHours}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">

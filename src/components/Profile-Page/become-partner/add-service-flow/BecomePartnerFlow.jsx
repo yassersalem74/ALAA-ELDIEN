@@ -190,6 +190,105 @@ const getAgendaTime = (agenda, fieldNames) =>
     .map((fieldName) => agenda?.[fieldName])
     .find((value) => value !== undefined && value !== null && value !== "");
 
+const AGENDA_DAY_FIELDS = [
+  "day",
+  "Day",
+  "dayOfWeek",
+  "DayOfWeek",
+  "weekDay",
+  "WeekDay",
+  "weekday",
+  "Weekday",
+  "name",
+  "Name",
+];
+
+const AGENDA_FROM_FIELDS = [
+  "from",
+  "From",
+  "fromTime",
+  "FromTime",
+  "start",
+  "Start",
+  "startTime",
+  "StartTime",
+  "startHour",
+  "StartHour",
+  "startDate",
+  "StartDate",
+];
+
+const AGENDA_TO_FIELDS = [
+  "to",
+  "To",
+  "toTime",
+  "ToTime",
+  "end",
+  "End",
+  "endTime",
+  "EndTime",
+  "endHour",
+  "EndHour",
+  "endDate",
+  "EndDate",
+];
+
+const getAgendaDayValue = (agenda) =>
+  typeof agenda === "string" ? agenda : getAgendaTime(agenda, AGENDA_DAY_FIELDS);
+
+const isAgendaLike = (item) => {
+  if (typeof item === "string") {
+    return WEEKDAY_OPTIONS.includes(normalizeWeekdayValue(item));
+  }
+
+  if (!item || typeof item !== "object") return false;
+
+  return Boolean(getAgendaDayValue(item));
+};
+
+const findAgendaArray = (value, seen = new Set()) => {
+  if (!value || typeof value !== "object" || seen.has(value)) return [];
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.some(isAgendaLike) ? value : [];
+  }
+
+  const preferredKeys = [
+    "agendas",
+    "Agendas",
+    "agendaDtos",
+    "AgendaDtos",
+    "agendaDTOs",
+    "AgendaDTOs",
+    "serviceAgendas",
+    "ServiceAgendas",
+    "availabilities",
+    "Availabilities",
+    "availableDays",
+    "AvailableDays",
+    "schedules",
+    "Schedules",
+    "workingHours",
+    "WorkingHours",
+  ];
+
+  for (const key of preferredKeys) {
+    const nestedValue = value[key];
+    const nestedAgendas = findAgendaArray(nestedValue, seen);
+
+    if (nestedAgendas.length > 0) return nestedAgendas;
+  }
+
+  for (const nestedValue of Object.values(value)) {
+    const nestedAgendas = findAgendaArray(nestedValue, seen);
+
+    if (nestedAgendas.length > 0) return nestedAgendas;
+  }
+
+  return [];
+};
+
 const getAgendaHour = (timeValue, fallbackHour) => {
   const rawValue = String(timeValue || "");
   const match =
@@ -201,77 +300,192 @@ const getAgendaHour = (timeValue, fallbackHour) => {
   return Number.isFinite(hour) ? String(Math.min(Math.max(hour, 0), 23)) : fallbackHour;
 };
 
+const isFullDayAgendaWindow = (fromTime, toTime) => {
+  const fromValue = String(fromTime || "");
+  const toValue = String(toTime || "");
+  const startsAtMidnight = /^0?0:0?[01](?::0{2})?$/.test(fromValue);
+  const endsAtFullDay =
+    /^0?0:0?0(?::0{2})?$/.test(toValue) || /^23:59(?::0{2})?$/.test(toValue);
+
+  return (
+    (startsAtMidnight && endsAtFullDay) ||
+    (Boolean(fromTime) &&
+      Boolean(toTime) &&
+      getAgendaHour(fromTime, "") === getAgendaHour(toTime, ""))
+  );
+};
+
 const normalizeAgendaList = (service) => {
+  const availability = service.availability || service.Availability || {};
   const agendas =
-    service.agendas ||
-    service.agendaDtos ||
-    service.agendaDTOs ||
-    service.serviceAgendas ||
-    service.availabilities ||
-    service.availability ||
-    service.availableDays ||
-    service.schedules ||
-    service.workingHours ||
-    [];
+    firstPresentValue(
+      service.agendas,
+      service.Agendas,
+      service.agendaDtos,
+      service.AgendaDtos,
+      service.agendaDTOs,
+      service.AgendaDTOs,
+      service.serviceAgendas,
+      service.ServiceAgendas,
+      service.availabilities,
+      service.Availabilities,
+      service.availability,
+      service.Availability,
+      service.availableDays,
+      service.AvailableDays,
+      service.schedules,
+      service.Schedules,
+      service.workingHours,
+      service.WorkingHours,
+      availability.agendas,
+      availability.Agendas,
+      availability.items,
+      availability.Items
+    ) || [];
 
   if (Array.isArray(agendas)) return agendas;
   if (Array.isArray(agendas.agendas)) return agendas.agendas;
+  if (Array.isArray(agendas.Agendas)) return agendas.Agendas;
   if (Array.isArray(agendas.items)) return agendas.items;
-  if (Array.isArray(service.days)) {
-    return service.days.map((day) => ({
+  if (Array.isArray(agendas.Items)) return agendas.Items;
+
+  const days = firstPresentValue(
+    service.days,
+    service.Days,
+    availability.days,
+    availability.Days
+  );
+
+  if (Array.isArray(days)) {
+    return days.map((day) => ({
       day,
-      from:
-        service.from ||
-        service.fromTime ||
-        service.start ||
-        service.startTime ||
+      from: firstPresentValue(
+        service.from,
+        service.From,
+        service.fromTime,
+        service.FromTime,
+        service.start,
+        service.Start,
+        service.startTime,
+        service.StartTime,
         service.startHour,
-      to:
-        service.to ||
-        service.toTime ||
-        service.end ||
-        service.endTime ||
+        service.StartHour,
+        availability.from,
+        availability.From,
+        availability.fromTime,
+        availability.FromTime,
+        availability.start,
+        availability.Start,
+        availability.startTime,
+        availability.StartTime,
+        availability.startHour,
+        availability.StartHour
+      ),
+      to: firstPresentValue(
+        service.to,
+        service.To,
+        service.toTime,
+        service.ToTime,
+        service.end,
+        service.End,
+        service.endTime,
+        service.EndTime,
         service.endHour,
+        service.EndHour,
+        availability.to,
+        availability.To,
+        availability.toTime,
+        availability.ToTime,
+        availability.end,
+        availability.End,
+        availability.endTime,
+        availability.EndTime,
+        availability.endHour,
+        availability.EndHour
+      ),
     }));
   }
   if (Array.isArray(agendas.days)) {
     return agendas.days.map((day) => ({
       day,
-      from:
-        agendas.from ||
-        agendas.fromTime ||
-        agendas.start ||
-        agendas.startTime ||
-        agendas.startHour,
-      to:
-        agendas.to ||
-        agendas.toTime ||
-        agendas.end ||
-        agendas.endTime ||
-        agendas.endHour,
+      from: firstPresentValue(
+        agendas.from,
+        agendas.fromTime,
+        agendas.start,
+        agendas.startTime,
+        agendas.startHour
+      ),
+      to: firstPresentValue(
+        agendas.to,
+        agendas.toTime,
+        agendas.end,
+        agendas.endTime,
+        agendas.endHour
+      ),
     }));
   }
-  if (service.day || service.dayOfWeek || service.weekDay) {
+  if (Array.isArray(agendas.Days)) {
+    return agendas.Days.map((day) => ({
+      day,
+      from: firstPresentValue(
+        agendas.from,
+        agendas.From,
+        agendas.fromTime,
+        agendas.FromTime,
+        agendas.start,
+        agendas.Start,
+        agendas.startTime,
+        agendas.StartTime,
+        agendas.startHour,
+        agendas.StartHour
+      ),
+      to: firstPresentValue(
+        agendas.to,
+        agendas.To,
+        agendas.toTime,
+        agendas.ToTime,
+        agendas.end,
+        agendas.End,
+        agendas.endTime,
+        agendas.EndTime,
+        agendas.endHour,
+        agendas.EndHour
+      ),
+    }));
+  }
+  if (getAgendaDayValue(service)) {
     return [
       {
-        day: service.day || service.dayOfWeek || service.weekDay,
-        from:
-          service.from ||
-          service.fromTime ||
-          service.start ||
-          service.startTime ||
+        day: getAgendaDayValue(service),
+        from: firstPresentValue(
+          service.from,
+          service.From,
+          service.fromTime,
+          service.FromTime,
+          service.start,
+          service.Start,
+          service.startTime,
+          service.StartTime,
           service.startHour,
-        to:
-          service.to ||
-          service.toTime ||
-          service.end ||
-          service.endTime ||
+          service.StartHour
+        ),
+        to: firstPresentValue(
+          service.to,
+          service.To,
+          service.toTime,
+          service.ToTime,
+          service.end,
+          service.End,
+          service.endTime,
+          service.EndTime,
           service.endHour,
+          service.EndHour
+        ),
       },
     ];
   }
 
-  return [];
+  return findAgendaArray(service);
 };
 
 const normalizeServicePayload = (service) => {
@@ -281,8 +495,15 @@ const normalizeServicePayload = (service) => {
     service.serviceDTO ||
     service.serviceDetails ||
     service.details ||
+    service.data ||
+    service.value ||
+    service.payload ||
+    service.item ||
+    service.model ||
     service.result ||
     {};
+  const serviceAgendas = findAgendaArray(service);
+  const nestedAgendas = findAgendaArray(nestedService);
 
   if (!nestedService || typeof nestedService !== "object") {
     return service;
@@ -299,15 +520,32 @@ const normalizeServicePayload = (service) => {
     ),
     agendas: firstPresentValue(
       service.agendas,
+      service.Agendas,
       service.agendaDtos,
+      service.AgendaDtos,
       service.agendaDTOs,
+      service.AgendaDTOs,
       service.serviceAgendas,
+      service.ServiceAgendas,
       nestedService.agendas,
+      nestedService.Agendas,
       nestedService.agendaDtos,
+      nestedService.AgendaDtos,
       nestedService.agendaDTOs,
+      nestedService.AgendaDTOs,
       nestedService.serviceAgendas
+        ? nestedService.serviceAgendas
+        : undefined,
+      nestedService.ServiceAgendas,
+      serviceAgendas.length > 0 ? serviceAgendas : undefined,
+      nestedAgendas.length > 0 ? nestedAgendas : undefined
     ),
-    availability: firstPresentValue(service.availability, nestedService.availability),
+    availability: firstPresentValue(
+      service.availability,
+      service.Availability,
+      nestedService.availability,
+      nestedService.Availability
+    ),
     images: firstPresentValue(
       service.images,
       service.imageUrls,
@@ -395,20 +633,42 @@ const validateServiceDetailsForApi = (details) => {
   return "";
 };
 
+const getAvailabilityDayWindow = (availability, day) => {
+  const normalizedDay = normalizeWeekdayValue(day);
+  const dayWindows = availability?.dayWindows || {};
+
+  return (
+    dayWindows[day] ||
+    dayWindows[normalizedDay] || {
+      startHour: availability?.startHour || "9",
+      endHour: availability?.endHour || "17",
+      dailyWindow: Boolean(availability?.dailyWindow),
+    }
+  );
+};
+
+const isAvailabilityWindowValid = (window) => {
+  if (window?.dailyWindow) return true;
+
+  const startHour = Number(window?.startHour);
+  const endHour = Number(window?.endHour);
+
+  return Number.isFinite(startHour) && Number.isFinite(endHour) && endHour > startHour;
+};
+
 const validateAvailabilityForApi = (availability) => {
   const days = availability?.days || [];
-  const startHour = Number(availability?.startHour);
-  const endHour = Number(availability?.endHour);
 
   if (days.length === 0) {
     return "Please select at least one availability day.";
   }
 
-  if (
-    !availability?.dailyWindow &&
-    (!Number.isFinite(startHour) || !Number.isFinite(endHour) || endHour <= startHour)
-  ) {
-    return "Availability end hour must be after the start hour.";
+  const invalidDay = days.find(
+    (day) => !isAvailabilityWindowValid(getAvailabilityDayWindow(availability, day))
+  );
+
+  if (invalidDay) {
+    return `${invalidDay} availability end hour must be after the start hour.`;
   }
 
   return "";
@@ -431,14 +691,20 @@ const toAgendaDay = (day) => {
 };
 
 const buildAgendasPayload = (availability) => ({
-  agendas: (availability.days || [])
-    .map(toAgendaDay)
-    .filter(Boolean)
-    .map((day) => ({
-      day,
-      from: availability.dailyWindow ? "00:00" : toAgendaTime(availability.startHour),
-      to: availability.dailyWindow ? "23:59" : toAgendaTime(availability.endHour),
-    })),
+  agendas: (availability.days || []).reduce((agendas, day) => {
+    const normalizedDay = toAgendaDay(day);
+    if (!normalizedDay) return agendas;
+
+    const dayWindow = getAvailabilityDayWindow(availability, normalizedDay);
+
+    agendas.push({
+      day: normalizedDay,
+      from: dayWindow.dailyWindow ? "00:00" : toAgendaTime(dayWindow.startHour),
+      to: dayWindow.dailyWindow ? "23:59" : toAgendaTime(dayWindow.endHour),
+    });
+
+    return agendas;
+  }, []),
 });
 
 const buildItemsPayload = (items) => ({
@@ -463,22 +729,32 @@ const normalizeService = (servicePayload) => {
   const items = service.items || service.serviceItems || [];
   const agendaList = normalizeAgendaList(service);
   const firstAgenda = agendaList[0] || {};
-  const agendaFrom = getAgendaTime(firstAgenda, [
-    "from",
-    "fromTime",
-    "start",
-    "startTime",
-    "startHour",
-    "startDate",
-  ]);
-  const agendaTo = getAgendaTime(firstAgenda, [
-    "to",
-    "toTime",
-    "end",
-    "endTime",
-    "endHour",
-    "endDate",
-  ]);
+  const agendaFrom = getAgendaTime(firstAgenda, AGENDA_FROM_FIELDS);
+  const agendaTo = getAgendaTime(firstAgenda, AGENDA_TO_FIELDS);
+  const availabilityDays = [
+    ...new Set(
+      agendaList
+        .map((agenda) => normalizeWeekdayValue(getAgendaDayValue(agenda)))
+        .filter(Boolean)
+    ),
+  ];
+  const dayWindows = agendaList.reduce((windows, agenda) => {
+    const day = normalizeWeekdayValue(getAgendaDayValue(agenda));
+
+    if (!day) return windows;
+
+    const fromTime = getAgendaTime(agenda, AGENDA_FROM_FIELDS);
+    const toTime = getAgendaTime(agenda, AGENDA_TO_FIELDS);
+
+    return {
+      ...windows,
+      [day]: {
+        startHour: getAgendaHour(fromTime, "9"),
+        endHour: getAgendaHour(toTime, "17"),
+        dailyWindow: isFullDayAgendaWindow(fromTime, toTime),
+      },
+    };
+  }, {});
   const images =
     service.images ||
     service.imageUrls ||
@@ -533,21 +809,11 @@ const normalizeService = (servicePayload) => {
       description: item.description || "",
     })),
     availability: {
-      days: agendaList
-        .map((agenda) =>
-          normalizeWeekdayValue(
-            agenda.day || agenda.dayOfWeek || agenda.weekDay || agenda.name
-          )
-        )
-        .filter(Boolean),
+      days: availabilityDays,
       startHour: getAgendaHour(agendaFrom, "9"),
       endHour: getAgendaHour(agendaTo, "17"),
-      dailyWindow:
-        (agendaFrom === "00:00" && agendaTo === "00:00") ||
-        (agendaFrom === "00:01" && agendaTo === "23:59") ||
-        (Boolean(agendaFrom) &&
-          Boolean(agendaTo) &&
-          getAgendaHour(agendaFrom, "") === getAgendaHour(agendaTo, "")),
+      dailyWindow: isFullDayAgendaWindow(agendaFrom, agendaTo),
+      dayWindows,
     },
   };
 };
@@ -557,6 +823,7 @@ const mergeServiceForEdit = (baseService, detailsService) => {
   const detailsAvailability = detailsService.availability || {};
   const detailsHasAvailability =
     (detailsAvailability.days || []).length > 0 ||
+    Object.keys(detailsAvailability.dayWindows || {}).length > 0 ||
     detailsAvailability.startHour !== "9" ||
     detailsAvailability.endHour !== "17" ||
     detailsAvailability.dailyWindow;
@@ -723,8 +990,6 @@ const isForbiddenError = (error) => error?.response?.status === 403;
 const isConflictError = (error) => error?.response?.status === 409;
 const isStaleProviderTokenError = (error) =>
   error?.message === "PROVIDER_TOKEN_REFRESH_REQUIRED";
-const isIgnorableAgendaValidationError = (error) =>
-  getApiErrorMessage(error, "").includes("DayNotEmptyValidator");
 const isNoChangesDetectedError = (error) =>
   getApiErrorMessage(error, "").includes("NoChangesDetected");
 const isNonBlockingRelatedDataError = (error) => error?.response?.status === 400;
@@ -1185,15 +1450,44 @@ export default function BecomePartnerFlow() {
     }));
   };
 
+  const handleAvailabilityDayFieldChange = (day, fieldName, value) => {
+    setAvailability((currentAvailability) => {
+      const currentWindow = getAvailabilityDayWindow(currentAvailability, day);
+
+      return {
+        ...currentAvailability,
+        dayWindows: {
+          ...(currentAvailability.dayWindows || {}),
+          [day]: {
+            ...currentWindow,
+            [fieldName]: value,
+          },
+        },
+      };
+    });
+  };
+
   const handleToggleDay = (day) => {
     setAvailability((currentAvailability) => {
       const isSelected = currentAvailability.days.includes(day);
+      const nextDayWindows = { ...(currentAvailability.dayWindows || {}) };
+
+      if (isSelected) {
+        delete nextDayWindows[day];
+      } else if (!nextDayWindows[day]) {
+        nextDayWindows[day] = {
+          startHour: currentAvailability.startHour || "9",
+          endHour: currentAvailability.endHour || "17",
+          dailyWindow: Boolean(currentAvailability.dailyWindow),
+        };
+      }
 
       return {
         ...currentAvailability,
         days: isSelected
           ? currentAvailability.days.filter((currentDay) => currentDay !== day)
           : [...currentAvailability.days, day],
+        dayWindows: nextDayWindows,
       };
     });
   };
@@ -1549,7 +1843,7 @@ export default function BecomePartnerFlow() {
         return;
       }
 
-      if (isIgnorableAgendaValidationError(error) || isNoChangesDetectedError(error)) {
+      if (isNoChangesDetectedError(error)) {
         await loadProviderData({ showPartialError: false });
         setEditingService(null);
         setToast({
@@ -2036,6 +2330,7 @@ export default function BecomePartnerFlow() {
               availability={availability}
               onToggleDay={handleToggleDay}
               onFieldChange={handleAvailabilityFieldChange}
+              onDayFieldChange={handleAvailabilityDayFieldChange}
               onBack={() => setCurrentStep(3)}
               onSave={handleSaveService}
               onStepClick={handleWizardStepClick}

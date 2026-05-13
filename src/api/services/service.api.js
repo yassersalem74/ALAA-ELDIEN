@@ -1,6 +1,34 @@
 import api from "../api.js";
 import { SERVICE_ENDPOINTS } from "./service.endpoints.js";
 
+const getErrorMessage = (error) => {
+  const data = error?.response?.data;
+  const validationMessage =
+    data?.errors && typeof data.errors === "object"
+      ? Object.values(data.errors).flat().filter(Boolean).join(" ")
+      : "";
+
+  return (
+    data?.error?.message ||
+    data?.message ||
+    data?.title ||
+    validationMessage ||
+    (typeof data === "string" ? data : "")
+  );
+};
+
+const normalizeAgendaPayload = (data, wrapperKey = "agendas") => {
+  const agendas = data?.agendas || data?.Agendas || [];
+
+  return {
+    [wrapperKey]: agendas.map((agenda) => ({
+      Day: agenda.Day || agenda.day || "",
+      From: agenda.From || agenda.from || "",
+      To: agenda.To || agenda.to || "",
+    })),
+  };
+};
+
 export const addService = async (data) => {
   const res = await api.post(SERVICE_ENDPOINTS.ADD_SERVICE, data, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -50,9 +78,25 @@ export const createOrUpdateItems = async (serviceId, data) => {
 };
 
 export const createOrUpdateAgendas = async (serviceId, data) => {
-  const res = await api.post(`${SERVICE_ENDPOINTS.CREATE_UPDATE_AGENDAS}/${serviceId}`, data, {
+  const url = `${SERVICE_ENDPOINTS.CREATE_UPDATE_AGENDAS}/${serviceId}`;
+  const config = {
     headers: { "Content-Type": "application/json" },
-  });
+  };
+  let res;
+
+  try {
+    res = await api.post(url, normalizeAgendaPayload(data), config);
+  } catch (error) {
+    if (
+      error?.response?.status !== 400 ||
+      !getErrorMessage(error).includes("DayNotEmptyValidator")
+    ) {
+      throw error;
+    }
+
+    res = await api.post(url, normalizeAgendaPayload(data, "Agendas"), config);
+  }
+
   return res.data;
 };
 

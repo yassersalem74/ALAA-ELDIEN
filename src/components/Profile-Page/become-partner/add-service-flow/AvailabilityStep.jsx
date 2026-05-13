@@ -20,18 +20,54 @@ export default function AvailabilityStep({
   availability,
   onToggleDay,
   onFieldChange,
+  onDayFieldChange,
   onBack,
   onSave,
   onStepClick,
   isSaving = false,
 }) {
-  const totalHours = calculateTotalHours(
-    availability.startHour,
-    availability.endHour
-  );
-  const isTimeValid = availability.dailyWindow || totalHours > 0;
-  const hasSelectedDays = availability.days.length > 0;
+  const getDayWindow = (day) =>
+    availability.dayWindows?.[day] || {
+      startHour: availability.startHour || "9",
+      endHour: availability.endHour || "17",
+      dailyWindow: Boolean(availability.dailyWindow),
+    };
+  const selectedDayRows = (availability.days || []).map((day) => {
+    const window = getDayWindow(day);
+    const totalHours = calculateTotalHours(window.startHour, window.endHour);
+
+    return {
+      day,
+      window,
+      totalHours,
+      isValid: window.dailyWindow || totalHours > 0,
+    };
+  });
+  const isTimeValid = selectedDayRows.every((row) => row.isValid);
+  const hasSelectedDays = selectedDayRows.length > 0;
   const canSave = isTimeValid && hasSelectedDays;
+  const handleDayFieldChange =
+    onDayFieldChange ||
+    ((day, fieldName, value) => {
+      onFieldChange("dayWindows", {
+        ...(availability.dayWindows || {}),
+        [day]: {
+          ...getDayWindow(day),
+          [fieldName]: value,
+        },
+      });
+    });
+  const handleDailyWindowChange = (day, nextValue) => {
+    handleDayFieldChange(day, "dailyWindow", nextValue);
+
+    if (nextValue) {
+      handleDayFieldChange(day, "startHour", "0");
+      handleDayFieldChange(day, "endHour", "0");
+    } else {
+      handleDayFieldChange(day, "startHour", "9");
+      handleDayFieldChange(day, "endHour", "17");
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,111 +106,112 @@ export default function AvailabilityStep({
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <label className="relative">
-                <FieldLabel>From</FieldLabel>
-                <select
-                  value={availability.startHour}
-                  onChange={(event) =>
-                    onFieldChange("startHour", event.target.value)
-                  }
-                  className={SELECT_CLASS_NAME}
-                  disabled={availability.dailyWindow}
-                >
-                  {HOUR_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <SelectArrow />
-              </label>
+            {hasSelectedDays && (
+              <div className="mt-6 flex flex-col gap-3">
+                {selectedDayRows.map(({ day, window, totalHours, isValid }) => (
+                  <div
+                    key={day}
+                    className="rounded-2xl border border-[#E6E8EF] bg-white p-4"
+                  >
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                      <div className="flex min-w-[130px] items-center gap-3">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F3F4F7]">
+                          <ClockIcon />
+                        </span>
+                        <div>
+                          <p className="font-['Roboto'] text-[16px] font-medium leading-6 text-[#011C60]">
+                            {day}
+                          </p>
+                          <p className="font-['Roboto'] text-[13px] leading-5 text-[#6777A0]">
+                            {window.dailyWindow
+                              ? "12:00 AM to 12:00 AM"
+                              : `${formatHourLabel(
+                                  window.startHour
+                                )} to ${formatHourLabel(window.endHour)}`}
+                          </p>
+                        </div>
+                      </div>
 
-              <label className="relative">
-                <FieldLabel>To</FieldLabel>
-                <select
-                  value={availability.endHour}
-                  onChange={(event) =>
-                    onFieldChange("endHour", event.target.value)
-                  }
-                  className={SELECT_CLASS_NAME}
-                  disabled={availability.dailyWindow}
-                >
-                  {HOUR_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <SelectArrow />
-              </label>
-            </div>
+                      <label className="relative flex-1">
+                        <FieldLabel>From</FieldLabel>
+                        <select
+                          value={window.startHour}
+                          onChange={(event) =>
+                            handleDayFieldChange(day, "startHour", event.target.value)
+                          }
+                          className={SELECT_CLASS_NAME}
+                          disabled={window.dailyWindow}
+                        >
+                          {HOUR_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <SelectArrow />
+                      </label>
 
-            <div className="mt-6 rounded-2xl bg-[#F3F4F7] p-4">
-              <button
-                type="button"
-                onClick={() => {
-                  const nextValue = !availability.dailyWindow;
+                      <label className="relative flex-1">
+                        <FieldLabel>To</FieldLabel>
+                        <select
+                          value={window.endHour}
+                          onChange={(event) =>
+                            handleDayFieldChange(day, "endHour", event.target.value)
+                          }
+                          className={SELECT_CLASS_NAME}
+                          disabled={window.dailyWindow}
+                        >
+                          {HOUR_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <SelectArrow />
+                      </label>
 
-                  onFieldChange("dailyWindow", nextValue);
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDailyWindowChange(day, !window.dailyWindow)
+                        }
+                        className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-2xl bg-[#F3F4F7] px-4"
+                      >
+                        <span className="font-['Roboto'] text-[14px] font-medium text-[#011C60]">
+                          Daily Window
+                        </span>
+                        <span
+                          className={joinClasses(
+                            "relative inline-flex h-7 w-12 rounded-full transition",
+                            window.dailyWindow ? "bg-[#011C60]" : "bg-[#C9D0E3]"
+                          )}
+                        >
+                          <span
+                            className={joinClasses(
+                              "absolute top-1 h-5 w-5 rounded-full bg-white shadow-[0px_4px_12px_rgba(17,27,71,0.18)] transition",
+                              window.dailyWindow ? "left-6" : "left-1"
+                            )}
+                          />
+                        </span>
+                      </button>
+                    </div>
 
-                  if (nextValue) {
-                    onFieldChange("startHour", "0");
-                    onFieldChange("endHour", "0");
-                  }
-                }}
-                className="flex w-full cursor-pointer items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-3 text-left">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white">
-                    <ClockIcon />
-                  </span>
-
-                  <div>
-                    <p className="font-['Roboto'] text-[18px] font-medium leading-7 text-[#011C60]">
-                      Daily Window
-                    </p>
-                    <p className="font-['Roboto'] text-[14px] leading-5 text-[#6777A0]">
-                      Set your peak hours
+                    <p
+                      className={joinClasses(
+                        "mt-3 font-['Roboto'] text-[14px] leading-5",
+                        isValid ? "text-[#6777A0]" : "text-[#DC2626]"
+                      )}
+                    >
+                      Total hours: {window.dailyWindow ? 24 : totalHours}
                     </p>
                   </div>
-                </div>
-
-                <span
-                  className={joinClasses(
-                    "relative inline-flex h-7 w-12 rounded-full transition",
-                    availability.dailyWindow ? "bg-[#011C60]" : "bg-[#C9D0E3]"
-                  )}
-                >
-                  <span
-                    className={joinClasses(
-                      "absolute top-1 h-5 w-5 rounded-full bg-white shadow-[0px_4px_12px_rgba(17,27,71,0.18)] transition",
-                      availability.dailyWindow ? "left-6" : "left-1"
-                    )}
-                  />
-                </span>
-              </button>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-[#E6E8EF] bg-white p-4">
-              <p className="font-['Roboto'] text-[16px] font-medium leading-6 text-[#011C60]">
-                Working window
-              </p>
-              <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
-                {availability.dailyWindow
-                  ? "12:00 AM to 12:00 AM"
-                  : `${formatHourLabel(
-                      availability.startHour
-                    )} to ${formatHourLabel(availability.endHour)}`}
-              </p>
-              <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#011C60]">
-                Total hours: {availability.dailyWindow ? 24 : totalHours}
-              </p>
-            </div>
+                ))}
+              </div>
+            )}
 
             {!isTimeValid && (
               <p className="mt-4 font-['Roboto'] text-[14px] leading-5 text-[#DC2626]">
-                End hour must be after the start hour.
+                End hour must be after the start hour for each selected day.
               </p>
             )}
 
