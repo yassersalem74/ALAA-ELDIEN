@@ -124,7 +124,7 @@ export default function AvailabilityStep({
                           </p>
                           <p className="font-['Roboto'] text-[13px] leading-5 text-[#6777A0]">
                             {window.dailyWindow
-                              ? "12:00 AM to 12:00 AM"
+                              ? "12:00 AM to 11:59 PM"
                               : `${formatHourLabel(
                                   window.startHour
                                 )} to ${formatHourLabel(window.endHour)}`}
@@ -211,7 +211,8 @@ export default function AvailabilityStep({
 
             {!isTimeValid && (
               <p className="mt-4 font-['Roboto'] text-[14px] leading-5 text-[#DC2626]">
-                End hour must be after the start hour for each selected day.
+                End hour must be after the start hour. For a full day, turn on
+                Daily Window.
               </p>
             )}
 

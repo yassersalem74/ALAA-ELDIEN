@@ -963,7 +963,7 @@ export default function ServiceEditModal({
                         </p>
                         <p className="font-['Roboto'] text-[13px] leading-5 text-[#6777A0]">
                           {window.dailyWindow
-                            ? "12:00 AM to 12:00 AM"
+                            ? "12:00 AM to 11:59 PM"
                             : `${formatHourLabel(
                                 window.startHour
                               )} to ${formatHourLabel(window.endHour)}`}

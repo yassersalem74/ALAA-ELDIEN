@@ -167,10 +167,6 @@ export const calculateTotalHours = (startHour, endHour) => {
   const start = Number(startHour);
   const end = Number(endHour);
 
-  if (start === 0 && end === 0) {
-    return 24;
-  }
-
   if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
     return 0;
   }

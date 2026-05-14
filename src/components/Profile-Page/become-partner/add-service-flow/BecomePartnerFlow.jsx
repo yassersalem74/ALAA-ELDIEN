@@ -557,7 +557,11 @@ const normalizeServicePayload = (service) => {
   };
 };
 
-const buildServiceFormData = (details, isUpdate = false) => {
+const buildServiceFormData = (
+  details,
+  isUpdate = false,
+  { includeImageFiles = true } = {}
+) => {
   const formData = new FormData();
 
   formData.append("name", normalizeTextValue(details.serviceName));
@@ -581,11 +585,13 @@ const buildServiceFormData = (details, isUpdate = false) => {
     formData.append("deletedImages", imageName);
   });
 
-  (details.photos || []).forEach((photo) => {
-    if (photo instanceof File) {
-      formData.append("imageFiles", photo);
-    }
-  });
+  if (includeImageFiles) {
+    (details.photos || []).forEach((photo) => {
+      if (photo instanceof File) {
+        formData.append("imageFiles", photo);
+      }
+    });
+  }
 
   return formData;
 };
@@ -668,7 +674,7 @@ const validateAvailabilityForApi = (availability) => {
   );
 
   if (invalidDay) {
-    return `${invalidDay} availability end hour must be after the start hour.`;
+    return `${invalidDay} availability end hour must be after the start hour. For a full day, turn on Daily Window.`;
   }
 
   return "";
@@ -1535,10 +1541,26 @@ export default function BecomePartnerFlow() {
     return true;
   };
 
+  const rollbackDraftService = async (serviceId) => {
+    if (!serviceId) return false;
+
+    try {
+      await deleteService(serviceId);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const saveDraftServiceAndItems = async () => {
     if (draftServiceId) {
       try {
-        await updateService(draftServiceId, buildServiceFormData(serviceDetails, true));
+        await updateService(
+          draftServiceId,
+          buildServiceFormData(serviceDetails, true, {
+            includeImageFiles: false,
+          })
+        );
       } catch (error) {
         if (!isNoChangesDetectedError(error)) {
           throw error;
@@ -1546,7 +1568,10 @@ export default function BecomePartnerFlow() {
       }
 
       await saveItemsIfPossible(draftServiceId, serviceItems);
-      return draftServiceId;
+      return {
+        serviceId: draftServiceId,
+        shouldRollbackOnFailure: true,
+      };
     }
 
     const response = await addService(buildServiceFormData(serviceDetails));
@@ -1557,9 +1582,18 @@ export default function BecomePartnerFlow() {
     }
 
     setDraftServiceId(serviceId);
-    await saveItemsIfPossible(serviceId, serviceItems);
 
-    return serviceId;
+    try {
+      await saveItemsIfPossible(serviceId, serviceItems);
+    } catch (error) {
+      error.createdServiceId = serviceId;
+      throw error;
+    }
+
+    return {
+      serviceId,
+      shouldRollbackOnFailure: true,
+    };
   };
 
   const handleServiceSaveError = async (error, fallbackMessage) => {
@@ -1623,7 +1657,6 @@ export default function BecomePartnerFlow() {
     setIsPreparingService(true);
 
     try {
-      await saveDraftServiceAndItems();
       setCurrentStep(4);
     } catch (error) {
       await handleServiceSaveError(
@@ -1653,9 +1686,9 @@ export default function BecomePartnerFlow() {
     if (!(await ensureServiceSaveAccess())) return;
 
     setIsSavingService(true);
+    let savedService = null;
 
     try {
-      const serviceId = draftServiceId || (await saveDraftServiceAndItems());
       const agendasPayload = buildAgendasPayload(availability);
 
       if (agendasPayload.agendas.length === 0) {
@@ -1666,6 +1699,9 @@ export default function BecomePartnerFlow() {
         });
         return;
       }
+
+      savedService = await saveDraftServiceAndItems();
+      const serviceId = savedService.serviceId;
 
       await createOrUpdateAgendas(serviceId, agendasPayload);
 
@@ -1682,9 +1718,22 @@ export default function BecomePartnerFlow() {
       setView("services");
       setActiveTab("services");
     } catch (error) {
+      const rollbackServiceId =
+        savedService?.shouldRollbackOnFailure && savedService.serviceId
+          ? savedService.serviceId
+          : error.createdServiceId || "";
+      const didRollbackService = await rollbackDraftService(rollbackServiceId);
+
+      if (didRollbackService) {
+        setDraftServiceId("");
+        await loadProviderData({ showPartialError: false });
+      }
+
       await handleServiceSaveError(
         error,
-        "Service details were saved, but availability could not be saved."
+        didRollbackService
+          ? "Availability could not be saved, so the service was not created."
+          : "Availability could not be saved. Please refresh your services before trying again."
       );
     } finally {
       setIsSavingService(false);
