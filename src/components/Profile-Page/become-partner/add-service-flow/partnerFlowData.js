@@ -92,6 +92,8 @@ export const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => ({
   label: `${String(hour).padStart(2, "0")}:00`,
 }));
 
+export const MAX_SERVICE_TIME_HOURS = 24;
+
 export const AVAILABILITY_TYPE_OPTIONS = [
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },

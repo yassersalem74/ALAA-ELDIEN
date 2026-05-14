@@ -13,10 +13,80 @@ const normalizeAgendaPayload = (data, wrapperKey = "agendas") => {
   };
 };
 
+const isDebugLoggingEnabled = () => import.meta.env.DEV;
+
+const serializeDebugValue = (value) => {
+  if (typeof File !== "undefined" && value instanceof File) {
+    return {
+      name: value.name,
+      size: value.size,
+      type: value.type,
+      lastModified: value.lastModified,
+    };
+  }
+
+  return value;
+};
+
+const serializeFormData = (data) => {
+  const entries = [];
+
+  data.forEach((value, key) => {
+    entries.push({
+      key,
+      value: serializeDebugValue(value),
+    });
+  });
+
+  return entries;
+};
+
+const logApiPayload = (label, data) => {
+  if (!isDebugLoggingEnabled()) return;
+
+  console.groupCollapsed(`[Service API] ${label}`);
+
+  if (typeof FormData !== "undefined" && data instanceof FormData) {
+    const entries = serializeFormData(data);
+
+    entries.forEach((entry, index) => {
+      console.log(`input ${index + 1}: ${entry.key}`, entry.value);
+    });
+    console.log("full form data object", entries);
+  } else {
+    console.log("full request object", data);
+
+    if (Array.isArray(data?.items)) {
+      data.items.forEach((item, index) => {
+        console.log(`item ${index + 1}`, item);
+      });
+    }
+
+    if (Array.isArray(data?.agendas)) {
+      data.agendas.forEach((agenda, index) => {
+        console.log(`agenda ${index + 1}`, agenda);
+      });
+    }
+  }
+
+  console.groupEnd();
+};
+
+const logApiResponse = (label, data) => {
+  if (!isDebugLoggingEnabled()) return;
+
+  console.log(`[Service API] ${label}`, data);
+};
+
 export const addService = async (data) => {
+  logApiPayload("POST /api/v1/services request", data);
+
   const res = await api.post(SERVICE_ENDPOINTS.ADD_SERVICE, data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+
+  logApiResponse("POST /api/v1/services response", res.data);
+
   return res.data;
 };
 
@@ -26,9 +96,14 @@ export const getServices = async (params) => {
 };
 
 export const updateService = async (id, data) => {
+  logApiPayload(`PUT /api/v1/services/${id} request`, data);
+
   const res = await api.put(`${SERVICE_ENDPOINTS.UPDATE_SERVICE}/${id}`, data, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+
+  logApiResponse(`PUT /api/v1/services/${id} response`, res.data);
+
   return res.data;
 };
 
@@ -55,18 +130,28 @@ export const addReview = async (providerId, data) => {
 };
 
 export const createOrUpdateItems = async (serviceId, data) => {
+  logApiPayload(`POST /api/v1/items/services/${serviceId} request`, data);
+
   const res = await api.post(`${SERVICE_ENDPOINTS.CREATE_UPDATE_ITEMS}/${serviceId}`, data, {
     headers: { "Content-Type": "application/json" },
   });
+
+  logApiResponse(`POST /api/v1/items/services/${serviceId} response`, res.data);
+
   return res.data;
 };
 
 export const createOrUpdateAgendas = async (serviceId, data) => {
   const url = `${SERVICE_ENDPOINTS.CREATE_UPDATE_AGENDAS}/${serviceId}`;
   const payload = normalizeAgendaPayload(data);
+
+  logApiPayload(`POST /api/v1/agendas/services/${serviceId} request`, payload);
+
   const res = await api.post(url, payload, {
     headers: { "Content-Type": "application/json" },
   });
+
+  logApiResponse(`POST /api/v1/agendas/services/${serviceId} response`, res.data);
 
   return res.data;
 };

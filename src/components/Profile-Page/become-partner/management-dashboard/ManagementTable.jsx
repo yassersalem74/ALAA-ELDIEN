@@ -36,18 +36,24 @@ export default function ManagementTable({
   nameHeader,
   categoryHeader,
   priceHeader,
+  scheduleHeader,
   getName,
   getCategory,
   getPrice,
+  renderSchedule,
   onAdd,
   onEdit,
   onDelete,
 }) {
   const Icon = itemType === "package" ? PackageIcon : BriefcaseIcon;
   const showCategory = Boolean(categoryHeader && getCategory);
-  const desktopGridClassName = showCategory
-    ? "md:min-w-[760px] md:grid-cols-[1.4fr_1fr_1fr_120px]"
-    : "md:min-w-[640px] md:grid-cols-[1.5fr_1fr_120px]";
+  const showSchedule = Boolean(scheduleHeader && renderSchedule);
+  const desktopGridClassName =
+    showCategory && showSchedule
+      ? "md:min-w-[940px] md:grid-cols-[1.2fr_0.9fr_1.4fr_0.8fr_120px]"
+      : showCategory
+        ? "md:min-w-[760px] md:grid-cols-[1.4fr_1fr_1fr_120px]"
+        : "md:min-w-[640px] md:grid-cols-[1.5fr_1fr_120px]";
 
   return (
     <section className={PANEL_CLASS_NAME}>
@@ -82,6 +88,11 @@ export default function ManagementTable({
                 {categoryHeader}
               </span>
             )}
+            {showSchedule && (
+              <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
+                {scheduleHeader}
+              </span>
+            )}
             <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
               {priceHeader}
             </span>
@@ -110,6 +121,9 @@ export default function ManagementTable({
                         : ""}
                       EGP {getPrice(item)}
                     </span>
+                    {showSchedule && (
+                      <div className="mt-3 md:hidden">{renderSchedule(item)}</div>
+                    )}
                   </div>
                 </div>
 
@@ -117,6 +131,10 @@ export default function ManagementTable({
                   <span className="hidden font-['Roboto'] text-[15px] font-medium leading-6 text-[#011C60] md:block">
                     {getCategory(item)}
                   </span>
+                )}
+
+                {showSchedule && (
+                  <div className="hidden min-w-0 md:block">{renderSchedule(item)}</div>
                 )}
 
                 <span className="hidden font-['Roboto'] text-[15px] font-medium leading-6 text-[#011C60] md:block">

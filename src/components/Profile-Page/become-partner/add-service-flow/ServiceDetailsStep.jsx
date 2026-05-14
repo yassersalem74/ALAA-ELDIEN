@@ -1,5 +1,6 @@
 import {
   FLOW_ASSETS,
+  MAX_SERVICE_TIME_HOURS,
   SERVICE_CATEGORY_OPTIONS,
 } from "./partnerFlowData";
 import {
@@ -239,12 +240,13 @@ export default function ServiceDetailsStep({
               <input
                 type="number"
                 min="1"
+                max={MAX_SERVICE_TIME_HOURS}
                 step="1"
                 value={details.serviceTimeHours}
                 onChange={(event) =>
                   onChange("serviceTimeHours", event.target.value)
                 }
-                placeholder="Number of hours"
+                placeholder={`Hours, max ${MAX_SERVICE_TIME_HOURS}`}
                 className={INPUT_CLASS_NAME}
               />
             </label>

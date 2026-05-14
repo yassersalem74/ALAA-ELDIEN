@@ -12,6 +12,7 @@ import {
 } from "../add-service-flow/PartnerFlowShared";
 import {
   HOUR_OPTIONS,
+  MAX_SERVICE_TIME_HOURS,
   SERVICE_CATEGORY_OPTIONS,
   WEEKDAY_OPTIONS,
   calculateTotalHours,
@@ -737,6 +738,7 @@ export default function ServiceEditModal({
               <input
                 type="number"
                 min="1"
+                max={MAX_SERVICE_TIME_HOURS}
                 step="1"
                 value={draft.serviceTimeHours}
                 onChange={(event) => handleFieldChange("serviceTimeHours", event.target.value)}
