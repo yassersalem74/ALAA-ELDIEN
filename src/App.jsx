@@ -13,7 +13,6 @@ import ProfilePage from "./pages/ProfilePage";
 import ServicesPage from "./pages/service/ServicePage";
 import ServiceCategoryPage from "./pages/service/ServiceCategoryPage";
 import ServiceProviderDetailPage from "./pages/service/ServiceProviderDetailPage";
-import ServiceProvidersPage from "./pages/service/ServiceProvidersPage";
 import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
 import LoginForm from "./components/auth/forms/login/LoginForm";
@@ -53,11 +52,7 @@ export default function App() {
               element={<ServiceCategoryPage />}
             />
             <Route
-              path="/services/:categorySlug/:serviceSlug/providers"
-              element={<ServiceProvidersPage />}
-            />
-            <Route
-              path="/services/:categorySlug/:serviceSlug/providers/:providerSlug"
+              path="/services/:categorySlug/:serviceId"
               element={<ServiceProviderDetailPage />}
             />
             <Route path="/marketplace" element={<MarketplacePage />} />

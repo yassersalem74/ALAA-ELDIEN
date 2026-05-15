@@ -190,6 +190,15 @@ const getAvailabilityDayWindow = (availability, day) => {
   );
 };
 
+const normalizeAvailabilityDays = (...dayLists) => [
+  ...new Set(
+    dayLists
+      .flatMap((days) => (Array.isArray(days) ? days : []))
+      .map(normalizeWeekdayValue)
+      .filter(Boolean)
+  ),
+];
+
 const normalizeAgendaList = (service) => {
   const availability = service.availability || service.Availability || {};
   const agendas =
@@ -312,13 +321,13 @@ const normalizeAvailability = (service) => {
     availability.EndTime,
     getAgendaTime(firstAgenda, AGENDA_TO_FIELDS)
   );
-  const days = [
-    ...new Set(
-      agendaList
-        .map((agenda) => normalizeWeekdayValue(getAgendaDayValue(agenda)))
-        .filter(Boolean)
-    ),
-  ];
+  const days = normalizeAvailabilityDays(
+    agendaList.map(getAgendaDayValue),
+    availability.days,
+    availability.Days,
+    availability.availableDays,
+    availability.AvailableDays
+  );
   const dayWindows = agendaList.reduce((windows, agenda) => {
     const day = normalizeWeekdayValue(getAgendaDayValue(agenda));
 
@@ -338,7 +347,7 @@ const normalizeAvailability = (service) => {
           isFullDayAgendaWindow(agendaFrom, agendaTo),
       },
     };
-  }, {});
+  }, { ...(availability.dayWindows || {}) });
 
   return {
     days,

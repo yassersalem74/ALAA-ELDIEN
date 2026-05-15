@@ -76,32 +76,33 @@ export default function ManagementTable({
           </button>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-[#E6E8EF] bg-white">
-          <div
-            className={`hidden border-b border-[#E6E8EF] bg-[#F8F9FC] px-5 py-4 md:grid ${desktopGridClassName}`}
-          >
-            <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
-              {nameHeader}
-            </span>
-            {showCategory && (
+        <div className="rounded-2xl border border-[#E6E8EF] bg-white">
+          <div className="management-table-scroll overflow-x-auto">
+            <div
+              className={`hidden border-b border-[#E6E8EF] bg-[#F8F9FC] px-5 py-4 md:grid ${desktopGridClassName}`}
+            >
               <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
-                {categoryHeader}
+                {nameHeader}
               </span>
-            )}
-            {showSchedule && (
+              {showCategory && (
+                <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
+                  {categoryHeader}
+                </span>
+              )}
+              {showSchedule && (
+                <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
+                  {scheduleHeader}
+                </span>
+              )}
               <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
-                {scheduleHeader}
+                {priceHeader}
               </span>
-            )}
-            <span className="font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
-              {priceHeader}
-            </span>
-            <span className="text-right font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
-              Actions
-            </span>
-          </div>
+              <span className="text-right font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
+                Actions
+              </span>
+            </div>
 
-          <div className="divide-y divide-[#EEF1F7]">
+            <div className="divide-y divide-[#EEF1F7]">
             {items.map((item) => (
               <article
                 key={item.id}
@@ -161,6 +162,7 @@ export default function ManagementTable({
                 </div>
               </article>
             ))}
+            </div>
           </div>
         </div>
       </div>

@@ -99,3 +99,28 @@ calendar-month.service-cally-month::part(outside) {
   color: #b3bbcf;
   opacity: 0.55;
 }
+
+.management-table-scroll {
+  scrollbar-color: #011c60 #eff3ff;
+  scrollbar-width: thin;
+}
+
+.management-table-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.management-table-scroll::-webkit-scrollbar-track {
+  background: #eff3ff;
+  border-radius: 999px;
+  margin: 0 14px;
+}
+
+.management-table-scroll::-webkit-scrollbar-thumb {
+  background: #011c60;
+  border: 2px solid #eff3ff;
+  border-radius: 999px;
+}
+
+.management-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: #02267f;
+}

@@ -3,32 +3,40 @@ import carCareImage from "../../assets/images/service/carcare-service.png";
 import chooseServiceImage from "../../assets/images/service/choose-service.png";
 import homeServiceImage from "../../assets/images/service/home-service.png";
 import personalCareImage from "../../assets/images/service/personalcare-service.png";
-import realEstateImage from "../../assets/images/service/realstate-service.png";
 import selectProviderImage from "../../assets/images/service/select-provider.png";
-import { serviceCategories as serviceFlowCategories } from "../../data/serviceFlowData";
 
-export const serviceCategories = serviceFlowCategories.map((category) => ({
-  id: category.id,
-  slug: category.slug,
-  title: category.title,
-  description:
-    category.slug === "home-service"
-      ? "Plumbing, electrical work, cleaning, and home repairs by trusted professionals."
-      : category.slug === "real-estate"
-        ? "Buy, rent, or manage properties with reliable real estate services."
-        : category.slug === "car-care"
-          ? "Car maintenance, washing, repairs, and roadside assistance services."
-          : "Tailoring, beauty, fitness, and personal services delivered when you need them.",
-  count: category.count,
-  image:
-    category.slug === "home-service"
-      ? homeServiceImage
-      : category.slug === "real-estate"
-        ? realEstateImage
-        : category.slug === "car-care"
-          ? carCareImage
-          : personalCareImage,
-}));
+export const serviceCategories = [
+  {
+    id: "home-service",
+    slug: "home-service",
+    apiName: "Home_Care",
+    title: "Home Services & Maintenance",
+    description:
+      "Plumbing, electrical work, cleaning, and home repairs by trusted professionals.",
+    count: "Live Services",
+    image: homeServiceImage,
+  },
+  {
+    id: "car-care",
+    slug: "car-care",
+    apiName: "Car_Care",
+    title: "Car Care & Automotive",
+    description:
+      "Car maintenance, washing, repairs, and roadside assistance services.",
+    count: "Live Services",
+    image: carCareImage,
+  },
+  {
+    id: "personal-care",
+    slug: "personal-care",
+    apiName: "Personal_Care",
+    title: "Personal Care Services",
+    description:
+      "Tailoring, beauty, fitness, and personal services delivered when you need them.",
+    count: "Live Services",
+    image: personalCareImage,
+  },
+];
 
 export const serviceSteps = [
   {

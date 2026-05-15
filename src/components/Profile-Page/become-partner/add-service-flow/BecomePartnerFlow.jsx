@@ -697,6 +697,15 @@ const validateAvailabilityForApi = (availability) => {
 const hasAvailabilityDays = (availability) =>
   (availability?.days || []).some((day) => String(day || "").trim());
 
+const normalizeAvailabilityDays = (...dayLists) => [
+  ...new Set(
+    dayLists
+      .flatMap((days) => (Array.isArray(days) ? days : []))
+      .map(normalizeWeekdayValue)
+      .filter(Boolean)
+  ),
+];
+
 const toAgendaTime = (hour) => {
   const match = String(hour || "").match(/\d{1,2}/);
   const hourNumber = match ? Number(match[0]) : 0;
@@ -834,13 +843,13 @@ const normalizeService = (servicePayload) => {
   const firstAgenda = agendaList[0] || {};
   const agendaFrom = getAgendaTime(firstAgenda, AGENDA_FROM_FIELDS);
   const agendaTo = getAgendaTime(firstAgenda, AGENDA_TO_FIELDS);
-  const availabilityDays = [
-    ...new Set(
-      agendaList
-        .map((agenda) => normalizeWeekdayValue(getAgendaDayValue(agenda)))
-        .filter(Boolean)
-    ),
-  ];
+  const availabilityDays = normalizeAvailabilityDays(
+    agendaList.map(getAgendaDayValue),
+    availabilitySource.days,
+    availabilitySource.Days,
+    availabilitySource.availableDays,
+    availabilitySource.AvailableDays
+  );
   const dayWindows = agendaList.reduce((windows, agenda) => {
     const day = normalizeWeekdayValue(getAgendaDayValue(agenda));
 
@@ -848,16 +857,19 @@ const normalizeService = (servicePayload) => {
 
     const fromTime = getAgendaTime(agenda, AGENDA_FROM_FIELDS);
     const toTime = getAgendaTime(agenda, AGENDA_TO_FIELDS);
+    const existingWindow = getAvailabilityDayWindow(availabilitySource, day);
 
     return {
       ...windows,
       [day]: {
-        startHour: getAgendaHour(fromTime, "9"),
-        endHour: getAgendaHour(toTime, "17"),
-        dailyWindow: isFullDayAgendaWindow(fromTime, toTime),
+        startHour: getAgendaHour(fromTime, existingWindow.startHour || "9"),
+        endHour: getAgendaHour(toTime, existingWindow.endHour || "17"),
+        dailyWindow:
+          Boolean(existingWindow.dailyWindow) ||
+          isFullDayAgendaWindow(fromTime, toTime),
       },
     };
-  }, {});
+  }, { ...(availabilitySource.dayWindows || {}) });
   const images =
     service.images ||
     service.imageUrls ||
@@ -915,7 +927,9 @@ const normalizeService = (servicePayload) => {
       days: availabilityDays,
       startHour: getAgendaHour(agendaFrom, "9"),
       endHour: getAgendaHour(agendaTo, "17"),
-      dailyWindow: isFullDayAgendaWindow(agendaFrom, agendaTo),
+      dailyWindow:
+        Boolean(availabilitySource.dailyWindow) ||
+        isFullDayAgendaWindow(agendaFrom, agendaTo),
       dayWindows,
       scheduleRows: normalizeAgendaScheduleRows(agendaList, availabilitySource),
     },
