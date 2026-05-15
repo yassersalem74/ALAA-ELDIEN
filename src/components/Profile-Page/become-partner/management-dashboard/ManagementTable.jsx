@@ -106,7 +106,7 @@ export default function ManagementTable({
             {items.map((item) => (
               <article
                 key={item.id}
-                className={`grid gap-4 px-4 py-4 md:items-center md:px-5 ${desktopGridClassName}`}
+                className={`grid grid-cols-2 gap-4 px-4 py-4 md:items-center md:px-5 ${desktopGridClassName}`}
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EFF3FF]">
@@ -142,7 +142,7 @@ export default function ManagementTable({
                   EGP {getPrice(item)}
                 </span>
 
-                <div className="flex items-center gap-2 md:justify-end">
+                <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => onEdit(item)}
