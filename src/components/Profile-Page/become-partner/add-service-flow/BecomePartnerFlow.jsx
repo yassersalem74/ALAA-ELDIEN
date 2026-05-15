@@ -975,7 +975,12 @@ const mergeServiceForEdit = (baseService, detailsService) => {
 const normalizePackage = (packageItem) => ({
   id: packageItem.id,
   packageName: packageItem.name || packageItem.packageName || "",
-  serviceId: packageItem.serviceIds?.[0] || packageItem.serviceId || "",
+  serviceId:
+    packageItem.serviceIds?.[0] ||
+    packageItem.serviceId ||
+    packageItem.services?.[0]?.id ||
+    packageItem.service?.id ||
+    "",
   serviceName:
     packageItem.serviceName ||
     packageItem.services?.[0]?.name ||
@@ -986,8 +991,50 @@ const normalizePackage = (packageItem) => ({
     (packageItem.recurrence || packageItem.pricingType || "").slice(1).toLowerCase(),
   times: String(packageItem.daysPerInterval ?? packageItem.times ?? ""),
   price: String(packageItem.price ?? ""),
-  includedItems: packageItem.includedItems || [],
+  includedItems:
+    packageItem.includedItems ||
+    packageItem.items ||
+    packageItem.serviceItems ||
+    packageItem.features ||
+    [],
 });
+
+const mergePackageForEdit = (basePackage, detailsPackage) => ({
+  ...basePackage,
+  ...detailsPackage,
+  id: detailsPackage.id || basePackage.id,
+  packageName: detailsPackage.packageName || basePackage.packageName,
+  serviceId: detailsPackage.serviceId || basePackage.serviceId,
+  serviceName: detailsPackage.serviceName || basePackage.serviceName,
+  pricingType: detailsPackage.pricingType || basePackage.pricingType,
+  times: detailsPackage.times || basePackage.times,
+  price: detailsPackage.price || basePackage.price,
+  includedItems:
+    detailsPackage.includedItems?.length > 0
+      ? detailsPackage.includedItems
+      : basePackage.includedItems,
+});
+
+const getServiceItemNames = (service) =>
+  (service?.items || [])
+    .map((item) => item.itemName || item.name)
+    .map((itemName) => String(itemName || "").trim())
+    .filter(Boolean);
+
+const hydratePackageFeaturesFromService = (packageItem, services) => {
+  if ((packageItem.includedItems || []).length > 0) {
+    return packageItem;
+  }
+
+  const packageService = services.find(
+    (service) => service.id === packageItem.serviceId
+  );
+
+  return {
+    ...packageItem,
+    includedItems: getServiceItemNames(packageService),
+  };
+};
 
 const enrichServicesWithDetails = async (services) => {
   const detailResults = await Promise.allSettled(
@@ -1020,6 +1067,51 @@ const buildPackagePayload = (packageItem) => ({
   price: Number(packageItem.price) || 0,
   serviceIds: [packageItem.serviceId].filter(Boolean),
 });
+
+const arePackagePayloadsEqual = (firstPackage, secondPackage) =>
+  JSON.stringify(buildPackagePayload(firstPackage)) ===
+  JSON.stringify(buildPackagePayload(secondPackage));
+
+const normalizePackageFeatureName = (item) =>
+  String(
+    typeof item === "string"
+      ? item
+      : item?.itemName || item?.name || item?.title || item?.description || ""
+  ).trim();
+
+const getPackageFeatureNames = (packageItem) =>
+  (packageItem?.includedItems || [])
+    .map(normalizePackageFeatureName)
+    .filter(Boolean);
+
+const arePackageFeaturesEqual = (firstPackage, secondPackage) =>
+  JSON.stringify(getPackageFeatureNames(firstPackage)) ===
+  JSON.stringify(getPackageFeatureNames(secondPackage));
+
+const buildFeatureItemsPayload = (featureNames, service) => {
+  const currentItemsByName = new Map(
+    (service?.items || []).map((item) => [
+      normalizeTextValue(item.itemName || item.name).toLowerCase(),
+      item,
+    ])
+  );
+
+  return {
+    items: featureNames.map((featureName) => {
+      const currentItem = currentItemsByName.get(
+        normalizeTextValue(featureName).toLowerCase()
+      );
+
+      return {
+        name: featureName,
+        price: Number(currentItem?.price) > 0 ? Number(currentItem.price) : 1,
+        description:
+          currentItem?.description ||
+          `Included feature for ${service?.serviceName || "this service"}`,
+      };
+    }),
+  };
+};
 
 const getCookie = (name) => {
   if (typeof document === "undefined") return "";
@@ -1200,8 +1292,8 @@ const logCreateServiceFlowDebug = (label, data) => {
   console.groupEnd();
 };
 
-const saveItemsIfPossible = async (serviceId, items) => {
-  if (!items || items.length === 0) return;
+const saveItemsIfPossible = async (serviceId, items, { allowEmpty = false } = {}) => {
+  if (!items || (!allowEmpty && items.length === 0)) return;
 
   try {
     await createOrUpdateItems(serviceId, buildItemsPayload(items));
@@ -2104,13 +2196,23 @@ export default function BecomePartnerFlow() {
 
   const handleEditPackage = async (packageItem) => {
     if (!getAuthToken()) {
-      setEditingPackage(packageItem);
+      setEditingPackage(
+        hydratePackageFeaturesFromService(normalizePackage(packageItem), savedServices)
+      );
       return;
     }
 
     try {
       const response = await getPackageDetails(packageItem.id, LANGUAGE);
-      setEditingPackage(normalizePackage(extractPayloadData(response)));
+      setEditingPackage(
+        hydratePackageFeaturesFromService(
+          mergePackageForEdit(
+            normalizePackage(packageItem),
+            normalizePackage(extractPayloadData(response))
+          ),
+          savedServices
+        )
+      );
     } catch (error) {
       if (isUnauthorizedError(error)) {
         clearAuthSession();
@@ -2134,7 +2236,9 @@ export default function BecomePartnerFlow() {
         return;
       }
 
-      setEditingPackage(packageItem);
+      setEditingPackage(
+        hydratePackageFeaturesFromService(normalizePackage(packageItem), savedServices)
+      );
     }
   };
 
@@ -2159,8 +2263,7 @@ export default function BecomePartnerFlow() {
       return;
     }
 
-    try {
-      await updatePackage(nextPackage.id, buildPackagePayload(nextPackage));
+    const closePackageEditAsSaved = async () => {
       await loadProviderData({ showPartialError: false });
       setEditingPackage(null);
       setToast({
@@ -2168,6 +2271,62 @@ export default function BecomePartnerFlow() {
         type: "success",
         message: "Package saved successfully.",
       });
+    };
+
+    try {
+      const shouldUpdatePackage =
+        !editingPackage || !arePackagePayloadsEqual(editingPackage, nextPackage);
+      const shouldUpdateFeatures =
+        !editingPackage || !arePackageFeaturesEqual(editingPackage, nextPackage);
+
+      if (!shouldUpdatePackage && !shouldUpdateFeatures) {
+        await closePackageEditAsSaved();
+        return;
+      }
+
+      if (shouldUpdatePackage) {
+        try {
+          await updatePackage(nextPackage.id, buildPackagePayload(nextPackage));
+        } catch (error) {
+          if (!isNoChangesDetectedError(error)) {
+            throw error;
+          }
+        }
+      }
+
+      if (shouldUpdateFeatures) {
+        if (!nextPackage.serviceId) {
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message: "Please choose a service before saving package features.",
+          });
+          return;
+        }
+
+        const selectedService = savedServices.find(
+          (service) => service.id === nextPackage.serviceId
+        );
+
+        const featureNames = getPackageFeatureNames(nextPackage);
+
+        if (featureNames.length === 0) {
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message:
+              "The API requires at least one service item. It does not support clearing all items yet.",
+          });
+          return;
+        }
+
+        await createOrUpdateItems(
+          nextPackage.serviceId,
+          buildFeatureItemsPayload(featureNames, selectedService)
+        );
+      }
+
+      await closePackageEditAsSaved();
     } catch (error) {
       if (isUnauthorizedError(error)) {
         clearAuthSession();
@@ -2188,6 +2347,11 @@ export default function BecomePartnerFlow() {
             "Your account does not have permission to update provider packages."
           ),
         });
+        return;
+      }
+
+      if (isNoChangesDetectedError(error)) {
+        await closePackageEditAsSaved();
         return;
       }
 

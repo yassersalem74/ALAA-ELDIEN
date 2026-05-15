@@ -4,8 +4,10 @@ import {
   FieldLabel,
   INPUT_CLASS_NAME,
   ModalShell,
+  PlusIcon,
   SELECT_CLASS_NAME,
   SelectArrow,
+  joinClasses,
 } from "../add-service-flow/PartnerFlowShared";
 
 const PRICING_TYPE_OPTIONS = [
@@ -16,8 +18,26 @@ const PRICING_TYPE_OPTIONS = [
 
 const getServiceItems = (service) =>
   (service?.items || [])
-    .map((item) => item.itemName)
+    .map((item) => item.itemName || item.name)
     .filter((itemName) => String(itemName || "").trim());
+
+const normalizeIncludedItems = (includedItems) => {
+  if (Array.isArray(includedItems)) {
+    return includedItems
+      .map((item) =>
+        typeof item === "string"
+          ? item
+          : item.itemName || item.name || item.title || item.description || ""
+      )
+      .map((itemName) => String(itemName || "").trim())
+      .filter(Boolean);
+  }
+
+  return String(includedItems || "")
+    .split(",")
+    .map((itemName) => itemName.trim())
+    .filter(Boolean);
+};
 
 export default function PackageEditModal({
   packageItem,
@@ -25,16 +45,26 @@ export default function PackageEditModal({
   onClose,
   onSave,
 }) {
+  const selectedPackageService = savedServices.find(
+    (service) => service.id === packageItem.serviceId
+  );
+  const initialIncludedItems = normalizeIncludedItems(packageItem.includedItems);
   const [draft, setDraft] = useState({
     ...packageItem,
     pricingType:
       (packageItem.pricingType || packageItem.packageType || "").charAt(0).toUpperCase() +
       (packageItem.pricingType || packageItem.packageType || "").slice(1).toLowerCase(),
     times: packageItem.times || packageItem.durationHours || "",
-    includedItemsText: Array.isArray(packageItem.includedItems)
-      ? packageItem.includedItems.join(", ")
-      : packageItem.includedItems || "",
+    includedItems:
+      initialIncludedItems.length > 0
+        ? initialIncludedItems
+        : getServiceItems(selectedPackageService),
   });
+  const [newFeature, setNewFeature] = useState("");
+
+  const selectedService = savedServices.find(
+    (service) => service.id === draft.serviceId
+  );
 
   const handleFieldChange = (fieldName, value) => {
     setDraft((currentDraft) => ({
@@ -50,8 +80,31 @@ export default function PackageEditModal({
       ...currentDraft,
       serviceId,
       serviceName: nextService?.serviceName || "",
-      includedItemsText: getServiceItems(nextService).join(", "),
+      includedItems: getServiceItems(nextService),
     }));
+  };
+
+  const handleRemoveFeature = (featureName) => {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      includedItems: (currentDraft.includedItems || []).filter(
+        (includedItem) => includedItem !== featureName
+      ),
+    }));
+  };
+
+  const handleAddFeature = () => {
+    const trimmedFeature = newFeature.trim();
+
+    if (!trimmedFeature) return;
+
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      includedItems: (currentDraft.includedItems || []).includes(trimmedFeature)
+        ? currentDraft.includedItems
+        : [...(currentDraft.includedItems || []), trimmedFeature],
+    }));
+    setNewFeature("");
   };
 
   const handleSave = () => {
@@ -62,13 +115,9 @@ export default function PackageEditModal({
       pricingType: draft.pricingType,
       times: draft.times,
       price: String(draft.price || "").trim(),
-      includedItems: draft.includedItemsText
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
+      includedItems: draft.includedItems || [],
     };
 
-    delete nextPackage.includedItemsText;
     onSave(nextPackage);
   };
 
@@ -172,17 +221,73 @@ export default function PackageEditModal({
             </label>
           </div>
 
-          <label>
-            <FieldLabel>Included Features</FieldLabel>
-            <input
-              type="text"
-              value={draft.includedItemsText}
-              onChange={(event) =>
-                handleFieldChange("includedItemsText", event.target.value)
-              }
-              className={INPUT_CLASS_NAME}
-            />
-          </label>
+          <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <FieldLabel>Included Features</FieldLabel>
+              <button
+                type="button"
+                onClick={handleAddFeature}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-2 self-start rounded-xl px-3 font-['Roboto'] text-[14px] font-medium text-[#011C60] transition hover:bg-[#EFF3FF]"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add Feature
+              </button>
+            </div>
+
+            {(draft.includedItems || []).length > 0 ? (
+              <div className="flex flex-wrap gap-3">
+                {draft.includedItems.map((feature) => (
+                  <span
+                    key={feature}
+                    className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-[#F3F4F7] px-4 font-['Roboto'] text-[13px] font-medium leading-5 text-[#6777A0]"
+                  >
+                    {feature}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFeature(feature)}
+                      aria-label={`Remove ${feature}`}
+                      className="cursor-pointer text-[#6777A0] transition hover:text-[#011C60]"
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="font-['Roboto'] text-[14px] leading-5 text-[#6777A0]">
+                {selectedService
+                  ? "This service has no items yet. Add package features manually."
+                  : "Choose a service to load its items, or add package features manually."}
+              </p>
+            )}
+
+            <div className="mt-3 flex max-w-[260px] items-center gap-2 rounded-xl bg-white shadow-[0px_8px_24px_rgba(17,27,71,0.08)]">
+              <input
+                type="text"
+                value={newFeature}
+                onChange={(event) => setNewFeature(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleAddFeature();
+                  }
+                }}
+                placeholder="Type new feature"
+                className="min-h-9 min-w-0 flex-1 rounded-xl px-3 font-['Roboto'] text-[13px] font-medium text-[#011C60] outline-none placeholder:text-[#6777A0]"
+              />
+              <button
+                type="button"
+                onClick={handleAddFeature}
+                className={joinClasses(
+                  "mr-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-[#EFF3FF] transition",
+                  newFeature.trim() ? "text-[#011C60]" : "text-[#9AA6C7]"
+                )}
+                aria-label="Add typed feature"
+              >
+                <PlusIcon className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
             <button
