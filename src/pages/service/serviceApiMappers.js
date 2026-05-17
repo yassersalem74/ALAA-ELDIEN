@@ -170,6 +170,26 @@ const getFirstImage = (service) => {
   return "";
 };
 
+const getServiceImages = (service, fallbackImage = "") => {
+  const images = [
+    service.image,
+    service.imageUrl,
+    service.serviceImage,
+    service.coverImage,
+    service.mainImage,
+    ...(Array.isArray(service.images) ? service.images : []),
+    ...(Array.isArray(service.imageUrls) ? service.imageUrls : []),
+    ...(Array.isArray(service.serviceImages) ? service.serviceImages : []),
+    ...(Array.isArray(service.imageFiles) ? service.imageFiles : []),
+    ...(Array.isArray(service.files) ? service.files : []),
+    fallbackImage,
+  ]
+    .map(pickImageUrl)
+    .filter(Boolean);
+
+  return [...new Set(images)];
+};
+
 export const normalizeLocationOptions = (payload) =>
   extractApiArray(payload)
     .map((item) => {
@@ -370,6 +390,7 @@ export const normalizeService = (service, fallbackImage = "") => {
     governorateName,
     location: [neighborhoodName, governorateName].filter(Boolean).join(", "),
     image: getFirstImage(service) || fallbackImage,
+    galleryImages: getServiceImages(service, fallbackImage),
     items: normalizeServiceItems(service.items || service.Items || []),
     agendas: normalizeAgendaRows(service.agendas || service.Agendas || []),
     timeslotDurationInMin: Number(service.timeslotDurationInMin) || 60,

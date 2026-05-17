@@ -127,6 +127,56 @@ const splitRangeIntoTimeSlots = (range, durationInMin) => {
   return slots.length ? slots : [range];
 };
 
+function ServiceImageGallery({ service }) {
+  const images = service.galleryImages?.length
+    ? service.galleryImages
+    : [service.image].filter(Boolean);
+  const [selectedImage, setSelectedImage] = useState(images[0] || service.image);
+
+  if (!images.length) return null;
+
+  return (
+    <div>
+      <img
+        src={selectedImage}
+        alt={service.name}
+        className="h-[260px] w-full rounded-[18px] bg-[#E6E8EF] object-cover sm:h-[360px]"
+      />
+
+      <div className="mt-4 grid grid-cols-4 gap-3 sm:grid-cols-5 lg:grid-cols-6">
+        {images.map((image, index) => {
+          const isSelected = image === selectedImage;
+
+          return (
+            <button
+              key={`${image}-${index + 1}`}
+              type="button"
+              onClick={() => setSelectedImage(image)}
+              aria-label={`Show service image ${index + 1}`}
+              aria-pressed={isSelected}
+              className={`group h-20 overflow-hidden rounded-xl border bg-[#F8F9FC] p-1 transition sm:h-24 ${
+                isSelected
+                  ? "border-[#011C60] shadow-[0px_10px_22px_rgba(1,28,96,0.18)]"
+                  : "border-[#E6E8EF] hover:border-[#EECE42]"
+              }`}
+            >
+              <img
+                src={image}
+                alt=""
+                className={`h-full w-full rounded-lg object-cover transition duration-200 ${
+                  isSelected
+                    ? "scale-100 blur-0 opacity-100"
+                    : "scale-105 blur-[1.5px] opacity-55 group-hover:blur-0 group-hover:opacity-90"
+                }`}
+              />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AvailabilityCalendar({ service }) {
   const agendas = useMemo(() => service.agendas || [], [service.agendas]);
   const durationInMin = service.timeslotDurationInMin || 60;
@@ -482,11 +532,7 @@ export default function ServiceProviderDetailPage() {
 
               <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
                 <div className="rounded-2xl border border-[#E6E8EF] bg-white p-5 shadow-[0px_8px_24px_rgba(190,198,222,0.22)]">
-                  <img
-                    src={service.image}
-                    alt={service.name}
-                    className="h-[360px] w-full rounded-[18px] bg-[#E6E8EF] object-cover"
-                  />
+                  <ServiceImageGallery key={service.id} service={service} />
 
                   {service.description && (
                     <p className="mt-5 font-['Roboto'] text-[17px] leading-8 text-[#6777A0]">
