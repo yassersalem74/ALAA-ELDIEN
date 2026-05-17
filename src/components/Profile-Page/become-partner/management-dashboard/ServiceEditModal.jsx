@@ -28,10 +28,17 @@ const createEmptyItem = () => ({
 
 const normalizeItems = (items = []) =>
   items.map((item, index) => ({
-    id: item.id || `service-item-edit-${index}`,
-    itemName: item.itemName || item.name || "",
-    price: String(item.price ?? ""),
-    description: item.description || "",
+    id:
+      item.id ||
+      item.itemId ||
+      item.serviceItemId ||
+      item.name ||
+      item.itemName ||
+      `service-item-edit-${index}`,
+    itemName: item.itemName || item.name || item.serviceItemName || "",
+    price: String(item.price ?? item.itemPrice ?? item.serviceItemPrice ?? ""),
+    description:
+      item.description || item.itemDescription || item.serviceItemDescription || "",
   }));
 
 const normalizeWeekdayValue = (value) => {

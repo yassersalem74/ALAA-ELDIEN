@@ -13,6 +13,24 @@ const normalizeAgendaPayload = (data, wrapperKey = "agendas") => {
   };
 };
 
+const normalizeItemsPayload = (data) => {
+  const items = Array.isArray(data)
+    ? data
+    : data?.items || data?.Items || data?.serviceItems || data?.ServiceItems || [];
+
+  return {
+    items: items
+      .map((item) => ({
+        name: String(item.name || item.itemName || item.serviceItemName || "").trim(),
+        price: Number(item.price ?? item.itemPrice ?? item.serviceItemPrice ?? 0) || 0,
+        description: String(
+          item.description || item.itemDescription || item.serviceItemDescription || ""
+        ).trim(),
+      }))
+      .filter((item) => item.name),
+  };
+};
+
 const isDebugLoggingEnabled = () => import.meta.env.DEV;
 
 const serializeDebugValue = (value) => {
@@ -130,9 +148,11 @@ export const addReview = async (providerId, data) => {
 };
 
 export const createOrUpdateItems = async (serviceId, data) => {
-  logApiPayload(`POST /api/v1/items/services/${serviceId} request`, data);
+  const payload = normalizeItemsPayload(data);
 
-  const res = await api.post(`${SERVICE_ENDPOINTS.CREATE_UPDATE_ITEMS}/${serviceId}`, data, {
+  logApiPayload(`POST /api/v1/items/services/${serviceId} request`, payload);
+
+  const res = await api.post(`${SERVICE_ENDPOINTS.CREATE_UPDATE_ITEMS}/${serviceId}`, payload, {
     headers: { "Content-Type": "application/json" },
   });
 

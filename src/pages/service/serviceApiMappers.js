@@ -299,14 +299,46 @@ export const formatServicePrice = (price, currency = "EGP") =>
   }`;
 
 export const normalizeServiceItems = (value) => {
-  const items = Array.isArray(value) ? value : value?.items || value?.Items || [];
+  const items = Array.isArray(value)
+    ? value
+    : value?.items ||
+      value?.Items ||
+      value?.serviceItems ||
+      value?.ServiceItems ||
+      value?.itemDtos ||
+      value?.ItemDtos ||
+      value?.itemDTOs ||
+      value?.ItemDTOs ||
+      value?.data?.items ||
+      value?.data?.Items ||
+      [];
 
   return items
     .map((item, index) => ({
-      id: item.id || item.itemId || item.serviceItemId || `item-${index + 1}`,
-      name: item.name || item.itemName || item.title || "Service item",
-      price: item.price ?? item.itemPrice ?? item.servicePrice ?? 0,
-      description: item.description || item.itemDescription || "",
+      id:
+        item.id ||
+        item.itemId ||
+        item.serviceItemId ||
+        item.serviceItemID ||
+        `item-${index + 1}`,
+      name:
+        item.name ||
+        item.itemName ||
+        item.serviceItemName ||
+        item.title ||
+        "Service item",
+      price:
+        item.price ??
+        item.itemPrice ??
+        item.serviceItemPrice ??
+        item.servicePrice ??
+        item.amount ??
+        0,
+      description:
+        item.description ||
+        item.itemDescription ||
+        item.serviceItemDescription ||
+        "",
     }))
     .filter((item) => item.name);
 };
@@ -391,7 +423,7 @@ export const normalizeService = (service, fallbackImage = "") => {
     location: [neighborhoodName, governorateName].filter(Boolean).join(", "),
     image: getFirstImage(service) || fallbackImage,
     galleryImages: getServiceImages(service, fallbackImage),
-    items: normalizeServiceItems(service.items || service.Items || []),
+    items: normalizeServiceItems(service),
     agendas: normalizeAgendaRows(service.agendas || service.Agendas || []),
     timeslotDurationInMin: Number(service.timeslotDurationInMin) || 60,
     numberOfCustomerPerTimeSlots:

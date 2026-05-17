@@ -8,7 +8,7 @@ import {
   ClockIcon,
   EmptyState,
   LocationIcon,
-  ServicePageIntro,
+  StarIcon,
 } from "../../components/Service-Flow/ServiceFlowShared";
 import {
   SERVICE_LANGUAGE,
@@ -35,16 +35,15 @@ const formatMonthTitle = (date) =>
     year: "numeric",
   }).format(date);
 
-const formatSelectedDate = (dateKey) => {
-  if (!dateKey) return "Choose an available date";
+const formatShortSelectedDate = (dateKey) => {
+  if (!dateKey) return "";
 
   const [year, month, day] = dateKey.split("-").map(Number);
 
   return new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
+    weekday: "short",
     month: "short",
     day: "numeric",
-    year: "numeric",
   }).format(new Date(year, month - 1, day));
 };
 
@@ -85,6 +84,8 @@ const getAgendaRanges = (agenda, durationInMin) => {
 
 const formatRangeLabel = (range) =>
   `${formatTimeLabel(range.from)} - ${formatTimeLabel(range.to)}`;
+
+const getTimeButtonLabel = (range) => formatTimeLabel(range.from);
 
 const parseTimeToMinutes = (value) => {
   const [hourPart = "0", minutePart = "0"] = String(value || "").split(":");
@@ -177,13 +178,77 @@ function ServiceImageGallery({ service }) {
   );
 }
 
-function AvailabilityCalendar({ service }) {
-  const agendas = useMemo(() => service.agendas || [], [service.agendas]);
-  const durationInMin = service.timeslotDurationInMin || 60;
+function SectionPanel({ title, children }) {
+  return (
+    <section className="rounded-[16px] bg-white">
+      <div className="flex min-h-14 items-center justify-between rounded-[8px] bg-[#E6E8EF] px-4">
+        <h2 className="font-['Roboto'] text-[15px] font-semibold text-[#011C60]">
+          {title}
+        </h2>
+      </div>
+      <div className="pt-4">{children}</div>
+    </section>
+  );
+}
+
+function QuantityControl({ value, onDecrease, onIncrease }) {
+  return (
+    <div className="flex h-9 items-center rounded-full bg-[#F3F5FA] px-1">
+      <button
+        type="button"
+        onClick={onDecrease}
+        disabled={value === 0}
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-white font-['Roboto'] text-[18px] font-semibold text-[#808DAF] shadow-sm transition hover:text-[#011C60] disabled:cursor-not-allowed disabled:opacity-45"
+        aria-label="Decrease item quantity"
+      >
+        -
+      </button>
+      <span className="min-w-8 text-center font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
+        {value}
+      </span>
+      <button
+        type="button"
+        onClick={onIncrease}
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-white font-['Roboto'] text-[16px] font-semibold text-[#011C60] shadow-sm transition hover:bg-[#011C60] hover:text-white"
+        aria-label="Increase item quantity"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+function AvailableDaysPills({ agendas }) {
+  if (!agendas.length) return null;
+
+  return (
+    <div>
+      <h2 className="font-['Roboto'] text-[24px] font-semibold text-[#011C60]">
+        Availability Times
+      </h2>
+      <p className="mt-1 font-['Roboto'] text-[18px] leading-7 text-[#808DAF]">
+        Available weekdays repeat through the calendar.
+      </p>
+      <div className="mt-6 flex flex-wrap gap-4">
+        {agendas.map((agenda) => (
+          <span
+            key={agenda.id}
+            className="min-w-[120px] rounded-full border border-[#D8DDEB] bg-white px-6 py-3 text-center font-['Roboto'] text-[17px] font-semibold text-[#011C60] shadow-[0px_8px_20px_rgba(204,210,223,0.3)]"
+          >
+            {agenda.day}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BookingCalendar({
+  agendas,
+  selectedDateKey,
+  onSelectDate,
+}) {
   const [visibleMonth, setVisibleMonth] = useState(() => new Date());
-  const [selectedDateKey, setSelectedDateKey] = useState("");
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
-  const [bookingMessage, setBookingMessage] = useState("");
   const todayKey = getTodayKey();
 
   const availableDayIndexes = useMemo(
@@ -195,6 +260,87 @@ function AvailabilityCalendar({ service }) {
     () => buildMonthDays(visibleMonth),
     [visibleMonth]
   );
+
+  return (
+    <div className="mx-auto w-full max-w-[320px] rounded-[10px] bg-white p-4 shadow-[0px_14px_32px_rgba(1,28,96,0.12)]">
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() =>
+            setVisibleMonth(
+              (current) =>
+                new Date(current.getFullYear(), current.getMonth() - 1, 1)
+            )
+          }
+          className="btn btn-ghost btn-xs min-h-8 text-[#808DAF]"
+          aria-label="Previous month"
+        >
+          &lt;
+        </button>
+        <p className="font-['Roboto'] text-[15px] font-semibold text-[#808DAF]">
+          {formatMonthTitle(visibleMonth)}
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            setVisibleMonth(
+              (current) =>
+                new Date(current.getFullYear(), current.getMonth() + 1, 1)
+            )
+          }
+          className="btn btn-ghost btn-xs min-h-8 text-[#808DAF]"
+          aria-label="Next month"
+        >
+          &gt;
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-7 gap-1">
+        {WEEKDAY_NAMES.map((day) => (
+          <span
+            key={day}
+            className="text-center font-['Roboto'] text-[10px] font-semibold uppercase text-[#9AA6C7]"
+          >
+            {day.slice(0, 3)}
+          </span>
+        ))}
+
+        {calendarDays.map((day) => {
+          const isAvailable =
+            day.isCurrentMonth &&
+            day.key >= todayKey &&
+            availableDayIndexes.has(day.dayIndex);
+          const isSelected = selectedDateKey === day.key;
+
+          return (
+            <button
+              key={day.key}
+              type="button"
+              disabled={!isAvailable}
+              onClick={() => onSelectDate(day.key)}
+              className={`aspect-square rounded-full font-['Roboto'] text-[12px] font-semibold transition ${
+                isSelected
+                  ? "bg-[#011C60] text-white"
+                  : isAvailable
+                    ? "text-[#4D6090] hover:bg-[#F6E6A0] hover:text-[#011C60]"
+                    : "cursor-not-allowed text-[#CCD2DF]"
+              } ${day.isCurrentMonth ? "" : "opacity-30"}`}
+            >
+              {day.dayNumber}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BookingPanel({ service, onConfirmBooking }) {
+  const agendas = useMemo(() => service.agendas || [], [service.agendas]);
+  const durationInMin = service.timeslotDurationInMin || 60;
+  const [selectedDateKey, setSelectedDateKey] = useState("");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [quantities, setQuantities] = useState({});
 
   const selectedDayIndex = useMemo(() => {
     if (!selectedDateKey) return -1;
@@ -222,160 +368,116 @@ function AvailabilityCalendar({ service }) {
     [durationInMin, selectedAgendas]
   );
 
+  const selectedItems = useMemo(
+    () =>
+      service.items
+        .map((item) => ({
+          ...item,
+          quantity: quantities[item.id] || 0,
+        }))
+        .filter((item) => item.quantity > 0),
+    [quantities, service.items]
+  );
+
+  const itemsTotal = useMemo(
+    () =>
+      selectedItems.reduce(
+        (total, item) => total + (Number(item.price) || 0) * item.quantity,
+        0
+      ),
+    [selectedItems]
+  );
+  const total = (Number(service.price) || 0) + itemsTotal;
+
+  const changeQuantity = (itemId, delta) => {
+    setQuantities((current) => ({
+      ...current,
+      [itemId]: Math.max(0, (current[itemId] || 0) + delta),
+    }));
+  };
+
   const handleSelectDate = (dateKey) => {
     setSelectedDateKey(dateKey);
     setSelectedTimeSlot(null);
-    setBookingMessage("");
   };
 
-  const handleSelectTimeSlot = (slot) => {
-    setSelectedTimeSlot(slot);
-    setBookingMessage("");
-  };
-
-  const handleBookService = () => {
+  const handleBookNow = () => {
     if (!selectedDateKey || !selectedTimeSlot) return;
 
-    const bookingPayload = {
-      id: `${service.id}-${selectedDateKey}-${selectedTimeSlot.from}`,
-      serviceId: service.id,
-      serviceName: service.name,
-      providerId: service.providerId,
-      providerName: service.providerName,
-      date: selectedDateKey,
-      from: selectedTimeSlot.from,
-      to: selectedTimeSlot.to,
-      price: service.price,
-      currency: service.currency,
-      createdAt: new Date().toISOString(),
-    };
-
-    try {
-      const existingBookings = JSON.parse(
-        localStorage.getItem("serviceBookings") || "[]"
-      );
-      const nextBookings = [
-        bookingPayload,
-        ...existingBookings.filter((booking) => booking.id !== bookingPayload.id),
-      ];
-
-      localStorage.setItem("serviceBookings", JSON.stringify(nextBookings));
-    } catch (error) {
-      console.warn("Unable to save selected service booking locally.", error);
-    }
-
-    setBookingMessage(
-      `Booking selected for ${formatSelectedDate(selectedDateKey)} at ${formatRangeLabel(
-        selectedTimeSlot
-      )}.`
-    );
+    onConfirmBooking({
+      service,
+      selectedDateKey,
+      selectedTimeSlot,
+      selectedItems,
+      total,
+    });
   };
 
-  if (!agendas.length) {
-    return (
-      <EmptyState
-        title="No availability yet"
-        description="This service is saved, but the provider has not added available days."
-      />
-    );
-  }
-
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="rounded-2xl border border-[#E6E8EF] bg-white p-5 shadow-[0px_8px_24px_rgba(190,198,222,0.22)]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="font-['Roboto'] text-[12px] font-medium uppercase text-[#808DAF]">
-              Available calendar
-            </p>
-            <h2 className="font-['Roboto'] text-[24px] font-semibold leading-8 text-[#011C60]">
-              {formatMonthTitle(visibleMonth)}
-            </h2>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setVisibleMonth(
-                  (current) =>
-                    new Date(current.getFullYear(), current.getMonth() - 1, 1)
-                )
-              }
-              className="h-10 rounded-xl border border-[#CCD2DF] px-4 font-['Roboto'] text-sm font-semibold text-[#011C60] transition hover:bg-[#F5F7FC]"
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setVisibleMonth(
-                  (current) =>
-                    new Date(current.getFullYear(), current.getMonth() + 1, 1)
-                )
-              }
-              className="h-10 rounded-xl border border-[#CCD2DF] px-4 font-['Roboto'] text-sm font-semibold text-[#011C60] transition hover:bg-[#F5F7FC]"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-5 grid grid-cols-7 gap-2">
-          {WEEKDAY_NAMES.map((day) => (
-            <div
-              key={day}
-              className="text-center font-['Roboto'] text-[12px] font-semibold uppercase text-[#808DAF]"
-            >
-              {day.slice(0, 3)}
-            </div>
-          ))}
-
-          {calendarDays.map((day) => {
-            const isAvailable =
-              day.isCurrentMonth &&
-              day.key >= todayKey &&
-              availableDayIndexes.has(day.dayIndex);
-            const isSelected = selectedDateKey === day.key;
-
-            return (
-              <button
-                key={day.key}
-                type="button"
-                disabled={!isAvailable}
-                onClick={() => handleSelectDate(day.key)}
-                className={`aspect-square rounded-xl font-['Roboto'] text-sm font-semibold transition ${
-                  isSelected
-                    ? "bg-[#011C60] text-white shadow-[0px_12px_24px_rgba(1,28,96,0.22)]"
-                    : isAvailable
-                      ? "bg-[#FFF4C4] text-[#011C60] hover:-translate-y-0.5 hover:bg-[#EECE42]"
-                      : "cursor-not-allowed bg-[#F3F5FA] text-[#B3BBCF]"
-                } ${day.isCurrentMonth ? "" : "opacity-40"}`}
+    <aside className="sticky top-24 space-y-6 rounded-[18px] bg-white p-4 shadow-[0px_12px_36px_rgba(1,28,96,0.08)]">
+      {service.items.length > 0 && (
+        <SectionPanel title="Choose items">
+          <div className="space-y-3">
+            {service.items.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 rounded-[12px] border border-[#E6E8EF] bg-white px-3 py-3 shadow-sm"
               >
-                {day.dayNumber}
-              </button>
-            );
-          })}
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E6E8EF]">
+                  <CalendarIcon className="h-5 w-5" stroke="#808DAF" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
+                    {item.name}
+                  </p>
+                  <p className="font-['Roboto'] text-[11px] font-medium text-[#808DAF]">
+                    {formatServicePrice(item.price, service.currency)}
+                  </p>
+                </div>
+                <QuantityControl
+                  value={quantities[item.id] || 0}
+                  onDecrease={() => changeQuantity(item.id, -1)}
+                  onIncrease={() => changeQuantity(item.id, 1)}
+                />
+              </div>
+            ))}
+          </div>
+        </SectionPanel>
+      )}
+
+      <div className="rounded-[14px] bg-[#F8F9FC] p-4">
+        <div className="flex items-center justify-between font-['Roboto'] text-[14px] font-semibold text-[#6777A0]">
+          <span>Base service</span>
+          <span>{formatServicePrice(service.price, service.currency)}</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between font-['Roboto'] text-[18px] font-bold text-[#011C60]">
+          <span>Total</span>
+          <span>{formatServicePrice(total, service.currency)}</span>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[#E6E8EF] bg-white p-5 shadow-[0px_8px_24px_rgba(190,198,222,0.22)]">
-        <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#F8F9FC]">
-            <ClockIcon className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-['Roboto'] text-[12px] font-medium uppercase text-[#808DAF]">
-              Selected day
-            </p>
-            <h3 className="font-['Roboto'] text-[20px] font-semibold leading-7 text-[#011C60]">
-              {formatSelectedDate(selectedDateKey)}
-            </h3>
-          </div>
-        </div>
+      <SectionPanel title="Select Date">
+        {agendas.length ? (
+          <BookingCalendar
+            agendas={agendas}
+            selectedDateKey={selectedDateKey}
+            onSelectDate={handleSelectDate}
+          />
+        ) : (
+          <EmptyState
+            title="No availability yet"
+            description="The provider has not added available days for this service."
+          />
+        )}
+      </SectionPanel>
 
-        <div className="mt-5 space-y-3">
-          {selectedTimeSlots.length ? (
+      <SectionPanel title="Select Time">
+        <div className="flex flex-wrap justify-center gap-2 pb-1">
+          {!agendas.length ? (
+            <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
+              Available times will show after the provider adds a schedule.
+            </p>
+          ) : selectedTimeSlots.length ? (
             selectedTimeSlots.map((slot) => {
               const isSelected = selectedTimeSlot?.id === slot.id;
 
@@ -383,68 +485,175 @@ function AvailabilityCalendar({ service }) {
                 <button
                   key={slot.id}
                   type="button"
-                  onClick={() => handleSelectTimeSlot(slot)}
-                  aria-pressed={isSelected}
-                  className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                  onClick={() => setSelectedTimeSlot(slot)}
+                  className={`min-w-[96px] rounded-xl border px-3 py-3 font-['Roboto'] text-[13px] font-semibold transition ${
                     isSelected
-                      ? "border-[#011C60] bg-[#011C60] text-white shadow-[0px_12px_24px_rgba(1,28,96,0.2)]"
-                      : "border-[#E6E8EF] bg-[#F8F9FC] text-[#011C60] hover:border-[#EECE42] hover:bg-[#FFF8D7]"
+                      ? "border-[#011C60] bg-[#011C60] text-white"
+                      : "border-[#CCD2DF] bg-white text-[#011C60] hover:border-[#EECE42]"
                   }`}
                 >
-                  <p
-                    className={`font-['Roboto'] text-[13px] font-medium ${
-                      isSelected ? "text-white/80" : "text-[#808DAF]"
-                    }`}
-                  >
-                    {slot.day}
-                  </p>
-                  <p className="mt-1 font-['Roboto'] text-[17px] font-semibold">
-                    {formatRangeLabel(slot)}
-                  </p>
+                  {getTimeButtonLabel(slot)}
                 </button>
               );
             })
           ) : (
-            <p className="font-['Roboto'] text-[15px] leading-6 text-[#808DAF]">
-              Pick one of the highlighted days to see its available hours.
+            <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
+              Choose an available day first.
             </p>
           )}
         </div>
+      </SectionPanel>
 
-        <button
-          type="button"
-          onClick={handleBookService}
-          disabled={!selectedDateKey || !selectedTimeSlot}
-          className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#011C60] px-5 font-['Roboto'] text-[15px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF] disabled:hover:translate-y-0"
-        >
-          Book Service
-        </button>
+      <button
+        type="button"
+        onClick={handleBookNow}
+        disabled={!agendas.length || !selectedDateKey || !selectedTimeSlot}
+        className="flex h-14 w-full items-center justify-center rounded-[12px] bg-[#011C60] font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF]"
+      >
+        Book Now
+      </button>
+    </aside>
+  );
+}
 
-        {bookingMessage && (
-          <p className="mt-3 rounded-xl bg-[#F6E6A0] px-4 py-3 font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
-            {bookingMessage}
-          </p>
-        )}
+function ConfirmBookingModal({ booking, onClose, onConfirm }) {
+  if (!booking) return null;
+
+  const { service, selectedDateKey, selectedTimeSlot, selectedItems, total } =
+    booking;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 px-4">
+      <div className="w-full max-w-[440px] rounded-[16px] bg-white p-5 shadow-[0px_28px_70px_rgba(1,28,96,0.22)]">
+        <h2 className="text-center font-['Roboto'] text-[26px] font-semibold text-[#011C60]">
+          Confirm Booking
+        </h2>
+
+        <div className="mt-5 flex items-center gap-3 rounded-[12px] bg-[#E6E8EF] p-3">
+          <img
+            src={service.providerImage || service.image}
+            alt=""
+            className="h-14 w-14 rounded-full object-cover"
+          />
+          <div>
+            <p className="font-['Roboto'] text-[16px] font-semibold text-[#011C60]">
+              {service.providerName}
+            </p>
+            <p className="mt-1 flex items-center gap-1 font-['Roboto'] text-[13px] text-[#808DAF]">
+              <StarIcon className="h-4 w-4" />
+              {service.rate ? service.rate.toFixed(1) : "New"} rating
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-4 rounded-[12px] border border-[#E6E8EF] bg-white p-4 shadow-[0px_8px_24px_rgba(204,210,223,0.28)]">
+          <div className="flex gap-3">
+            <CalendarIcon className="mt-1 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-['Roboto'] text-[12px] font-semibold text-[#808DAF]">
+                Date & Time
+              </p>
+              <p className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+                {formatShortSelectedDate(selectedDateKey)}
+              </p>
+              <p className="font-['Roboto'] text-[13px] text-[#011C60]">
+                {formatRangeLabel(selectedTimeSlot)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <LocationIcon className="mt-1 h-5 w-5 shrink-0" stroke="#011C60" />
+            <div>
+              <p className="font-['Roboto'] text-[12px] font-semibold text-[#808DAF]">
+                Address
+              </p>
+              <p className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+                {service.location || "Not specified"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <ClockIcon className="mt-1 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-['Roboto'] text-[12px] font-semibold text-[#808DAF]">
+                Service Type
+              </p>
+              <p className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+                {selectedItems.length
+                  ? selectedItems
+                      .map((item) => `${item.name} x${item.quantity}`)
+                      .join(", ")
+                  : service.name}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <p className="font-['Roboto'] text-[12px] font-semibold text-[#808DAF]">
+              Fees
+            </p>
+            <p className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+              {formatServicePrice(total, service.currency)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-12 rounded-[10px] border border-[#CCD2DF] font-['Roboto'] text-[14px] font-semibold text-[#011C60]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="h-12 rounded-[10px] bg-[#011C60] font-['Roboto'] text-[14px] font-semibold text-white"
+          >
+            Confirm Booking
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function AvailabilitySummary({ agendas }) {
-  if (!agendas.length) return null;
+function BookingSuccessModal({ isOpen, onClose }) {
+  if (!isOpen) return null;
 
   return (
-    <div className="flex flex-wrap gap-3">
-      {agendas.map((agenda) => (
-        <div
-          key={agenda.id}
-          className="rounded-full border border-[#E6E8EF] bg-white px-5 py-3 shadow-[0px_8px_18px_rgba(190,198,222,0.18)]"
-        >
-          <p className="font-['Roboto'] text-[15px] font-semibold text-[#011C60] sm:text-[16px]">
-            {agenda.day}
-          </p>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 px-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[330px] rounded-[16px] bg-white px-6 py-8 text-center shadow-[0px_28px_70px_rgba(1,28,96,0.22)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[14px] bg-[#DDEEFF]">
+          <svg
+            viewBox="0 0 64 64"
+            className="h-16 w-16 text-[#EECE42]"
+            aria-hidden="true"
+          >
+            <circle cx="32" cy="32" r="25" fill="currentColor" opacity="0.28" />
+            <path
+              d="M20 33.5L28 41L45 23"
+              fill="none"
+              stroke="#011C60"
+              strokeWidth="6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
-      ))}
+        <h2 className="mt-5 font-['Roboto'] text-[21px] font-semibold leading-8 text-[#011C60]">
+          Your booking has been confirmed successfully
+        </h2>
+      </div>
     </div>
   );
 }
@@ -455,6 +664,8 @@ export default function ServiceProviderDetailPage() {
   const [service, setService] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [bookingDraft, setBookingDraft] = useState(null);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
 
   const category = useMemo(
     () => serviceCategories.find((item) => item.slug === categorySlug),
@@ -500,6 +711,42 @@ export default function ServiceProviderDetailPage() {
     return <Navigate to="/services" replace />;
   }
 
+  const handleConfirmBooking = () => {
+    if (!bookingDraft) return;
+
+    const bookingPayload = {
+      id: `${bookingDraft.service.id}-${bookingDraft.selectedDateKey}-${bookingDraft.selectedTimeSlot.from}`,
+      serviceId: bookingDraft.service.id,
+      serviceName: bookingDraft.service.name,
+      providerId: bookingDraft.service.providerId,
+      providerName: bookingDraft.service.providerName,
+      date: bookingDraft.selectedDateKey,
+      from: bookingDraft.selectedTimeSlot.from,
+      to: bookingDraft.selectedTimeSlot.to,
+      items: bookingDraft.selectedItems,
+      total: bookingDraft.total,
+      currency: bookingDraft.service.currency,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const existingBookings = JSON.parse(
+        localStorage.getItem("serviceBookings") || "[]"
+      );
+      const nextBookings = [
+        bookingPayload,
+        ...existingBookings.filter((booking) => booking.id !== bookingPayload.id),
+      ];
+
+      localStorage.setItem("serviceBookings", JSON.stringify(nextBookings));
+    } catch (error) {
+      console.warn("Unable to save selected service booking locally.", error);
+    }
+
+    setBookingDraft(null);
+    setIsSuccessOpen(true);
+  };
+
   return (
     <div className="bg-[#F8F9FC] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1240px]">
@@ -519,130 +766,113 @@ export default function ServiceProviderDetailPage() {
         ) : (
           service && (
             <>
-              <div className="mt-8">
-                <ServicePageIntro
-                  title={service.name}
-                  description={
-                    service.subDescription ||
-                    service.description ||
-                    "Service details and available times."
-                  }
-                />
-              </div>
+              <div className="mt-6 grid gap-8 xl:grid-cols-[minmax(0,1fr)_430px] xl:items-start">
+                <div>
+                  <h1 className="font-['Roboto'] text-[28px] font-semibold leading-10 text-[#011C60] sm:text-[34px]">
+                    {service.name}
+                  </h1>
 
-              <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-                <div className="rounded-2xl border border-[#E6E8EF] bg-white p-5 shadow-[0px_8px_24px_rgba(190,198,222,0.22)]">
-                  <ServiceImageGallery key={service.id} service={service} />
+                  <div className="mt-5">
+                    <ServiceImageGallery key={service.id} service={service} />
+                  </div>
 
-                  {service.description && (
-                    <p className="mt-5 font-['Roboto'] text-[17px] leading-8 text-[#6777A0]">
-                      {service.description}
-                    </p>
-                  )}
-
-                  {service.items.length > 0 && (
-                    <div className="mt-6">
-                      <h2 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60]">
-                        Service Items
-                      </h2>
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        {service.items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="rounded-xl border border-[#E6E8EF] bg-[#F8F9FC] px-4 py-3"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="font-['Roboto'] text-[15px] font-semibold text-[#011C60]">
-                                {item.name}
-                              </p>
-                              <p className="shrink-0 font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
-                                {formatServicePrice(item.price, service.currency)}
-                              </p>
-                            </div>
-                            {item.description && (
-                              <p className="mt-1 font-['Roboto'] text-[13px] leading-5 text-[#808DAF]">
-                                {item.description}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <aside className="rounded-2xl border border-[#E6E8EF] bg-white p-5 shadow-[0px_8px_24px_rgba(190,198,222,0.22)]">
-                  <div className="space-y-5">
-                    <div>
-                      <p className="font-['Roboto'] text-[12px] font-medium uppercase text-[#808DAF]">
-                        Price
-                      </p>
-                      <p className="font-['Roboto'] text-[28px] font-semibold leading-10 text-[#011C60]">
-                        {formatServicePrice(service.price, service.currency)}
-                      </p>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F8F9FC]">
-                        <LocationIcon className="h-5 w-5" stroke="#011C60" />
+                  <div className="mt-5 flex flex-wrap items-center gap-5">
+                    <div className="flex items-center gap-2">
+                      <StarIcon className="h-5 w-5" />
+                      <span className="font-['Roboto'] text-[18px] font-semibold text-[#011C60]">
+                        {service.rate ? service.rate.toFixed(1) : "New"}
                       </span>
-                      <div>
-                        <p className="font-['Roboto'] text-[12px] font-medium uppercase text-[#808DAF]">
-                          Location
-                        </p>
-                        <p className="font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60]">
-                          {service.location || "Not specified"}
-                        </p>
-                      </div>
                     </div>
-
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F8F9FC]">
-                        <CalendarIcon className="h-5 w-5" />
+                    <div className="flex items-center gap-2">
+                      <LocationIcon className="h-5 w-5" stroke="#011C60" />
+                      <span className="font-['Roboto'] text-[16px] font-medium text-[#4D6090]">
+                        {service.location || "Not specified"}
                       </span>
-                      <div>
-                        <p className="font-['Roboto'] text-[12px] font-medium uppercase text-[#808DAF]">
-                          Provider
-                        </p>
-                        <p className="font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60]">
-                          {service.providerName}
-                        </p>
-                        {service.providerRole && (
-                          <p className="mt-1 font-['Roboto'] text-[13px] font-medium text-[#808DAF]">
-                            {service.providerRole}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="font-['Roboto'] text-[12px] font-medium uppercase text-[#808DAF]">
-                        Rating
-                      </p>
-                      <p className="font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60]">
-                        {service.rate ? `${service.rate.toFixed(1)} / 5` : "New service"}
-                      </p>
                     </div>
                   </div>
-                </aside>
+
+                  <p className="mt-6 max-w-[720px] font-['Roboto'] text-[17px] leading-8 text-[#4D6090]">
+                    {service.description ||
+                      service.subDescription ||
+                      "Professional services delivered by trusted providers with flexible scheduling."}
+                  </p>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[10px] bg-[#E6E8EF]/70 p-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#CCD2DF]">
+                          <ClockIcon className="h-5 w-5" />
+                        </span>
+                        <div>
+                          <p className="font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
+                            Fast Response
+                          </p>
+                          <p className="font-['Roboto'] text-[11px] text-[#6777A0]">
+                            Based on provider availability
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-[10px] bg-[#E6E8EF]/70 p-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#CCD2DF]">
+                          <LocationIcon className="h-5 w-5" stroke="#011C60" />
+                        </span>
+                        <div>
+                          <p className="font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
+                            Service Area
+                          </p>
+                          <p className="font-['Roboto'] text-[11px] text-[#6777A0]">
+                            {service.location || "Provider location"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <section className="mt-8">
+                    <h2 className="font-['Roboto'] text-[24px] font-semibold text-[#011C60]">
+                      Long Description
+                    </h2>
+                    <div className="mt-3 space-y-4 font-['Roboto'] text-[16px] leading-7 text-[#4D6090]">
+                      <p>
+                        Our {service.name.toLowerCase()} service is designed to
+                        make your life easier by providing reliable, high-quality
+                        support whenever you need it.
+                      </p>
+                      <p>
+                        Compare availability, choose the items you need, and
+                        confirm a time that fits your schedule.
+                      </p>
+                      <div>
+                        <p className="font-semibold text-[#011C60]">We focus on:</p>
+                        <ul className="mt-1 list-disc pl-5">
+                          <li>Experienced and verified service providers</li>
+                          <li>Flexible booking times that fit your schedule</li>
+                          <li>Transparent pricing with no hidden fees</li>
+                          <li>High standards of safety and professionalism</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="mt-9">
+                    <AvailableDaysPills agendas={service.agendas} />
+                  </section>
+                </div>
+
+                <BookingPanel service={service} onConfirmBooking={setBookingDraft} />
               </div>
 
-              <section className="mt-10">
-                <div className="mb-5">
-                  <h2 className="font-['Roboto'] text-[28px] font-semibold leading-10 text-[#011C60]">
-                    Availability Times
-                  </h2>
-                  <p className="mt-1 font-['Roboto'] text-[16px] leading-6 text-[#808DAF]">
-                    Available weekdays repeat through the calendar.
-                  </p>
-                </div>
-
-                <AvailabilitySummary agendas={service.agendas} />
-
-                <div className="mt-6">
-                  <AvailabilityCalendar key={service.id} service={service} />
-                </div>
-              </section>
+              <ConfirmBookingModal
+                booking={bookingDraft}
+                onClose={() => setBookingDraft(null)}
+                onConfirm={handleConfirmBooking}
+              />
+              <BookingSuccessModal
+                isOpen={isSuccessOpen}
+                onClose={() => setIsSuccessOpen(false)}
+              />
             </>
           )
         )}

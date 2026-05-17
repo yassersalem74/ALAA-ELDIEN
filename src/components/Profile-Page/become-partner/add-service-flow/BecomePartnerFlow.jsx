@@ -524,9 +524,21 @@ const normalizeServicePayload = (service) => {
     ...service,
     items: firstPresentValue(
       service.items,
+      service.Items,
       service.serviceItems,
+      service.ServiceItems,
+      service.itemDtos,
+      service.ItemDtos,
+      service.itemDTOs,
+      service.ItemDTOs,
       nestedService.items,
-      nestedService.serviceItems
+      nestedService.Items,
+      nestedService.serviceItems,
+      nestedService.ServiceItems,
+      nestedService.itemDtos,
+      nestedService.ItemDtos,
+      nestedService.itemDTOs,
+      nestedService.ItemDTOs
     ),
     agendas: firstPresentValue(
       service.agendas,
@@ -736,12 +748,19 @@ const buildAgendasPayload = (availability) => ({
   }, []),
 });
 
+const normalizeServiceItemsForApi = (items) =>
+  (items || [])
+    .map((item) => ({
+      name: normalizeTextValue(item.itemName || item.name || item.serviceItemName),
+      price: Number(item.price ?? item.itemPrice ?? item.serviceItemPrice ?? 0) || 0,
+      description: String(
+        item.description || item.itemDescription || item.serviceItemDescription || ""
+      ).trim(),
+    }))
+    .filter((item) => item.name);
+
 const buildItemsPayload = (items) => ({
-  items: (items || []).map((item) => ({
-    name: item.itemName,
-    price: Number(item.price) || 0,
-    description: item.description,
-  })),
+  items: normalizeServiceItemsForApi(items),
 });
 
 const normalizeAgendaScheduleRows = (agendaList, availability = {}) =>
@@ -837,7 +856,16 @@ const normalizeService = (servicePayload) => {
     neighborhood.governorate ||
     neighborhood.governorateDto ||
     {};
-  const items = service.items || service.serviceItems || [];
+  const items =
+    service.items ||
+    service.Items ||
+    service.serviceItems ||
+    service.ServiceItems ||
+    service.itemDtos ||
+    service.ItemDtos ||
+    service.itemDTOs ||
+    service.ItemDTOs ||
+    [];
   const agendaList = normalizeAgendaList(service);
   const availabilitySource = service.availability || service.Availability || {};
   const firstAgenda = agendaList[0] || {};
@@ -918,10 +946,11 @@ const normalizeService = (servicePayload) => {
       .filter(Boolean),
     photos: [],
     items: items.map((item) => ({
-      id: item.id || item.name,
-      itemName: item.name || item.itemName || "",
-      price: String(item.price ?? ""),
-      description: item.description || "",
+      id: item.id || item.itemId || item.serviceItemId || item.name || item.itemName,
+      itemName: item.name || item.itemName || item.serviceItemName || "",
+      price: String(item.price ?? item.itemPrice ?? item.serviceItemPrice ?? ""),
+      description:
+        item.description || item.itemDescription || item.serviceItemDescription || "",
     })),
     availability: {
       days: availabilityDays,
@@ -1224,7 +1253,6 @@ const isStaleProviderTokenError = (error) =>
   error?.message === "PROVIDER_TOKEN_REFRESH_REQUIRED";
 const isNoChangesDetectedError = (error) =>
   getApiErrorMessage(error, "").includes("NoChangesDetected");
-const isNonBlockingRelatedDataError = (error) => error?.response?.status === 400;
 const getApiErrorMessage = (error, fallbackMessage) => {
   const data = error?.response?.data;
   const validationMessage =
@@ -1293,19 +1321,11 @@ const logCreateServiceFlowDebug = (label, data) => {
 };
 
 const saveItemsIfPossible = async (serviceId, items, { allowEmpty = false } = {}) => {
-  if (!items || (!allowEmpty && items.length === 0)) return;
+  const payload = buildItemsPayload(items);
 
-  try {
-    await createOrUpdateItems(serviceId, buildItemsPayload(items));
-  } catch (error) {
-    if (
-      isUnauthorizedError(error) ||
-      isForbiddenError(error) ||
-      !isNonBlockingRelatedDataError(error)
-    ) {
-      throw error;
-    }
-  }
+  if (!allowEmpty && payload.items.length === 0) return;
+
+  await createOrUpdateItems(serviceId, payload);
 };
 const ensureProviderRole = async () => {
   if (hasProviderToken()) {
@@ -2108,7 +2128,9 @@ export default function BecomePartnerFlow() {
         }
       }
 
-      await saveItemsIfPossible(nextService.id, nextService.items || []);
+      await saveItemsIfPossible(nextService.id, nextService.items || [], {
+        allowEmpty: true,
+      });
       if (hasAvailabilityDays(nextService.availability)) {
         await createOrUpdateAgendas(
           nextService.id,
