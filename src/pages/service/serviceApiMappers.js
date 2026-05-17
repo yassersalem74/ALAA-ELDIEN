@@ -7,12 +7,9 @@ export const CATEGORY_API_NAMES = {
 };
 
 export const ROLE_QUERY_VALUES = {
-  individual: "Individual",
+  individual: "Provider",
   company: "Company",
-  "alaa-eldien": "Alaa_Eldien",
 };
-
-export const ALL_PROVIDER_ROLE_VALUES = Object.values(ROLE_QUERY_VALUES);
 
 export const WEEKDAY_NAMES = [
   "Sunday",
@@ -38,10 +35,8 @@ export const getApiCategoryName = (categorySlug) =>
 export const getRoleQueryValue = (providerType) =>
   ROLE_QUERY_VALUES[providerType];
 
-export const getRoleQueryValues = (providerType) =>
-  providerType === "all"
-    ? ALL_PROVIDER_ROLE_VALUES
-    : [getRoleQueryValue(providerType)].filter(Boolean);
+export const shouldFilterAlaaEldienProviders = (providerType) =>
+  providerType === "alaa-eldien";
 
 export const toDisplayMessage = (
   value,
@@ -110,11 +105,19 @@ export const extractApiArray = (payload) => {
 export const extractTotalPages = (payload) => {
   const data = extractPayloadData(payload);
   const value =
+    data?.metaData?.pageCount ??
+    data?.metadata?.pageCount ??
+    data?.metaData?.totalPages ??
+    data?.metadata?.totalPages ??
     data?.totalPages ??
     data?.totalPage ??
+    data?.pageCount ??
     data?.pages ??
+    payload?.metaData?.pageCount ??
+    payload?.metadata?.pageCount ??
     payload?.totalPages ??
     payload?.totalPage ??
+    payload?.pageCount ??
     payload?.pages;
 
   return Math.max(1, Number(value) || 1);
@@ -220,8 +223,22 @@ export const normalizeAgendaRows = (value) => {
   return agendas
     .map((agenda) => {
       const day = agenda.day || agenda.Day || "";
-      const from = agenda.from || agenda.From || "";
-      const to = agenda.to || agenda.To || "";
+      const from =
+        agenda.from ||
+        agenda.From ||
+        agenda.start ||
+        agenda.Start ||
+        agenda.startTime ||
+        agenda.StartTime ||
+        "";
+      const to =
+        agenda.to ||
+        agenda.To ||
+        agenda.end ||
+        agenda.End ||
+        agenda.endTime ||
+        agenda.EndTime ||
+        "";
       const timeslots = agenda.timeslots || agenda.timeSlots || agenda.slots || [];
 
       return {
@@ -232,8 +249,22 @@ export const normalizeAgendaRows = (value) => {
         to,
         timeslots: Array.isArray(timeslots)
           ? timeslots.map((slot) => ({
-              from: slot.from || slot.From || "",
-              to: slot.to || slot.To || "",
+              from:
+                slot.from ||
+                slot.From ||
+                slot.start ||
+                slot.Start ||
+                slot.startTime ||
+                slot.StartTime ||
+                "",
+              to:
+                slot.to ||
+                slot.To ||
+                slot.end ||
+                slot.End ||
+                slot.endTime ||
+                slot.EndTime ||
+                "",
             }))
           : [],
       };
@@ -243,7 +274,39 @@ export const normalizeAgendaRows = (value) => {
 };
 
 export const formatServicePrice = (price, currency = "EGP") =>
-  `${new Intl.NumberFormat("en-US").format(Number(price) || 0)} ${currency || "EGP"}`;
+  `${new Intl.NumberFormat("en-US").format(Number(price) || 0)} ${
+    currency === "EGY" ? "EGP" : currency || "EGP"
+  }`;
+
+export const normalizeServiceItems = (value) => {
+  const items = Array.isArray(value) ? value : value?.items || value?.Items || [];
+
+  return items
+    .map((item, index) => ({
+      id: item.id || item.itemId || item.serviceItemId || `item-${index + 1}`,
+      name: item.name || item.itemName || item.title || "Service item",
+      price: item.price ?? item.itemPrice ?? item.servicePrice ?? 0,
+      description: item.description || item.itemDescription || "",
+    }))
+    .filter((item) => item.name);
+};
+
+export const isAlaaEldienProvider = (service) => {
+  const searchableText = [
+    service.providerName,
+    service.providerRole,
+    service.partnerName,
+    service.partnerType,
+    service.signatoryName,
+    service.raw?.partnerName,
+    service.raw?.partnerType,
+    service.raw?.signatoryName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return normalizeText(searchableText).includes("alaa");
+};
 
 export const normalizeService = (service, fallbackImage = "") => {
   const id =
@@ -263,6 +326,20 @@ export const normalizeService = (service, fallbackImage = "") => {
     service.neighborhoodName || service.neighborhood?.name || "";
   const governorateName =
     service.governorateName || service.governorate?.name || "";
+  const providerName =
+    service.partnerName ||
+    service.signatoryName ||
+    service.providerName ||
+    service.provider?.name ||
+    service.userName ||
+    "Provider";
+  const providerRole =
+    service.partnerType ||
+    service.providerRole ||
+    service.providerType ||
+    service.accountType ||
+    service.userType ||
+    "";
 
   return {
     id,
@@ -277,23 +354,29 @@ export const normalizeService = (service, fallbackImage = "") => {
     currency,
     categoryName:
       service.serviceCategory || service.categoryName || service.category || "",
-    providerId: service.providerId || service.provider?.id || "",
-    providerName:
-      service.providerName || service.provider?.name || service.userName || "Provider",
-    providerRole:
-      service.providerRole ||
-      service.providerType ||
-      service.accountType ||
-      service.userType ||
+    providerId:
+      service.partnerId ||
+      service.signatoryId ||
+      service.providerId ||
+      service.provider?.id ||
       "",
+    providerName,
+    providerRole,
+    providerImage:
+      service.partnerImage || service.signatoryImage || service.provider?.image || "",
     neighborhoodId: service.neighborhoodId || service.neighborhood?.id || "",
     neighborhoodName,
     governorateId: service.governorateId || service.governorate?.id || "",
     governorateName,
     location: [neighborhoodName, governorateName].filter(Boolean).join(", "),
     image: getFirstImage(service) || fallbackImage,
-    items: service.items || [],
+    items: normalizeServiceItems(service.items || service.Items || []),
     agendas: normalizeAgendaRows(service.agendas || service.Agendas || []),
+    timeslotDurationInMin: Number(service.timeslotDurationInMin) || 60,
+    numberOfCustomerPerTimeSlots:
+      Number(service.numberOfCustomerPerTimeSlots) || 1,
+    rate: Number(service.rate || service.rating) || 0,
+    isAvailable: service.isAvailable ?? service.available ?? true,
     raw: service,
   };
 };

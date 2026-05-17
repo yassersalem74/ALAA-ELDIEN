@@ -48,6 +48,8 @@ const formatSelectedDate = (dateKey) => {
   }).format(new Date(year, month - 1, day));
 };
 
+const getTodayKey = () => toDateKey(new Date());
+
 const buildMonthDays = (visibleMonth) => {
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
@@ -67,20 +69,72 @@ const buildMonthDays = (visibleMonth) => {
   });
 };
 
-const getAgendaRanges = (agenda) => {
-  if (agenda.timeslots?.length) {
-    return agenda.timeslots.filter((slot) => slot.from && slot.to);
-  }
+const getAgendaRanges = (agenda, durationInMin) => {
+  const ranges = agenda.timeslots?.length
+    ? agenda.timeslots
+      .filter((slot) => slot.from && slot.to)
+      .map((slot, index) => ({
+        id: `${agenda.id}-slot-${index + 1}`,
+        from: slot.from,
+        to: slot.to,
+      }))
+    : [{ id: `${agenda.id}-window`, from: agenda.from, to: agenda.to }];
 
-  return [{ from: agenda.from, to: agenda.to }];
+  return ranges.flatMap((range) => splitRangeIntoTimeSlots(range, durationInMin));
 };
 
 const formatRangeLabel = (range) =>
   `${formatTimeLabel(range.from)} - ${formatTimeLabel(range.to)}`;
 
-function AvailabilityCalendar({ agendas }) {
+const parseTimeToMinutes = (value) => {
+  const [hourPart = "0", minutePart = "0"] = String(value || "").split(":");
+
+  return (Number(hourPart) || 0) * 60 + (Number(minutePart) || 0);
+};
+
+const minutesToTimeValue = (value) => {
+  const normalized = ((value % 1440) + 1440) % 1440;
+  const hours = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+    2,
+    "0"
+  )}`;
+};
+
+const splitRangeIntoTimeSlots = (range, durationInMin) => {
+  const start = parseTimeToMinutes(range.from);
+  const end = parseTimeToMinutes(range.to);
+  const duration = Math.max(15, Number(durationInMin) || 60);
+
+  if (!range.from || !range.to || end <= start || end - start <= duration) {
+    return [range];
+  }
+
+  const slots = [];
+
+  for (let slotStart = start; slotStart + duration <= end; slotStart += duration) {
+    const slotEnd = slotStart + duration;
+
+    slots.push({
+      id: `${range.id}-${slotStart}`,
+      from: minutesToTimeValue(slotStart),
+      to: minutesToTimeValue(slotEnd),
+    });
+  }
+
+  return slots.length ? slots : [range];
+};
+
+function AvailabilityCalendar({ service }) {
+  const agendas = useMemo(() => service.agendas || [], [service.agendas]);
+  const durationInMin = service.timeslotDurationInMin || 60;
   const [visibleMonth, setVisibleMonth] = useState(() => new Date());
   const [selectedDateKey, setSelectedDateKey] = useState("");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [bookingMessage, setBookingMessage] = useState("");
+  const todayKey = getTodayKey();
 
   const availableDayIndexes = useMemo(
     () => new Set(agendas.map((agenda) => agenda.dayIndex)),
@@ -105,10 +159,67 @@ function AvailabilityCalendar({ agendas }) {
     [agendas, selectedDayIndex]
   );
 
-  useEffect(() => {
-    setVisibleMonth(new Date());
-    setSelectedDateKey("");
-  }, [agendas]);
+  const selectedTimeSlots = useMemo(
+    () =>
+      selectedAgendas.flatMap((agenda) =>
+        getAgendaRanges(agenda, durationInMin).map((range) => ({
+          ...range,
+          id: `${agenda.id}-${range.id}`,
+          agendaId: agenda.id,
+          day: agenda.day,
+        }))
+      ),
+    [durationInMin, selectedAgendas]
+  );
+
+  const handleSelectDate = (dateKey) => {
+    setSelectedDateKey(dateKey);
+    setSelectedTimeSlot(null);
+    setBookingMessage("");
+  };
+
+  const handleSelectTimeSlot = (slot) => {
+    setSelectedTimeSlot(slot);
+    setBookingMessage("");
+  };
+
+  const handleBookService = () => {
+    if (!selectedDateKey || !selectedTimeSlot) return;
+
+    const bookingPayload = {
+      id: `${service.id}-${selectedDateKey}-${selectedTimeSlot.from}`,
+      serviceId: service.id,
+      serviceName: service.name,
+      providerId: service.providerId,
+      providerName: service.providerName,
+      date: selectedDateKey,
+      from: selectedTimeSlot.from,
+      to: selectedTimeSlot.to,
+      price: service.price,
+      currency: service.currency,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const existingBookings = JSON.parse(
+        localStorage.getItem("serviceBookings") || "[]"
+      );
+      const nextBookings = [
+        bookingPayload,
+        ...existingBookings.filter((booking) => booking.id !== bookingPayload.id),
+      ];
+
+      localStorage.setItem("serviceBookings", JSON.stringify(nextBookings));
+    } catch (error) {
+      console.warn("Unable to save selected service booking locally.", error);
+    }
+
+    setBookingMessage(
+      `Booking selected for ${formatSelectedDate(selectedDateKey)} at ${formatRangeLabel(
+        selectedTimeSlot
+      )}.`
+    );
+  };
 
   if (!agendas.length) {
     return (
@@ -172,7 +283,9 @@ function AvailabilityCalendar({ agendas }) {
 
           {calendarDays.map((day) => {
             const isAvailable =
-              day.isCurrentMonth && availableDayIndexes.has(day.dayIndex);
+              day.isCurrentMonth &&
+              day.key >= todayKey &&
+              availableDayIndexes.has(day.dayIndex);
             const isSelected = selectedDateKey === day.key;
 
             return (
@@ -180,7 +293,7 @@ function AvailabilityCalendar({ agendas }) {
                 key={day.key}
                 type="button"
                 disabled={!isAvailable}
-                onClick={() => setSelectedDateKey(day.key)}
+                onClick={() => handleSelectDate(day.key)}
                 className={`aspect-square rounded-xl font-['Roboto'] text-sm font-semibold transition ${
                   isSelected
                     ? "bg-[#011C60] text-white shadow-[0px_12px_24px_rgba(1,28,96,0.22)]"
@@ -212,28 +325,56 @@ function AvailabilityCalendar({ agendas }) {
         </div>
 
         <div className="mt-5 space-y-3">
-          {selectedAgendas.length ? (
-            selectedAgendas.flatMap((agenda) =>
-              getAgendaRanges(agenda).map((range, index) => (
-                <div
-                  key={`${agenda.id}-${index + 1}`}
-                  className="rounded-xl border border-[#E6E8EF] bg-[#F8F9FC] px-4 py-3"
+          {selectedTimeSlots.length ? (
+            selectedTimeSlots.map((slot) => {
+              const isSelected = selectedTimeSlot?.id === slot.id;
+
+              return (
+                <button
+                  key={slot.id}
+                  type="button"
+                  onClick={() => handleSelectTimeSlot(slot)}
+                  aria-pressed={isSelected}
+                  className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                    isSelected
+                      ? "border-[#011C60] bg-[#011C60] text-white shadow-[0px_12px_24px_rgba(1,28,96,0.2)]"
+                      : "border-[#E6E8EF] bg-[#F8F9FC] text-[#011C60] hover:border-[#EECE42] hover:bg-[#FFF8D7]"
+                  }`}
                 >
-                  <p className="font-['Roboto'] text-[13px] font-medium text-[#808DAF]">
-                    {agenda.day}
+                  <p
+                    className={`font-['Roboto'] text-[13px] font-medium ${
+                      isSelected ? "text-white/80" : "text-[#808DAF]"
+                    }`}
+                  >
+                    {slot.day}
                   </p>
-                  <p className="mt-1 font-['Roboto'] text-[17px] font-semibold text-[#011C60]">
-                    {formatRangeLabel(range)}
+                  <p className="mt-1 font-['Roboto'] text-[17px] font-semibold">
+                    {formatRangeLabel(slot)}
                   </p>
-                </div>
-              ))
-            )
+                </button>
+              );
+            })
           ) : (
             <p className="font-['Roboto'] text-[15px] leading-6 text-[#808DAF]">
               Pick one of the highlighted days to see its available hours.
             </p>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={handleBookService}
+          disabled={!selectedDateKey || !selectedTimeSlot}
+          className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#011C60] px-5 font-['Roboto'] text-[15px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF] disabled:hover:translate-y-0"
+        >
+          Book Service
+        </button>
+
+        {bookingMessage && (
+          <p className="mt-3 rounded-xl bg-[#F6E6A0] px-4 py-3 font-['Roboto'] text-[14px] font-semibold leading-5 text-[#011C60]">
+            {bookingMessage}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -243,25 +384,15 @@ function AvailabilitySummary({ agendas }) {
   if (!agendas.length) return null;
 
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div className="flex flex-wrap gap-3">
       {agendas.map((agenda) => (
         <div
           key={agenda.id}
-          className="rounded-2xl border border-[#E6E8EF] bg-white px-4 py-4 shadow-[0px_8px_18px_rgba(190,198,222,0.18)]"
+          className="rounded-full border border-[#E6E8EF] bg-white px-5 py-3 shadow-[0px_8px_18px_rgba(190,198,222,0.18)]"
         >
-          <p className="font-['Roboto'] text-[15px] font-semibold text-[#011C60]">
+          <p className="font-['Roboto'] text-[15px] font-semibold text-[#011C60] sm:text-[16px]">
             {agenda.day}
           </p>
-          <div className="mt-2 space-y-1">
-            {getAgendaRanges(agenda).map((range, index) => (
-              <p
-                key={`${agenda.id}-summary-${index + 1}`}
-                className="font-['Roboto'] text-[14px] leading-5 text-[#6777A0]"
-              >
-                {formatRangeLabel(range)}
-              </p>
-            ))}
-          </div>
         </div>
       ))}
     </div>
@@ -362,6 +493,36 @@ export default function ServiceProviderDetailPage() {
                       {service.description}
                     </p>
                   )}
+
+                  {service.items.length > 0 && (
+                    <div className="mt-6">
+                      <h2 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60]">
+                        Service Items
+                      </h2>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        {service.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="rounded-xl border border-[#E6E8EF] bg-[#F8F9FC] px-4 py-3"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="font-['Roboto'] text-[15px] font-semibold text-[#011C60]">
+                                {item.name}
+                              </p>
+                              <p className="shrink-0 font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+                                {formatServicePrice(item.price, service.currency)}
+                              </p>
+                            </div>
+                            {item.description && (
+                              <p className="mt-1 font-['Roboto'] text-[13px] leading-5 text-[#808DAF]">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <aside className="rounded-2xl border border-[#E6E8EF] bg-white p-5 shadow-[0px_8px_24px_rgba(190,198,222,0.22)]">
@@ -400,7 +561,21 @@ export default function ServiceProviderDetailPage() {
                         <p className="font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60]">
                           {service.providerName}
                         </p>
+                        {service.providerRole && (
+                          <p className="mt-1 font-['Roboto'] text-[13px] font-medium text-[#808DAF]">
+                            {service.providerRole}
+                          </p>
+                        )}
                       </div>
+                    </div>
+
+                    <div>
+                      <p className="font-['Roboto'] text-[12px] font-medium uppercase text-[#808DAF]">
+                        Rating
+                      </p>
+                      <p className="font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60]">
+                        {service.rate ? `${service.rate.toFixed(1)} / 5` : "New service"}
+                      </p>
                     </div>
                   </div>
                 </aside>
@@ -412,15 +587,14 @@ export default function ServiceProviderDetailPage() {
                     Availability Times
                   </h2>
                   <p className="mt-1 font-['Roboto'] text-[16px] leading-6 text-[#808DAF]">
-                    Calendar days are enabled only on the provider available
-                    weekdays.
+                    Available weekdays repeat through the calendar.
                   </p>
                 </div>
 
                 <AvailabilitySummary agendas={service.agendas} />
 
                 <div className="mt-6">
-                  <AvailabilityCalendar agendas={service.agendas} />
+                  <AvailabilityCalendar key={service.id} service={service} />
                 </div>
               </section>
             </>

@@ -10,11 +10,11 @@ export default function ServiceCategoriesSection() {
         description="A simple process designed to get things done without hassle."
       />
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
         {serviceCategories.map((category) => (
           <article
             key={category.id}
-            className="group flex min-h-[384px] w-full flex-col gap-6 rounded-2xl bg-white p-6 shadow-[0px_4px_16px_rgba(204,210,223,0.35)] transition duration-300 hover:bg-[#023AC6]"
+            className="group flex min-h-[360px] w-full flex-col gap-6 rounded-2xl bg-white p-6 shadow-[0px_4px_16px_rgba(204,210,223,0.35)] transition duration-300 hover:bg-[#023AC6]"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-[#E6E8EF] p-3 transition duration-300 group-hover:bg-white">

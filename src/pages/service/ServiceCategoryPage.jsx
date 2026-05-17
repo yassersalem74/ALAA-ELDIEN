@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { getGovernorates, getNeighborhoods } from "../../api/auth/auth.api";
 import { getServices } from "../../api/services/service.api";
+import noServicesImage from "../../assets/images/service/choose-service.png";
+import comingSoonImage from "../../assets/images/service/select-provider.png";
 import { serviceCategories } from "../../components/Service-Page/servicePageData";
 import {
   BackCircleButton,
   CreativeDropdown,
-  EmptyState,
   LocationIcon,
   Pagination,
   SearchInput,
@@ -19,31 +20,75 @@ import {
   formatServicePrice,
   getApiCategoryName,
   getApiErrorMessage,
-  getRoleQueryValues,
+  getRoleQueryValue,
   isSupportedServiceCategory,
   normalizeLocationOptions,
   normalizeService,
 } from "./serviceApiMappers";
 
 const PROVIDER_TYPE_OPTIONS = [
-  { id: "all", label: "All Providers" },
   { id: "individual", label: "Individual" },
   { id: "company", label: "Company" },
   { id: "alaa-eldien", label: "Alaa Eldien" },
 ];
 
-const PRICE_RANGE_OPTIONS = [
-  { id: "all", label: "All Prices", min: undefined, max: undefined },
-  { id: "budget", label: "0 - 200 EGP", min: 0, max: 200 },
-  { id: "mid", label: "201 - 350 EGP", min: 201, max: 350 },
-  { id: "premium", label: "351+ EGP", min: 351, max: undefined },
-];
+const COMING_SOON_PROVIDER_TYPES = new Set(["company", "alaa-eldien"]);
+
+function ComingSoonState({ providerType }) {
+  const title =
+    providerType === "company"
+      ? "Company services are coming soon"
+      : "Alaa Eldien services are coming soon";
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-[24px] border border-[#E6E8EF] bg-white shadow-[0px_16px_44px_rgba(1,28,96,0.08)]">
+      <div className="grid gap-6 p-6 md:grid-cols-[minmax(0,1fr)_320px] md:items-center md:p-8">
+        <div>
+          <span className="inline-flex rounded-full bg-[#FFF4C4] px-4 py-2 font-['Roboto'] text-[13px] font-semibold uppercase text-[#011C60]">
+            Coming Soon
+          </span>
+          <h2 className="mt-5 font-['Roboto'] text-[28px] font-semibold leading-10 text-[#011C60] sm:text-[36px] sm:leading-[48px]">
+            {title}
+          </h2>
+          <p className="mt-3 max-w-[620px] font-['Roboto'] text-[16px] leading-7 text-[#808DAF] sm:text-[18px]">
+            We are preparing this provider experience. For now, individual
+            providers are ready to browse, filter, and book.
+          </p>
+        </div>
+
+        <div className="flex justify-center rounded-[22px] bg-[#F8F9FC] p-6">
+          <img
+            src={comingSoonImage}
+            alt=""
+            className="h-[220px] w-full max-w-[260px] object-contain"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function NoServicesState() {
+  return (
+    <section className="rounded-[28px] border border-dashed border-[#CCD2DF] bg-white px-6 py-12 text-center shadow-[0px_14px_34px_rgba(204,210,223,0.28)]">
+      <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-full bg-[#F8F9FC] p-5 shadow-[0px_10px_26px_rgba(190,198,222,0.24)] sm:h-40 sm:w-40">
+        <img src={noServicesImage} alt="" className="h-full w-full object-contain" />
+      </div>
+      <h3 className="mt-6 font-['Roboto'] text-[28px] font-semibold leading-10 text-[#011C60]">
+        mmmmm no service yet
+      </h3>
+      <p className="mx-auto mt-3 max-w-[520px] font-['Roboto'] text-[16px] leading-7 text-[#808DAF]">
+        Try another search word or change the governorate and neighborhood
+        filters.
+      </p>
+    </section>
+  );
+}
 
 export default function ServiceCategoryPage() {
   const navigate = useNavigate();
   const { categorySlug } = useParams();
-  const [activeProviderType, setActiveProviderType] = useState("all");
-  const [activePriceRange, setActivePriceRange] = useState("all");
+  const [activeProviderType, setActiveProviderType] = useState("individual");
   const [selectedGovernorateId, setSelectedGovernorateId] = useState("");
   const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,13 +105,7 @@ export default function ServiceCategoryPage() {
     () => serviceCategories.find((item) => item.slug === categorySlug),
     [categorySlug]
   );
-
-  const selectedPriceRange = useMemo(
-    () =>
-      PRICE_RANGE_OPTIONS.find((option) => option.id === activePriceRange) ||
-      PRICE_RANGE_OPTIONS[0],
-    [activePriceRange]
-  );
+  const isComingSoonProvider = COMING_SOON_PROVIDER_TYPES.has(activeProviderType);
 
   const governorateOptions = useMemo(
     () => [
@@ -102,7 +141,7 @@ export default function ServiceCategoryPage() {
         if (!isMounted) return;
 
         setGovernorates(normalizeLocationOptions(response));
-      } catch (error) {
+      } catch {
         if (isMounted) setGovernorates([]);
       } finally {
         if (isMounted) setIsLoadingLocations(false);
@@ -138,7 +177,7 @@ export default function ServiceCategoryPage() {
         if (!isMounted) return;
 
         setNeighborhoods(normalizeLocationOptions(response));
-      } catch (error) {
+      } catch {
         if (isMounted) setNeighborhoods([]);
       } finally {
         if (isMounted) setIsLoadingLocations(false);
@@ -155,7 +194,6 @@ export default function ServiceCategoryPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [
-    activePriceRange,
     activeProviderType,
     categorySlug,
     searchQuery,
@@ -165,6 +203,9 @@ export default function ServiceCategoryPage() {
 
   useEffect(() => {
     if (!isSupportedServiceCategory(categorySlug)) return undefined;
+    if (isComingSoonProvider) {
+      return undefined;
+    }
 
     let isMounted = true;
 
@@ -175,51 +216,24 @@ export default function ServiceCategoryPage() {
       const params = {
         category: getApiCategoryName(categorySlug),
         page: currentPage,
+        pageSize: 10,
         language: SERVICE_LANGUAGE,
         search: searchQuery.trim() || undefined,
-        minPrice: selectedPriceRange.min,
-        maxPrice: selectedPriceRange.max,
         governorateId: selectedGovernorateId || undefined,
         neighborhoodId: selectedNeighborhoodId || undefined,
+        role: getRoleQueryValue(activeProviderType),
       };
-      const roleValues = getRoleQueryValues(activeProviderType);
 
       try {
-        const responses =
-          roleValues.length > 1
-            ? await Promise.allSettled(
-                roleValues.map((role) => getServices({ ...params, role }))
-              )
-            : [
-                {
-                  status: "fulfilled",
-                  value: await getServices({ ...params, role: roleValues[0] }),
-                },
-              ];
-        const fulfilledResponses = responses
-          .filter((result) => result.status === "fulfilled")
-          .map((result) => result.value);
-
-        if (!fulfilledResponses.length) {
-          throw responses.find((result) => result.status === "rejected")?.reason;
-        }
-
-        const serviceMap = new Map();
-
-        fulfilledResponses
-          .flatMap((response) => extractApiArray(response))
+        const response = await getServices(params);
+        const normalizedServices = extractApiArray(response)
           .map((service) => normalizeService(service, category?.image))
-          .filter((service) => service.id)
-          .forEach((service) => {
-            serviceMap.set(service.id, service);
-          });
+          .filter((service) => service.id);
 
         if (!isMounted) return;
 
-        setServices(Array.from(serviceMap.values()));
-        setTotalPages(
-          Math.max(...fulfilledResponses.map((response) => extractTotalPages(response)))
-        );
+        setServices(normalizedServices);
+        setTotalPages(extractTotalPages(response));
       } catch (error) {
         if (!isMounted) return;
 
@@ -243,11 +257,10 @@ export default function ServiceCategoryPage() {
     category?.image,
     categorySlug,
     currentPage,
+    isComingSoonProvider,
     searchQuery,
     selectedGovernorateId,
     selectedNeighborhoodId,
-    selectedPriceRange.max,
-    selectedPriceRange.min,
   ]);
 
   if (!category || !isSupportedServiceCategory(categorySlug)) {
@@ -264,7 +277,7 @@ export default function ServiceCategoryPage() {
         <div className="mt-8">
           <ServicePageIntro
             title={category.title}
-            description="Choose from live providers and filter by provider type, price, and location."
+            description="Choose from live individual providers and filter by location."
           />
         </div>
 
@@ -287,32 +300,13 @@ export default function ServiceCategoryPage() {
           </div>
         </div>
 
+        {isComingSoonProvider ? (
+          <ComingSoonState providerType={activeProviderType} />
+        ) : (
+          <>
         <div className="mt-8 rounded-2xl border border-[#E6E8EF] bg-[#E6E8EF40] px-4 py-5 shadow-[0px_4px_16px_0px_rgba(230,232,239,0.35)]">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-1 flex-col gap-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <p className="font-['Roboto'] text-[20px] font-medium leading-8 text-[#011C60] sm:text-[24px] sm:leading-[40px]">
-                  Sort by:
-                </p>
-
-                <div className="flex flex-wrap gap-2">
-                  {PRICE_RANGE_OPTIONS.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setActivePriceRange(option.id)}
-                      className={`rounded-lg px-4 py-2 font-['Roboto'] text-sm font-medium transition sm:text-[16px] ${
-                        activePriceRange === option.id
-                          ? "bg-[#F6E6A0] text-[#011C60]"
-                          : "bg-[#E6E8EF] text-[#011C60] hover:bg-[#d9dee9]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="grid gap-3 lg:grid-cols-2">
                 <CreativeDropdown
                   label="Governorate"
@@ -437,10 +431,7 @@ export default function ServiceCategoryPage() {
 
         {!isLoading && !services.length && (
           <div className="mt-8">
-            <EmptyState
-              title="No services match your filters"
-              description="Try changing the provider type, location, price, or search text."
-            />
+            <NoServicesState />
           </div>
         )}
 
@@ -450,6 +441,8 @@ export default function ServiceCategoryPage() {
             totalPages={totalPages}
             onPageChange={setCurrentPage}
           />
+        )}
+          </>
         )}
       </div>
     </div>
