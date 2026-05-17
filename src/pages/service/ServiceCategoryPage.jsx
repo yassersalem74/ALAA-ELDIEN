@@ -26,6 +26,8 @@ import {
   normalizeService,
 } from "./serviceApiMappers";
 
+const PAGE_SIZE = 10;
+
 const PROVIDER_TYPE_OPTIONS = [
   { id: "individual", label: "Individual" },
   { id: "company", label: "Company" },
@@ -33,6 +35,19 @@ const PROVIDER_TYPE_OPTIONS = [
 ];
 
 const COMING_SOON_PROVIDER_TYPES = new Set(["company", "alaa-eldien"]);
+
+const normalizeFilterText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const isLastPageExceededError = (error) => {
+  const data = error?.response?.data;
+  const code = data?.error?.code || data?.code;
+  const message = data?.error?.message || data?.message || data?.error;
+
+  return code === "LastPageExceeded" || message === "LastPageExceeded";
+};
 
 function ComingSoonState({ providerType }) {
   const title =
@@ -93,6 +108,7 @@ export default function ServiceCategoryPage() {
   const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [allServices, setAllServices] = useState([]);
   const [services, setServices] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [governorates, setGovernorates] = useState([]);
@@ -128,6 +144,37 @@ export default function ServiceCategoryPage() {
     ],
     [neighborhoods]
   );
+
+  const filteredServices = useMemo(() => {
+    const searchText = normalizeFilterText(searchQuery);
+
+    return allServices.filter((service) => {
+      const matchesGovernorate =
+        !selectedGovernorateId ||
+        String(service.governorateId) === String(selectedGovernorateId);
+      const matchesNeighborhood =
+        !selectedNeighborhoodId ||
+        String(service.neighborhoodId) === String(selectedNeighborhoodId);
+      const matchesSearch =
+        !searchText ||
+        normalizeFilterText(
+          [
+            service.name,
+            service.description,
+            service.subDescription,
+            service.providerName,
+            service.location,
+          ].join(" ")
+        ).includes(searchText);
+
+      return matchesGovernorate && matchesNeighborhood && matchesSearch;
+    });
+  }, [
+    allServices,
+    searchQuery,
+    selectedGovernorateId,
+    selectedNeighborhoodId,
+  ]);
 
   useEffect(() => {
     let isMounted = true;
@@ -202,6 +249,29 @@ export default function ServiceCategoryPage() {
   ]);
 
   useEffect(() => {
+    if (isComingSoonProvider) {
+      setServices([]);
+      setTotalPages(1);
+      return;
+    }
+
+    const nextTotalPages = Math.max(
+      1,
+      Math.ceil(filteredServices.length / PAGE_SIZE)
+    );
+    const safePage = Math.min(currentPage, nextTotalPages);
+    const startIndex = (safePage - 1) * PAGE_SIZE;
+
+    if (safePage !== currentPage) {
+      setCurrentPage(safePage);
+      return;
+    }
+
+    setServices(filteredServices.slice(startIndex, startIndex + PAGE_SIZE));
+    setTotalPages(nextTotalPages);
+  }, [currentPage, filteredServices, isComingSoonProvider]);
+
+  useEffect(() => {
     if (!isSupportedServiceCategory(categorySlug)) return undefined;
     if (isComingSoonProvider) {
       return undefined;
@@ -213,35 +283,44 @@ export default function ServiceCategoryPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      const params = {
+      const baseParams = {
         category: getApiCategoryName(categorySlug),
-        page: currentPage,
-        pageSize: 10,
+        pageSize: PAGE_SIZE,
         language: SERVICE_LANGUAGE,
-        search: searchQuery.trim() || undefined,
-        governorateId: selectedGovernorateId || undefined,
-        neighborhoodId: selectedNeighborhoodId || undefined,
         role: getRoleQueryValue(activeProviderType),
       };
 
       try {
-        const response = await getServices(params);
-        const normalizedServices = extractApiArray(response)
+        const firstResponse = await getServices({ ...baseParams, page: 1 });
+        const pageCount = extractTotalPages(firstResponse);
+        const otherResponses =
+          pageCount > 1
+            ? await Promise.all(
+                Array.from({ length: pageCount - 1 }, (_, index) =>
+                  getServices({ ...baseParams, page: index + 2 })
+                )
+              )
+            : [];
+        const normalizedServices = [firstResponse, ...otherResponses]
+          .flatMap((response) => extractApiArray(response))
           .map((service) => normalizeService(service, category?.image))
           .filter((service) => service.id);
 
         if (!isMounted) return;
 
-        setServices(normalizedServices);
-        setTotalPages(extractTotalPages(response));
+        setAllServices(normalizedServices);
       } catch (error) {
         if (!isMounted) return;
 
-        setServices([]);
-        setTotalPages(1);
-        setErrorMessage(
-          getApiErrorMessage(error, "Unable to load services right now.")
-        );
+        setAllServices([]);
+
+        if (isLastPageExceededError(error)) {
+          setErrorMessage("");
+        } else {
+          setErrorMessage(
+            getApiErrorMessage(error, "Unable to load services right now.")
+          );
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -256,11 +335,7 @@ export default function ServiceCategoryPage() {
     activeProviderType,
     category?.image,
     categorySlug,
-    currentPage,
     isComingSoonProvider,
-    searchQuery,
-    selectedGovernorateId,
-    selectedNeighborhoodId,
   ]);
 
   if (!category || !isSupportedServiceCategory(categorySlug)) {
