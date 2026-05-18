@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  Navigate,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { getGovernorates, getNeighborhoods } from "../../api/auth/auth.api";
 import { getServices } from "../../api/services/service.api";
 import noServicesImage from "../../assets/images/service/choose-service.png";
@@ -102,6 +108,7 @@ function NoServicesState() {
 
 export default function ServiceCategoryPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { categorySlug } = useParams();
   const [activeProviderType, setActiveProviderType] = useState("individual");
   const [selectedGovernorateId, setSelectedGovernorateId] = useState("");
@@ -121,6 +128,11 @@ export default function ServiceCategoryPage() {
     () => serviceCategories.find((item) => item.slug === categorySlug),
     [categorySlug]
   );
+  const flowMode = useMemo(
+    () => new URLSearchParams(location.search).get("mode"),
+    [location.search]
+  );
+  const detailSearch = flowMode === "one-time" ? "?mode=one-time" : "";
   const isComingSoonProvider = COMING_SOON_PROVIDER_TYPES.has(activeProviderType);
 
   const governorateOptions = useMemo(
@@ -492,7 +504,7 @@ export default function ServiceCategoryPage() {
 
                   <div className="mt-auto pt-6">
                     <Link
-                      to={`/services/${categorySlug}/${service.id}`}
+                      to={`/services/${categorySlug}/${service.id}${detailSearch}`}
                       className="flex h-11 w-full items-center justify-center rounded-xl bg-[#011C60] px-4 font-['Roboto'] text-[15px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#02237a] hover:shadow-[0px_14px_26px_rgba(1,28,96,0.24)]"
                     >
                       View Details

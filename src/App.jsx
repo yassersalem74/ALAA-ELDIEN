@@ -11,6 +11,8 @@ import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
 import ProfilePage from "./pages/ProfilePage";
 import ServicesPage from "./pages/service/ServicePage";
+import OneTimeServicePage from "./pages/service/OneTimeServicePage";
+import PackagePage from "./pages/service/PackagePage";
 import ServiceCategoryPage from "./pages/service/ServiceCategoryPage";
 import ServiceProviderDetailPage from "./pages/service/ServiceProviderDetailPage";
 import Footer from "./components/Footer";
@@ -47,6 +49,11 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/services" element={<ServicesPage />} />
+            <Route
+              path="/services/one-time-service"
+              element={<OneTimeServicePage />}
+            />
+            <Route path="/services/package" element={<PackagePage />} />
             <Route
               path="/services/:categorySlug"
               element={<ServiceCategoryPage />}
