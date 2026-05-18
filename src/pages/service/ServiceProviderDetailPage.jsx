@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  getMyPackages,
   getPackageDetails,
   getServiceDetails,
 } from "../../api/services/service.api";
@@ -19,7 +18,6 @@ import {
 import {
   SERVICE_LANGUAGE,
   WEEKDAY_NAMES,
-  extractApiArray,
   extractPayloadData,
   getApiErrorMessage,
   formatServicePrice,
@@ -211,10 +209,6 @@ const mergePackageDetails = (basePackage, detailedPackage) => ({
     ? detailedPackage.includedItems
     : basePackage.includedItems,
 });
-
-const isPackageForService = (packageItem, serviceId) =>
-  packageItem.serviceIds.length === 0 ||
-  packageItem.serviceIds.includes(String(serviceId));
 
 const getPackageIntervalLabel = (packageItem) => {
   const recurrence = String(packageItem.recurrence || "").toLowerCase();
@@ -545,32 +539,35 @@ function PackageSelection({
       </div>
 
       {isLoading ? (
-        <div className="mt-10 grid gap-7 md:grid-cols-3">
+        <div className="mt-12 grid place-items-center gap-8 sm:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3].map((item) => (
             <div
               key={item}
-              className="h-[240px] animate-pulse rounded-[12px] bg-white shadow-[0px_10px_24px_rgba(1,28,96,0.08)]"
+              className="h-[408px] w-full max-w-[316px] animate-pulse rounded-[16px] bg-white shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)]"
             />
           ))}
         </div>
       ) : packages.length > 0 ? (
-        <div className="mt-10 grid gap-7 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-12 grid place-items-center gap-8 sm:grid-cols-2 xl:grid-cols-3">
           {packages.map((packageItem) => (
             <article
               key={packageItem.id}
-              className="group rounded-[12px] border border-[#D8DDEB] bg-white p-5 shadow-[0px_10px_24px_rgba(1,28,96,0.08)] transition hover:-translate-y-2 hover:border-[#011C60] hover:bg-[#E6E8EF] hover:shadow-[0px_18px_38px_rgba(1,28,96,0.14)]"
+              className="group flex h-[408px] w-full max-w-[316px] flex-col rounded-[16px] border border-[#CCD2DF] bg-white px-4 py-6 shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)] transition-[width,height,background-color,box-shadow] duration-300 hover:h-[460px] hover:max-w-[356px] hover:bg-[#E6E8EF] sm:w-[316px] sm:hover:w-[356px]"
             >
-              <h2 className="font-['Roboto'] text-[18px] font-semibold text-[#011C60]">
+              <h2 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60] transition-all duration-300 group-hover:text-[26px] group-hover:leading-9">
                 {packageItem.name}
               </h2>
-              <p className="mt-3 font-['Roboto'] text-[30px] font-semibold text-[#011C60]">
-                {formatServicePrice(packageItem.price, packageItem.currency)}
+              <p className="mt-5 font-['Roboto'] text-[32px] font-semibold leading-9 text-[#011C60]">
+                ${new Intl.NumberFormat("en-US").format(packageItem.price)}
+                <span className="ml-1 align-middle text-[14px] font-medium text-[#4D6090]">
+                  / Flat Fee
+                </span>
               </p>
-              <p className="font-['Roboto'] text-[12px] font-semibold uppercase text-[#6777A0]">
+              <p className="mt-2 border-b border-transparent pb-4 font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#4D6090] group-hover:border-white/70">
                 {getPackageIntervalLabel(packageItem)}
               </p>
 
-              <div className="mt-5 flex min-h-[86px] flex-wrap gap-2">
+              <div className="mt-5 flex flex-1 content-start flex-wrap gap-4 overflow-hidden transition-all duration-300 group-hover:mt-6 group-hover:gap-5">
                 {(packageItem.includedItems.length
                   ? packageItem.includedItems
                   : ["Window cleaning", "Eco-friendly supplies", "Deep service"]
@@ -579,7 +576,7 @@ function PackageSelection({
                   .map((feature) => (
                     <span
                       key={feature}
-                      className="rounded-[8px] bg-[#F3F5FA] px-3 py-2 font-['Roboto'] text-[12px] font-medium text-[#808DAF] transition group-hover:bg-white"
+                      className="rounded-[12px] bg-[#F3F5FA] px-3 py-2 font-['Roboto'] text-[13px] font-medium leading-5 text-[#6777A0] transition group-hover:bg-white"
                     >
                       {feature}
                     </span>
@@ -589,7 +586,7 @@ function PackageSelection({
               <button
                 type="button"
                 onClick={() => onSelectPackage(packageItem)}
-                className="mt-4 h-11 w-full rounded-[10px] bg-[#011C60] font-['Roboto'] text-[14px] font-semibold text-white transition hover:bg-[#02237a]"
+                className="mt-auto h-12 w-full rounded-[10px] bg-[#011C60] font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a]"
               >
                 Select package
               </button>
@@ -623,20 +620,13 @@ function PackageScheduleSelector({
 
   if (recurrence === "daily") {
     return (
-      <div>
-        <p className="mb-3 text-center font-['Roboto'] text-[13px] font-semibold text-[#6777A0]">
-          Daily package selected. Every weekday is included.
+      <div className="rounded-[12px] bg-[#F8F9FC] px-4 py-3 text-center">
+        <p className="font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
+          Daily package
         </p>
-        <div className="flex flex-wrap justify-center gap-2">
-          {WEEKDAY_NAMES.map((day) => (
-            <span
-              key={day}
-              className="rounded-full border border-[#011C60] bg-[#011C60] px-4 py-2 font-['Roboto'] text-[12px] font-semibold text-white"
-            >
-              {day}
-            </span>
-          ))}
-        </div>
+        <p className="mt-1 font-['Roboto'] text-[12px] leading-5 text-[#6777A0]">
+          All calendar days are available to select.
+        </p>
       </div>
     );
   }
@@ -679,7 +669,7 @@ function PackageScheduleSelector({
       <p className="mb-3 text-center font-['Roboto'] text-[13px] font-semibold text-[#6777A0]">
         Choose {limit} {limit === 1 ? "day" : "days"} per week
       </p>
-      <div className="flex flex-wrap justify-center gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
         {WEEKDAY_NAMES.map((day, index) => {
           const isSelected = selectedWeekdays.includes(index);
           const isDisabled = !isSelected && selectedWeekdays.length >= limit;
@@ -1075,31 +1065,31 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   };
 
   return (
-    <aside className="sticky top-24 space-y-6 rounded-[18px] bg-white p-4 shadow-[0px_12px_36px_rgba(1,28,96,0.08)]">
-      <SectionPanel title="Package Schedule">
-        <PackageScheduleSelector
-          packageItem={packageItem}
-          selectedWeekdays={selectedWeekdays}
-          selectedMonthDays={selectedMonthDays}
-          onToggleWeekday={toggleWeekday}
-          onToggleMonthDay={toggleMonthDay}
-        />
-      </SectionPanel>
-
+    <aside className="sticky top-24 space-y-7">
       <SectionPanel title="Select Date">
-        {hasScheduleSelection ? (
-          <PackageCalendar
+        <div className="space-y-4">
+          <PackageScheduleSelector
             packageItem={packageItem}
             selectedWeekdays={selectedWeekdays}
             selectedMonthDays={selectedMonthDays}
-            selectedDateKey={selectedDateKey}
-            onSelectDate={handleSelectDate}
+            onToggleWeekday={toggleWeekday}
+            onToggleMonthDay={toggleMonthDay}
           />
-        ) : (
-          <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 text-center font-['Roboto'] text-[14px] text-[#808DAF]">
-            Complete the package schedule first.
-          </p>
-        )}
+
+          {hasScheduleSelection ? (
+            <PackageCalendar
+              packageItem={packageItem}
+              selectedWeekdays={selectedWeekdays}
+              selectedMonthDays={selectedMonthDays}
+              selectedDateKey={selectedDateKey}
+              onSelectDate={handleSelectDate}
+            />
+          ) : (
+            <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 text-center font-['Roboto'] text-[14px] text-[#808DAF]">
+              Complete the package schedule first.
+            </p>
+          )}
+        </div>
       </SectionPanel>
 
       <SectionPanel title="Select Time">
@@ -1147,58 +1137,67 @@ function PackageDetailsView({ service, packageItem, onConfirmBooking }) {
   const includedItems = packageItem.includedItems.length
     ? packageItem.includedItems
     : service.items.map((item) => item.name);
+  const detailsPrice = `$${new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(packageItem.price) || 0)}`;
 
   return (
-    <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_430px] xl:items-start">
-      <div>
-        <h1 className="font-['Roboto'] text-[28px] font-semibold text-[#011C60]">
+    <div className="mt-12 grid gap-10 xl:grid-cols-[minmax(0,1fr)_416px] xl:items-start">
+      <div className="pt-3">
+        <h1 className="font-['Roboto'] text-[26px] font-semibold leading-9 text-[#011C60]">
           {packageItem.name}
         </h1>
-        <p className="mt-5 font-['Roboto'] text-[30px] font-semibold text-[#011C60]">
-          {formatServicePrice(packageItem.price, packageItem.currency)}
+        <p className="mt-8 font-['Roboto'] text-[28px] font-semibold leading-8 text-[#011C60]">
+          {detailsPrice}
         </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-5">
+        <div className="mt-7 flex flex-wrap items-center gap-12">
           <div className="flex items-center gap-2">
             <StarIcon className="h-5 w-5" />
-            <span className="font-['Roboto'] text-[16px] font-semibold text-[#011C60]">
+            <span className="font-['Roboto'] text-[18px] font-semibold text-[#011C60]">
               {service.rate ? service.rate.toFixed(1) : "New"}
+            </span>
+            <span className="font-['Roboto'] text-[14px] text-[#808DAF]">
+              (2,256,896)
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <LocationIcon className="h-5 w-5" stroke="#011C60" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#011C60]">
+              <LocationIcon className="h-4 w-4" stroke="white" />
+            </span>
             <span className="font-['Roboto'] text-[15px] font-medium text-[#4D6090]">
               {service.location || "Not specified"}
             </span>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[10px] bg-[#E6E8EF]/70 p-4">
+        <div className="mt-8 grid max-w-[650px] gap-6 sm:grid-cols-2">
+          <div className="rounded-[8px] bg-[#E6E8EF] px-3 py-3">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#CCD2DF]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-[8px] bg-[#CCD2DF]">
                 <ClockIcon className="h-5 w-5" />
               </span>
               <div>
-                <p className="font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
+                <p className="font-['Roboto'] text-[13px] font-semibold leading-5 text-[#011C60]">
                   Times
                 </p>
-                <p className="font-['Roboto'] text-[11px] text-[#6777A0]">
+                <p className="font-['Roboto'] text-[11px] leading-4 text-[#6777A0]">
                   {getPackageIntervalLabel(packageItem)}
                 </p>
               </div>
             </div>
           </div>
-          <div className="rounded-[10px] bg-[#E6E8EF]/70 p-4">
+          <div className="rounded-[8px] bg-[#E6E8EF] px-3 py-3">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#CCD2DF]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-[8px] bg-[#CCD2DF]">
                 <CalendarIcon className="h-5 w-5" />
               </span>
               <div>
-                <p className="font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
+                <p className="font-['Roboto'] text-[13px] font-semibold leading-5 text-[#011C60]">
                   Format
                 </p>
-                <p className="font-['Roboto'] text-[11px] text-[#6777A0]">
+                <p className="font-['Roboto'] text-[11px] leading-4 text-[#6777A0]">
                   {packageItem.recurrence}
                 </p>
               </div>
@@ -1206,33 +1205,33 @@ function PackageDetailsView({ service, packageItem, onConfirmBooking }) {
           </div>
         </div>
 
-        <section className="mt-8">
-          <h2 className="font-['Roboto'] text-[22px] font-semibold text-[#011C60]">
+        <section className="mt-12">
+          <h2 className="font-['Roboto'] text-[24px] font-semibold text-[#011C60]">
             What's included
           </h2>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-6 flex max-w-[650px] flex-wrap gap-5">
             {includedItems.length ? (
               includedItems.map((feature) => (
                 <span
                   key={feature}
-                  className="rounded-[8px] bg-[#F3F5FA] px-3 py-2 font-['Roboto'] text-[12px] font-medium text-[#808DAF]"
+                  className="rounded-[12px] bg-[#F3F5FA] px-4 py-2.5 font-['Roboto'] text-[13px] font-medium text-[#6777A0]"
                 >
                   {feature}
                 </span>
               ))
             ) : (
-              <span className="rounded-[8px] bg-[#F3F5FA] px-3 py-2 font-['Roboto'] text-[12px] font-medium text-[#808DAF]">
+              <span className="rounded-[12px] bg-[#F3F5FA] px-4 py-2.5 font-['Roboto'] text-[13px] font-medium text-[#6777A0]">
                 Standard service included
               </span>
             )}
           </div>
         </section>
 
-        <section className="mt-8">
-          <h2 className="font-['Roboto'] text-[22px] font-semibold text-[#011C60]">
+        <section className="mt-12">
+          <h2 className="font-['Roboto'] text-[24px] font-semibold text-[#011C60]">
             About the provider
           </h2>
-          <p className="mt-3 max-w-[680px] font-['Roboto'] text-[16px] leading-7 text-[#4D6090]">
+          <p className="mt-5 max-w-[620px] font-['Roboto'] text-[16px] leading-8 text-[#4D6090]">
             {service.description ||
               service.subDescription ||
               "Professional home services to keep your schedule simple, clear, and flexible."}
@@ -1266,125 +1265,186 @@ function ConfirmBookingModal({ booking, onClose, onConfirm }) {
   const includedItems = packageItem?.includedItems?.length
     ? packageItem.includedItems
     : service.items.map((item) => item.name);
+  const serviceTypeLabel = selectedItems.length
+    ? selectedItems.map((item) => `${item.name} x${item.quantity}`).join(", ")
+    : isPackageBooking
+      ? packageItem.name
+      : service.name;
+  const bookingPrice = formatServicePrice(
+    total,
+    isPackageBooking ? packageItem.currency : service.currency
+  );
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 px-4">
-      <div className="w-full max-w-[440px] rounded-[16px] bg-white p-5 shadow-[0px_28px_70px_rgba(1,28,96,0.22)]">
-        <h2 className="text-center font-['Roboto'] text-[26px] font-semibold text-[#011C60]">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 px-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[520px] rounded-[8px] bg-white px-4 py-5 shadow-[0px_28px_70px_rgba(1,28,96,0.22)] sm:px-5"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="text-center font-['Roboto'] text-[28px] font-semibold leading-9 text-[#011C60]">
           Confirm Booking
         </h2>
 
-        <div className="mt-5 flex items-center gap-3 rounded-[12px] bg-[#E6E8EF] p-3">
-          <img
-            src={service.providerImage || service.image}
-            alt=""
-            className="h-14 w-14 rounded-full object-cover"
-          />
+        <div className="mt-5 flex items-center gap-4 rounded-[8px] bg-[#E6E8EF] px-4 py-4 shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)]">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-[#4D6090]">
+            <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
+              <path
+                d="M8.5 7.5V6.25C8.5 5.01 9.51 4 10.75 4h2.5c1.24 0 2.25 1.01 2.25 2.25V7.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <rect
+                x="4.5"
+                y="7.5"
+                width="15"
+                height="11.5"
+                rx="2.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <path
+                d="M9 12h6"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
           <div>
-            <p className="font-['Roboto'] text-[16px] font-semibold text-[#011C60]">
+            <p className="font-['Roboto'] text-[20px] font-semibold leading-7 text-[#011C60]">
               {isPackageBooking ? packageItem.name : service.providerName}
             </p>
-            <p className="mt-1 flex items-center gap-1 font-['Roboto'] text-[13px] text-[#808DAF]">
+            <p className="mt-1 flex items-center gap-1 font-['Roboto'] text-[13px] text-[#4D6090]">
               <StarIcon className="h-4 w-4" />
-              {service.rate ? service.rate.toFixed(1) : "New"} rating
+              {service.rate ? service.rate.toFixed(1) : "New"}{" "}
+              <span className="text-[#808DAF]">(2,150 reviews)</span>
             </p>
           </div>
         </div>
 
-        <div className="mt-4 space-y-4 rounded-[12px] border border-[#E6E8EF] bg-white p-4 shadow-[0px_8px_24px_rgba(204,210,223,0.28)]">
-          <div className="flex gap-3">
-            <CalendarIcon className="mt-1 h-5 w-5 shrink-0" />
+        <div className="mt-5 space-y-5 rounded-[8px] border border-[#E6E8EF] bg-white px-4 py-5 shadow-[0px_8px_24px_rgba(204,210,223,0.28)]">
+          <div className="flex gap-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#CCD2DF]">
+              <CalendarIcon className="h-5 w-5" />
+            </span>
             <div>
-              <p className="font-['Roboto'] text-[12px] font-semibold text-[#808DAF]">
+              <p className="font-['Roboto'] text-[12px] font-semibold leading-5 text-[#808DAF]">
                 Date & Time
               </p>
-              <p className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+              <p className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#011C60]">
                 {formatShortSelectedDate(selectedDateKey)}
               </p>
-              <p className="font-['Roboto'] text-[13px] text-[#011C60]">
+              <p className="font-['Roboto'] text-[13px] leading-5 text-[#011C60]">
                 {formatRangeLabel(selectedTimeSlot)}
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <LocationIcon className="mt-1 h-5 w-5 shrink-0" stroke="#011C60" />
+          <div className="flex gap-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#CCD2DF]">
+              <LocationIcon className="h-5 w-5" stroke="#011C60" />
+            </span>
             <div>
-              <p className="font-['Roboto'] text-[12px] font-semibold text-[#808DAF]">
+              <p className="font-['Roboto'] text-[12px] font-semibold leading-5 text-[#808DAF]">
                 Address
               </p>
-              <p className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+              <p className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#011C60]">
+                Home
+              </p>
+              <p className="font-['Roboto'] text-[13px] leading-5 text-[#011C60]">
                 {service.location || "Not specified"}
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <ClockIcon className="mt-1 h-5 w-5 shrink-0" />
+          <div className="flex gap-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#CCD2DF]">
+              <ClockIcon className="h-5 w-5" />
+            </span>
             <div>
-              <p className="font-['Roboto'] text-[12px] font-semibold text-[#808DAF]">
+              <p className="font-['Roboto'] text-[12px] font-semibold leading-5 text-[#808DAF]">
                 Service Type
               </p>
-              <p className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
-                {selectedItems.length
-                  ? selectedItems
-                      .map((item) => `${item.name} x${item.quantity}`)
-                      .join(", ")
-                  : isPackageBooking
-                    ? packageItem.name
-                    : service.name}
+              <p className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#011C60]">
+                {serviceTypeLabel}
               </p>
               {isPackageBooking && selectedSchedule.length > 0 && (
-                <p className="mt-1 font-['Roboto'] text-[12px] text-[#808DAF]">
+                <p className="font-['Roboto'] text-[13px] leading-5 text-[#011C60]">
                   {selectedSchedule.join(", ")}
                 </p>
               )}
             </div>
           </div>
 
-          <div>
-            <p className="font-['Roboto'] text-[12px] font-semibold text-[#808DAF]">
-              Fees
-            </p>
-            <p className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
-              {formatServicePrice(
-                total,
-                isPackageBooking ? packageItem.currency : service.currency
-              )}
-            </p>
+          <div className="flex gap-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#CCD2DF] font-['Roboto'] text-[18px] font-semibold text-[#011C60]">
+              $
+            </span>
+            <div>
+              <p className="font-['Roboto'] text-[12px] font-semibold leading-5 text-[#808DAF]">
+                Fees
+              </p>
+              <p className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#011C60]">
+                Package fee
+              </p>
+              <p className="font-['Roboto'] text-[13px] leading-5 text-[#011C60]">
+                {bookingPrice}
+              </p>
+            </div>
           </div>
 
           {isPackageBooking && (
-            <div>
-              <p className="font-['Roboto'] text-[12px] font-semibold text-[#808DAF]">
-                Included in Package
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {includedItems.slice(0, 6).map((feature) => (
-                  <span
-                    key={feature}
-                    className="rounded-[8px] bg-[#F3F5FA] px-3 py-1.5 font-['Roboto'] text-[11px] font-medium text-[#808DAF]"
-                  >
-                    {feature}
-                  </span>
-                ))}
+            <div className="flex gap-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#CCD2DF]">
+                <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#011C60]" aria-hidden="true">
+                  <path
+                    d="M7 7.5h10M7 12h7M7 16.5h5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <rect
+                    x="4.5"
+                    y="4"
+                    width="15"
+                    height="16"
+                    rx="2.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+                </svg>
+              </span>
+              <div className="flex-1">
+                <p className="font-['Roboto'] text-[12px] font-semibold leading-5 text-[#808DAF]">
+                  Included in Package
+                </p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {includedItems.slice(0, 6).map((feature) => (
+                    <span
+                      key={feature}
+                      className="rounded-[8px] bg-[#F3F5FA] px-3 py-1.5 font-['Roboto'] text-[11px] font-medium text-[#6777A0]"
+                    >
+                      {feature}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-12 rounded-[10px] border border-[#CCD2DF] font-['Roboto'] text-[14px] font-semibold text-[#011C60]"
-          >
-            Cancel
-          </button>
+        <div className="mt-5">
           <button
             type="button"
             onClick={onConfirm}
-            className="h-12 rounded-[10px] bg-[#011C60] font-['Roboto'] text-[14px] font-semibold text-white"
+            className="h-12 w-full rounded-[8px] bg-[#011C60] font-['Roboto'] text-[13px] font-semibold text-white transition hover:bg-[#02237a]"
           >
             Confirm Booking
           </button>
@@ -1403,29 +1463,39 @@ function BookingSuccessModal({ isOpen, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[330px] rounded-[16px] bg-white px-6 py-8 text-center shadow-[0px_28px_70px_rgba(1,28,96,0.22)]"
+        className="w-full max-w-[390px] rounded-[16px] bg-white px-8 py-9 text-center shadow-[0px_28px_70px_rgba(1,28,96,0.22)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[14px] bg-[#DDEEFF]">
+        <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-[#E6E8EF]">
           <svg
             viewBox="0 0 64 64"
-            className="h-16 w-16 text-[#EECE42]"
+            className="h-16 w-16 text-[#011C60]"
             aria-hidden="true"
           >
-            <circle cx="32" cy="32" r="25" fill="currentColor" opacity="0.28" />
+            <circle cx="32" cy="32" r="25" fill="#EECE42" opacity="0.4" />
             <path
               d="M20 33.5L28 41L45 23"
               fill="none"
-              stroke="#011C60"
+              stroke="currentColor"
               strokeWidth="6"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
         </div>
-        <h2 className="mt-5 font-['Roboto'] text-[21px] font-semibold leading-8 text-[#011C60]">
-          Your booking has been confirmed successfully
+        <h2 className="mt-6 font-['Roboto'] text-[28px] font-semibold leading-9 text-[#011C60]">
+          Book Successfully
         </h2>
+        <p className="mx-auto mt-3 max-w-[280px] font-['Roboto'] text-[14px] leading-6 text-[#6777A0]">
+          Your booking has been confirmed successfully.
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-7 h-12 w-full rounded-[8px] bg-[#011C60] font-['Roboto'] text-[14px] font-semibold text-white transition hover:bg-[#02237a]"
+        >
+          Done
+        </button>
       </div>
     </div>
   );
@@ -1464,6 +1534,7 @@ export default function ServiceProviderDetailPage() {
         : "choice";
 
   useEffect(() => {
+    if (queryMode === "package" && queryPackageId) return undefined;
     if (!serviceId || !category) return undefined;
 
     let isMounted = true;
@@ -1483,90 +1554,8 @@ export default function ServiceProviderDetailPage() {
         if (!isMounted) return;
 
         setService(normalizedService);
-        setIsPackagesLoading(true);
-
-        try {
-          const packagesResponse = await getMyPackages({ page: 1 });
-          const normalizedPackages = extractApiArray(packagesResponse)
-            .map(normalizePackage)
-            .filter((packageItem) =>
-              isPackageForService(packageItem, normalizedService.id)
-            );
-
-          if (!isMounted) return;
-
-          setPackages(normalizedPackages);
-
-          if (queryMode === "package" && queryPackageId) {
-            const matchingPackage = normalizedPackages.find(
-              (packageItem) => packageItem.id === String(queryPackageId)
-            );
-            const basePackage =
-              matchingPackage ||
-              normalizePackage({
-                id: queryPackageId,
-                serviceIds: [normalizedService.id],
-              });
-
-            setSelectedPackage(basePackage);
-            setBookingMode("package-details");
-
-            try {
-              const detailsResponse = await getPackageDetails(
-                basePackage.id,
-                SERVICE_LANGUAGE
-              );
-              const detailedPackage = normalizePackage(
-                extractPayloadData(detailsResponse)
-              );
-
-              if (isMounted) {
-                setSelectedPackage(mergePackageDetails(basePackage, detailedPackage));
-              }
-            } catch {
-              if (isMounted) setSelectedPackage(basePackage);
-            }
-          }
-        } catch (packageError) {
-          if (isMounted) {
-            setPackages([]);
-            setPackageErrorMessage(
-              packageError?.response?.status === 401
-                ? "Packages are not available for this account yet."
-                : getApiErrorMessage(packageError, "Unable to load packages.")
-            );
-
-            if (queryMode === "package" && queryPackageId) {
-              const basePackage = normalizePackage({
-                id: queryPackageId,
-                serviceIds: [normalizedService.id],
-              });
-
-              setSelectedPackage(basePackage);
-              setBookingMode("package-details");
-
-              try {
-                const detailsResponse = await getPackageDetails(
-                  basePackage.id,
-                  SERVICE_LANGUAGE
-                );
-                const detailedPackage = normalizePackage(
-                  extractPayloadData(detailsResponse)
-                );
-
-                if (isMounted) {
-                  setSelectedPackage(
-                    mergePackageDetails(basePackage, detailedPackage)
-                  );
-                }
-              } catch {
-                if (isMounted) setSelectedPackage(basePackage);
-              }
-            }
-          }
-        } finally {
-          if (isMounted) setIsPackagesLoading(false);
-        }
+        setPackages([]);
+        setIsPackagesLoading(false);
       } catch (error) {
         if (!isMounted) return;
 
@@ -1589,6 +1578,10 @@ export default function ServiceProviderDetailPage() {
 
   if (!category || !isSupportedServiceCategory(categorySlug)) {
     return <Navigate to="/services" replace />;
+  }
+
+  if (queryMode === "package" && queryPackageId) {
+    return <Navigate to={`/services/package/${queryPackageId}`} replace />;
   }
 
   const handleBack = () => {
@@ -1694,7 +1687,7 @@ export default function ServiceProviderDetailPage() {
               {bookingMode === "choice" && (
                 <BookingChoice
                   onSelectOneTime={() => setBookingMode("one-time")}
-                  onSelectPackage={() => setBookingMode("packages")}
+                  onSelectPackage={() => navigate("/services/package")}
                 />
               )}
 

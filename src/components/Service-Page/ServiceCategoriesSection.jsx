@@ -94,11 +94,6 @@ const normalizePackage = (packageItem) => {
   };
 };
 
-const formatPackagePrice = (packageItem) =>
-  `${new Intl.NumberFormat("en-US").format(packageItem.price)} ${
-    packageItem.currency === "EGY" ? "EGP" : packageItem.currency
-  }`;
-
 const getIntervalLabel = (packageItem) => {
   const recurrence = packageItem.recurrence.toLowerCase();
   const days = packageItem.daysPerInterval;
@@ -146,17 +141,20 @@ function BookingModeCard({ image, title, description, features, buttonLabel }) {
 
 function PackageCard({ packageItem }) {
   const content = (
-    <article className="group h-full rounded-[12px] border border-[#D8DDEB] bg-white p-5 shadow-[0px_10px_24px_rgba(1,28,96,0.08)] transition hover:-translate-y-2 hover:border-[#011C60] hover:bg-[#E6E8EF] hover:shadow-[0px_18px_38px_rgba(1,28,96,0.14)]">
-      <h3 className="font-['Roboto'] text-[18px] font-semibold text-[#011C60]">
+    <article className="group flex h-[408px] w-full max-w-[316px] flex-col rounded-[16px] border border-[#CCD2DF] bg-white px-4 py-6 shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)] transition-[width,height,background-color,box-shadow] duration-300 hover:h-[460px] hover:max-w-[356px] hover:bg-[#E6E8EF] sm:w-[316px] sm:hover:w-[356px]">
+      <h3 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60] transition-all duration-300 group-hover:text-[26px] group-hover:leading-9">
         {packageItem.name}
       </h3>
-      <p className="mt-3 font-['Roboto'] text-[30px] font-semibold text-[#011C60]">
-        {formatPackagePrice(packageItem)}
+      <p className="mt-5 font-['Roboto'] text-[32px] font-semibold leading-9 text-[#011C60]">
+        ${new Intl.NumberFormat("en-US").format(packageItem.price)}
+        <span className="ml-1 align-middle text-[14px] font-medium text-[#4D6090]">
+          / Flat Fee
+        </span>
       </p>
-      <p className="font-['Roboto'] text-[12px] font-semibold uppercase text-[#6777A0]">
+      <p className="mt-2 border-b border-transparent pb-4 font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#4D6090] group-hover:border-white/70">
         {getIntervalLabel(packageItem)}
       </p>
-      <div className="mt-5 flex min-h-[86px] flex-wrap gap-2">
+      <div className="mt-5 flex flex-1 content-start flex-wrap gap-4 overflow-hidden transition-all duration-300 group-hover:mt-6 group-hover:gap-5">
         {(packageItem.includedItems.length
           ? packageItem.includedItems
           : ["Window cleaning", "Eco-friendly supplies", "Deep service"]
@@ -165,23 +163,24 @@ function PackageCard({ packageItem }) {
           .map((feature) => (
             <span
               key={feature}
-              className="rounded-[8px] bg-[#F3F5FA] px-3 py-2 font-['Roboto'] text-[12px] font-medium text-[#808DAF] transition group-hover:bg-white"
+              className="rounded-[12px] bg-[#F3F5FA] px-3 py-2 font-['Roboto'] text-[13px] font-medium leading-5 text-[#6777A0] transition group-hover:bg-white"
             >
               {feature}
             </span>
           ))}
       </div>
-      <span className="mt-4 flex h-11 w-full items-center justify-center rounded-[10px] bg-[#011C60] font-['Roboto'] text-[14px] font-semibold text-white transition hover:bg-[#02237a]">
+      <span className="mt-auto flex h-12 w-full items-center justify-center rounded-[10px] bg-[#011C60] font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a]">
         Select package
       </span>
     </article>
   );
 
-  if (!packageItem.serviceId) return content;
+  if (!packageItem.id) return content;
 
   return (
     <Link
-      to={`/services/${packageItem.categorySlug}/${packageItem.serviceId}?mode=package&packageId=${packageItem.id}`}
+      to={`/services/package/${packageItem.id}`}
+      className="flex min-h-[460px] w-full items-start justify-center"
     >
       {content}
     </Link>
@@ -336,16 +335,16 @@ export default function ServiceCategoriesSection({ mode = "" }) {
           />
 
           {isPackagesLoading ? (
-            <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-10 grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
               {[1, 2, 3].map((item) => (
                 <div
                   key={item}
-                  className="h-[250px] animate-pulse rounded-[12px] bg-white shadow-[0px_10px_24px_rgba(1,28,96,0.08)]"
+                  className="h-[408px] w-full max-w-[316px] animate-pulse rounded-[16px] bg-white shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)]"
                 />
               ))}
             </div>
           ) : packages.length > 0 ? (
-            <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-10 grid place-items-center gap-8 sm:grid-cols-2 xl:grid-cols-3">
               {packages.map((packageItem) => (
                 <PackageCard key={packageItem.id || packageItem.name} packageItem={packageItem} />
               ))}
