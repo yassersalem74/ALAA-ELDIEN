@@ -21,9 +21,9 @@ const unique = (items) => [...new Set(items)];
 
 export const PROVIDER_TYPE_OPTIONS = [
   { id: "all", label: "All Providers" },
-  { id: "individual", label: "Individual" },
+  { id: "individual", label: "Provider" },
   { id: "company", label: "Company" },
-  { id: "alaa-eldien", label: "Alaa Eldien" },
+  { id: "alaa-eldien", label: "AlaaEldin" },
 ];
 
 export const PRICE_RANGE_OPTIONS = [

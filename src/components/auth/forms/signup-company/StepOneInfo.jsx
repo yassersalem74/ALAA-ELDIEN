@@ -1,7 +1,11 @@
-import { useForm, useWatch } from "react-hook-form";
 import { useEffect } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import PasswordToggle from "../../../common/PasswordToggle";
 import emailIcon from "../../../../assets/images/auth/email.png";
+
+const NAME_PATTERN = /^[A-Za-z ]+$/;
+const PASSWORD_PATTERN =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&+])\S{8,50}$/;
 
 export default function StepOneInfo({
   onNext,
@@ -25,7 +29,6 @@ export default function StepOneInfo({
     name: "password",
   });
 
-  // 🔥 revalidate confirm password when password changes
   useEffect(() => {
     if (password) {
       trigger("confirmPassword");
@@ -33,7 +36,7 @@ export default function StepOneInfo({
   }, [password, trigger]);
 
   const onSubmit = (data) => {
-    console.log("STEP 1 DATA ✅", data);
+    console.log("COMPANY STEP 1 DATA", data);
     onNext(data);
   };
 
@@ -49,57 +52,109 @@ export default function StepOneInfo({
       onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)}
       className="space-y-4"
     >
+      <div>
+        <input
+          placeholder="Company name"
+          {...register("companyName", {
+            required: "Company name is required",
+            minLength: {
+              value: 3,
+              message: "Company name must be at least 3 characters",
+            },
+            maxLength: {
+              value: 200,
+              message: "Company name must be 200 characters or less",
+            },
+          })}
+          className={`w-full h-12 sm:h-14 rounded-[14px]
+          px-4 text-[12px] sm:text-[16px]
+          placeholder:text-[#808DAF] text-[#011C60]
+          border ${
+            errors.companyName
+              ? "border-red-500 focus:border-red-500"
+              : "border-gray-200 focus:border-[#011C60]"
+          }
+          outline-none`}
+        />
+        {errors.companyName && (
+          <span className="text-red-500 text-xs">
+            {errors.companyName.message}
+          </span>
+        )}
+      </div>
 
-      {/* Company Details */}
       <div className="flex gap-3">
         <div className="w-1/2">
           <input
-            placeholder="Company name"
-            {...register("firstName", {
-              required: "Company name is required",
+            placeholder="Signatory first name"
+            {...register("signatoryFirstName", {
+              required: "Signatory first name is required",
+              minLength: {
+                value: 3,
+                message: "First name must be at least 3 characters",
+              },
+              maxLength: {
+                value: 50,
+                message: "First name must be 50 characters or less",
+              },
+              pattern: {
+                value: NAME_PATTERN,
+                message: "First name can contain letters and spaces only",
+              },
             })}
             className={`w-full h-12 sm:h-14 rounded-[14px]
             px-4 text-[12px] sm:text-[16px]
             placeholder:text-[#808DAF] text-[#011C60]
             border ${
-              errors.firstName
+              errors.signatoryFirstName
                 ? "border-red-500 focus:border-red-500"
                 : "border-gray-200 focus:border-[#011C60]"
             }
             outline-none`}
           />
-          {errors.firstName && (
+          {errors.signatoryFirstName && (
             <span className="text-red-500 text-xs">
-              {errors.firstName.message}
+              {errors.signatoryFirstName.message}
             </span>
           )}
         </div>
 
         <div className="w-1/2">
           <input
-            placeholder="Contact person"
-            {...register("lastName", {
-              required: "Contact person is required",
+            placeholder="Signatory last name"
+            {...register("signatoryLastName", {
+              required: "Signatory last name is required",
+              minLength: {
+                value: 3,
+                message: "Last name must be at least 3 characters",
+              },
+              maxLength: {
+                value: 50,
+                message: "Last name must be 50 characters or less",
+              },
+              pattern: {
+                value: NAME_PATTERN,
+                message: "Last name can contain letters and spaces only",
+              },
             })}
             className={`w-full h-12 sm:h-14 rounded-[14px]
             px-4 text-[12px] sm:text-[16px]
             placeholder:text-[#808DAF] text-[#011C60]
             border ${
-              errors.lastName
+              errors.signatoryLastName
                 ? "border-red-500 focus:border-red-500"
                 : "border-gray-200 focus:border-[#011C60]"
             }
             outline-none`}
           />
-          {errors.lastName && (
+          {errors.signatoryLastName && (
             <span className="text-red-500 text-xs">
-              {errors.lastName.message}
+              {errors.signatoryLastName.message}
             </span>
           )}
         </div>
       </div>
 
-      {/* Phone */}
       <div>
         <input
           placeholder="Phone Number"
@@ -127,12 +182,15 @@ export default function StepOneInfo({
         )}
       </div>
 
-      {/* Email */}
       <div className="relative">
         <input
           placeholder="Email"
           {...register("email", {
             required: "Email is required",
+            maxLength: {
+              value: 200,
+              message: "Email must be 200 characters or less",
+            },
             pattern: {
               value: /^\S+@\S+\.\S+$/,
               message: "Invalid email format",
@@ -150,6 +208,7 @@ export default function StepOneInfo({
         />
         <img
           src={emailIcon}
+          alt=""
           className="w-4 absolute left-4 top-1/2 -translate-y-1/2"
         />
 
@@ -160,51 +219,16 @@ export default function StepOneInfo({
         )}
       </div>
 
-      {/* Business Type */}
-      <div>
-        <select
-          {...register("permission", {
-            required: "Business type is required",
-          })}
-          className={`w-full h-12 sm:h-14 rounded-[14px] px-4
-          text-[12px] sm:text-[16px]
-          text-[#011C60]
-          border ${
-            errors.permission
-              ? "border-red-500 focus:border-red-500"
-              : "border-gray-200 focus:border-[#011C60]"
-          }
-          outline-none`}
-        >
-          <option value="">Business type</option>
-          <option value="service">Service Provider</option>
-          <option value="realEstate">Real Estate</option>
-          <option value="marketplace">Marketplace Seller</option>
-          <option value="stores">Store</option>
-        </select>
-        {errors.permission && (
-          <span className="text-red-500 text-xs">
-            {errors.permission.message}
-          </span>
-        )}
-      </div>
-
-      {/* Password */}
       <div>
         <PasswordToggle
           register={register}
           name="password"
           validation={{
             required: "Password is required",
-            minLength: {
-              value: 8,
-              message: "Password must be at least 8 characters",
-            },
             pattern: {
-              value:
-                /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/,
+              value: PASSWORD_PATTERN,
               message:
-                "Password must include uppercase, lowercase, number, and symbol",
+                "Password must include uppercase, lowercase, number, and one of @$!%*?&+",
             },
           }}
         />
@@ -215,7 +239,6 @@ export default function StepOneInfo({
         )}
       </div>
 
-      {/* Confirm Password */}
       <div>
         <PasswordToggle
           register={register}
@@ -237,7 +260,6 @@ export default function StepOneInfo({
         )}
       </div>
 
-      {/* Button */}
       <button
         type="submit"
         className="
@@ -255,7 +277,6 @@ export default function StepOneInfo({
         Next
       </button>
 
-      {/* Footer */}
       <p className="text-center text-[12px] sm:text-[16px] text-[#808DAF]">
         Already have an account?{" "}
         <span
@@ -265,7 +286,6 @@ export default function StepOneInfo({
           Sign in
         </span>
       </p>
-
     </form>
   );
 }

@@ -32,6 +32,28 @@ const getAuthToken = (data) =>
 
 const getAuthUser = (data) => data?.user || data?.data?.user;
 
+const ACCOUNT_TYPE_OPTIONS = [
+  { id: "individual", label: "Provider" },
+  { id: "company", label: "Company" },
+];
+
+const ACCOUNT_TYPE_LABELS = {
+  individual: "Provider",
+  company: "Company",
+};
+
+const normalizeAccountType = (value) => {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+
+  if (!normalizedValue) return "";
+  if (normalizedValue.includes("company")) return "company";
+
+  return "individual";
+};
+
+const getAccountTypeLabel = (accountType) =>
+  ACCOUNT_TYPE_LABELS[accountType] || accountType;
+
 export default function LoginForm() {
   const [accountType, setAccountType] = useState("individual");
   const [apiError, setApiError] = useState("");
@@ -86,13 +108,16 @@ export default function LoginForm() {
 
       const token = getAuthToken(res);
       const user = getAuthUser(res);
-      const currentUser = user || {
+      const currentUser = {
+        ...(user || {}),
         email: data.email,
         accountType,
       };
 
-      // Validate account type matches
-      const userAccountType = user?.accountType || user?.type || accountType;
+      const userAccountType = normalizeAccountType(
+        user?.accountType || user?.type || user?.role || accountType
+      );
+
       if (userAccountType && userAccountType !== accountType) {
         const errorMessage = "Invalid email or password.";
         
@@ -124,7 +149,9 @@ export default function LoginForm() {
 
       showToast(
         "success",
-        `Logged in successfully as ${accountType} with email: ${data.email}.`
+        `Logged in successfully as ${getAccountTypeLabel(
+          accountType
+        )} with email: ${data.email}.`
       );
 
       setTimeout(() => {
@@ -178,31 +205,21 @@ export default function LoginForm() {
               {/* Account Type */}
               <div className="flex justify-center">
                 <div className="flex bg-[#E6E8EF] rounded-xl p-1 text-sm sm:text-lg">
-                  <button
-                    type="button"
-                    aria-pressed={accountType === "individual"}
-                    onClick={() => handleAccountTypeChange("individual")}
-                    className={`px-6 py-1.5 rounded-[10px] transition-all duration-300 cursor-pointer ${
-                      accountType === "individual"
-                        ? "bg-white text-[#011C60] shadow"
-                        : "text-[#808DAF]"
-                    }`}
-                  >
-                    Individual
-                  </button>
-
-                  <button
-                    type="button"
-                    aria-pressed={accountType === "company"}
-                    onClick={() => handleAccountTypeChange("company")}
-                    className={`px-6 py-1.5 rounded-[10px] transition-all duration-300 cursor-pointer ${
-                      accountType === "company"
-                        ? "bg-white text-[#011C60] shadow"
-                        : "text-[#808DAF]"
-                    }`}
-                  >
-                    Company
-                  </button>
+                  {ACCOUNT_TYPE_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={accountType === option.id}
+                      onClick={() => handleAccountTypeChange(option.id)}
+                      className={`px-4 py-1.5 rounded-[10px] transition-all duration-300 ${
+                        accountType === option.id
+                          ? "bg-white text-[#011C60] shadow"
+                          : "cursor-pointer text-[#808DAF]"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -318,7 +335,7 @@ export default function LoginForm() {
               <p className="text-center text-[14px] sm:text-[18px] leading-6 text-[#808DAF]">
                 Don’t have an account?{" "}
                 <span
-                 onClick={() => navigate("/signup")}
+                 onClick={() => navigate("/signup", { state: { accountType } })}
                   className="
                         text-[#011C60] font-semibold cursor-pointer
                         

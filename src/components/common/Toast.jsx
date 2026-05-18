@@ -2,6 +2,12 @@ import { useEffect } from "react";
 
 export default function Toast({ type = "success", message, onClose }) {
   const isSuccess = type === "success";
+  const isInfo = type === "info";
+  const colorClass = isSuccess
+    ? "bg-[#06B217]"
+    : isInfo
+      ? "bg-[#011C60]"
+      : "bg-red-600";
 
   useEffect(() => {
     if (!message) return undefined;
@@ -23,7 +29,7 @@ export default function Toast({ type = "success", message, onClose }) {
         fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md
         rounded-2xl px-4 py-3 text-white
         shadow-[0px_12px_28px_rgba(23,26,30,0.25)]
-        ${isSuccess ? "bg-[#06B217]" : "bg-red-600"}
+        ${colorClass}
       `}
     >
       <div className="flex items-start gap-3">

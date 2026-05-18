@@ -11,8 +11,24 @@ export const registerUser = async (data) => {
   return res.data;
 };
 
+export const registerCompany = async (data) => {
+  const res = await api.post(AUTH_ENDPOINTS.COMPANY_REGISTER, data, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return res.data;
+};
+
 export const verifyEmail = async (data) => {
   const res = await api.post(AUTH_ENDPOINTS.VERIFY_EMAIL, data);
+
+  return res.data;
+};
+
+export const verifyCompanyEmail = async (data) => {
+  const res = await api.post(AUTH_ENDPOINTS.COMPANY_VERIFY_EMAIL, data);
 
   return res.data;
 };

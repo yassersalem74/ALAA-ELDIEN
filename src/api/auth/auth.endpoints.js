@@ -1,6 +1,8 @@
 export const AUTH_ENDPOINTS = {
   REGISTER: "/api/v1/authentication/register",
+  COMPANY_REGISTER: "/api/v1/authentication/company/register",
   VERIFY_EMAIL: "/api/v1/authentication/verify-email",
+  COMPANY_VERIFY_EMAIL: "/api/v1/authentication/company/verify-email",
   RESEND_EMAIL_VERIFICATION: "/api/v1/authentication/resend-email-verification",
   LOGIN: "/api/v1/authentication/login",
   FORGET_PASSWORD: "/api/v1/authentication/forget-password",

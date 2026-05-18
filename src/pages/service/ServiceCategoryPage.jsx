@@ -35,12 +35,12 @@ import {
 const PAGE_SIZE = 10;
 
 const PROVIDER_TYPE_OPTIONS = [
-  { id: "individual", label: "Individual" },
+  { id: "individual", label: "Provider" },
   { id: "company", label: "Company" },
-  { id: "alaa-eldien", label: "Alaa Eldien" },
+  { id: "alaa-eldien", label: "AlaaEldin" },
 ];
 
-const COMING_SOON_PROVIDER_TYPES = new Set(["company", "alaa-eldien"]);
+const COMING_SOON_PROVIDER_TYPES = new Set(["alaa-eldien"]);
 
 const normalizeFilterText = (value) =>
   String(value || "")
@@ -57,9 +57,9 @@ const isLastPageExceededError = (error) => {
 
 function ComingSoonState({ providerType }) {
   const title =
-    providerType === "company"
-      ? "Company services are coming soon"
-      : "Alaa Eldien services are coming soon";
+    providerType === "alaa-eldien"
+      ? "AlaaEldin services are coming soon"
+      : "This provider role is coming soon";
 
   return (
     <section className="mt-8 overflow-hidden rounded-[24px] border border-[#E6E8EF] bg-white shadow-[0px_16px_44px_rgba(1,28,96,0.08)]">
@@ -72,8 +72,8 @@ function ComingSoonState({ providerType }) {
             {title}
           </h2>
           <p className="mt-3 max-w-[620px] font-['Roboto'] text-[16px] leading-7 text-[#808DAF] sm:text-[18px]">
-            We are preparing this provider experience. For now, individual
-            providers are ready to browse, filter, and book.
+            We are preparing this provider experience. For now, Provider and
+            Company services are ready to browse, filter, and book.
           </p>
         </div>
 
@@ -364,7 +364,7 @@ export default function ServiceCategoryPage() {
         <div className="mt-8">
           <ServicePageIntro
             title={category.title}
-            description="Choose from live individual providers and filter by location."
+            description="Choose from live Provider and Company services, then filter by location."
           />
         </div>
 

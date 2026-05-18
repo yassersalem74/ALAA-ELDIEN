@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import IndividualStepOneInfo from "./StepOneInfo";
 import IndividualStepThreeAddress from "./StepThreeAddress";
@@ -11,8 +11,10 @@ import VerificationForm from "../VerificationForm";
 import Toast from "../../../common/Toast";
 
 import {
+  registerCompany,
   registerUser,
   resendEmailVerification,
+  verifyCompanyEmail,
   verifyEmail,
 } from "../../../../api/auth/auth.api";
 
@@ -58,7 +60,7 @@ const getApiErrorMessage = (error) => {
 
 const getAccountName = (data, type) => {
   if (type === "company") {
-    return data.firstName || "company account";
+    return data.companyName || "company account";
   }
 
   return [data.firstName, data.lastName].filter(Boolean).join(" ");
@@ -70,10 +72,26 @@ const signupSteps = [
   { number: 3, label: "Address" },
 ];
 
+const ACCOUNT_TYPE_OPTIONS = [
+  { id: "individual", label: "Provider" },
+  { id: "company", label: "Company" },
+];
+
+const ACCOUNT_TYPE_LABELS = {
+  individual: "Provider",
+  company: "Company",
+};
+
 const hasValue = (value) => value !== undefined && value !== null && value !== "";
 
+const getAccountTypeLabel = (accountType) =>
+  ACCOUNT_TYPE_LABELS[accountType] || accountType;
+
 export default function SignupForm() {
-  const [type, setType] = useState("individual");
+  const location = useLocation();
+  const initialAccountType =
+    location.state?.accountType === "company" ? "company" : "individual";
+  const [type, setType] = useState(initialAccountType);
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({});
   const [invalidSteps, setInvalidSteps] = useState([]);
@@ -94,13 +112,13 @@ export default function SignupForm() {
   };
 
   const titles = {
-    1: type === "company" ? "Create Company Account" : "Create Your Account",
+    1: type === "company" ? "Create Company Account" : "Create Provider Account",
     2: "Verify Your Identity",
     3: "Add Address",
     4: "Verify Email",
   };
 
-  const buildRegisterForm = (allData) => {
+  const buildIndividualRegisterForm = (allData) => {
     const form = new FormData();
 
     appendIfPresent(form, "firstName", allData.firstName);
@@ -128,16 +146,48 @@ export default function SignupForm() {
     return form;
   };
 
+  const buildCompanyRegisterForm = (allData) => {
+    const form = new FormData();
+
+    appendIfPresent(form, "name", allData.companyName);
+    appendIfPresent(form, "email", allData.email);
+    appendIfPresent(form, "password", allData.password);
+    appendIfPresent(form, "signatoryFirstName", allData.signatoryFirstName);
+    appendIfPresent(form, "signatoryLastName", allData.signatoryLastName);
+    appendIfPresent(form, "signatoryNationalId", allData.signatoryNationalId);
+    appendIfPresent(form, "phoneNumber", allData.phone);
+
+    form.append("language", "en");
+
+    appendIfPresent(
+      form,
+      "imageSignatoryNationalId",
+      allData.imageSignatoryNationalId
+    );
+    appendIfPresent(form, "imageTaxRegistration", allData.imageTaxRegistration);
+    appendIfPresent(form, "logo", allData.logo);
+    appendIfPresent(form, "imageCR", allData.imageCR);
+
+    appendIfPresent(form, "neighborhoodId", allData.areaId);
+    appendIfPresent(form, "street", allData.streetName);
+    appendIfPresent(form, "apartment", allData.apartment);
+    appendIfPresent(form, "floor", allData.floorNumber);
+    appendIfPresent(form, "building", allData.buildingNumber);
+    appendIfPresent(form, "details", allData.additionalDetails);
+
+    return form;
+  };
+
   const isStepComplete = (stepNumber, data = formData) => {
     if (stepNumber === 1) {
       const requiredFields =
         type === "company"
           ? [
-              "firstName",
-              "lastName",
+              "companyName",
+              "signatoryFirstName",
+              "signatoryLastName",
               "phone",
               "email",
-              "permission",
               "password",
               "confirmPassword",
             ]
@@ -157,6 +207,15 @@ export default function SignupForm() {
     }
 
     if (stepNumber === 2) {
+      if (type === "company") {
+        return (
+          /^[23][0-9]{13}$/.test(data.signatoryNationalId || "") &&
+          hasValue(data.imageSignatoryNationalId) &&
+          hasValue(data.imageTaxRegistration) &&
+          hasValue(data.logo)
+        );
+      }
+
       return (
         /^[0-9]{14}$/.test(data.idNumber || "") &&
         hasValue(data.front) &&
@@ -208,14 +267,21 @@ export default function SignupForm() {
     setApiSuccess("");
 
     try {
-      const res = await registerUser(buildRegisterForm(allData));
+      const res =
+        type === "company"
+          ? await registerCompany(buildCompanyRegisterForm(allData))
+          : await registerUser(buildIndividualRegisterForm(allData));
 
       console.log("REGISTER RESPONSE", res);
       setRegisteredEmail(allData.email);
       localStorage.setItem("pendingSignupAccountType", type);
 
       const accountName = getAccountName(allData, type);
-      const message = `Signed up successfully as ${type} with name: ${accountName}. Enter the verification code sent to ${allData.email}.`;
+      const message = `Signed up successfully as ${getAccountTypeLabel(
+        type
+      )} with name: ${accountName}. Enter the verification code sent to ${
+        allData.email
+      }.`;
 
       setApiSuccess(message);
       showToast("success", message);
@@ -371,29 +437,21 @@ export default function SignupForm() {
           {step === 1 && (
             <div className="flex justify-center">
               <div className="flex bg-[#E6E8EF] rounded-xl p-1 mb-6 text-sm sm:text-lg">
-                <button
-                  type="button"
-                  onClick={() => handleAccountTypeChange("individual")}
-                  className={`px-6 py-1.5 rounded-[10px] transition-all duration-300 cursor-pointer ${
-                    type === "individual"
-                      ? "bg-white text-[#011C60] shadow"
-                      : "text-[#808DAF]"
-                  }`}
-                >
-                  Individual
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleAccountTypeChange("company")}
-                  className={`px-6 py-1.5 rounded-[10px] transition-all duration-300 cursor-pointer ${
-                    type === "company"
-                      ? "bg-white text-[#011C60] shadow"
-                      : "text-[#808DAF]"
-                  }`}
-                >
-                  Company
-                </button>
+                {ACCOUNT_TYPE_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    aria-pressed={type === option.id}
+                    onClick={() => handleAccountTypeChange(option.id)}
+                    className={`px-4 py-1.5 rounded-[10px] transition-all duration-300 ${
+                      type === option.id
+                        ? "bg-white text-[#011C60] shadow"
+                        : "cursor-pointer text-[#808DAF]"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -474,10 +532,14 @@ export default function SignupForm() {
                   setApiSuccess("");
 
                   try {
-                    const res = await verifyEmail({
+                    const verifyPayload = {
                       email: registeredEmail || formData.email,
                       code: otpCode,
-                    });
+                    };
+                    const res =
+                      type === "company"
+                        ? await verifyCompanyEmail(verifyPayload)
+                        : await verifyEmail(verifyPayload);
 
                     console.log("VERIFY EMAIL RESPONSE", res);
                     const message = `Email verified successfully for ${

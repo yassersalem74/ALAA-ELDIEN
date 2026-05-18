@@ -9,6 +9,7 @@ export const CATEGORY_API_NAMES = {
 export const ROLE_QUERY_VALUES = {
   individual: "Provider",
   company: "Company",
+  "alaa-eldien": "AlaaEldin",
 };
 
 export const WEEKDAY_NAMES = [

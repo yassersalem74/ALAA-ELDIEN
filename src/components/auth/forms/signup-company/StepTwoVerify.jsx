@@ -5,145 +5,149 @@ import nationalBack from "../../../../assets/images/auth/nationalBack.png";
 import selfie from "../../../../assets/images/auth/selfie.png";
 
 export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
-  const frontRef = useRef(null);
-  const backRef = useRef(null);
-  const selfieRef = useRef(null);
+  const signatoryNationalIdRef = useRef(null);
+  const taxRegistrationRef = useRef(null);
+  const logoRef = useRef(null);
+  const crRef = useRef(null);
 
-  const inputs = [frontRef, backRef, selfieRef];
-
+  const [signatoryNationalId, setSignatoryNationalId] = useState(
+    initialData.signatoryNationalId || ""
+  );
   const [files, setFiles] = useState({
-    front: initialData.front || null,
-    back: initialData.back || null,
-    selfie: initialData.selfie || null,
+    imageSignatoryNationalId: initialData.imageSignatoryNationalId || null,
+    imageTaxRegistration: initialData.imageTaxRegistration || null,
+    logo: initialData.logo || null,
+    imageCR: initialData.imageCR || null,
   });
-
   const [errors, setErrors] = useState({});
 
-  const handleUploadClick = (index) => {
-    inputs[index].current.click();
-  };
+  const uploadItems = [
+    {
+      title: "Signatory national ID",
+      desc: "Upload the authorized signatory national ID image",
+      img: nationalFront,
+      key: "imageSignatoryNationalId",
+      inputRef: signatoryNationalIdRef,
+      required: true,
+    },
+    {
+      title: "Tax registration",
+      desc: "Upload the company tax registration document",
+      img: nationalBack,
+      key: "imageTaxRegistration",
+      inputRef: taxRegistrationRef,
+      required: true,
+    },
+    {
+      title: "Company logo",
+      desc: "Upload the logo that appears on the company profile",
+      img: selfie,
+      key: "logo",
+      inputRef: logoRef,
+      required: true,
+    },
+    {
+      title: "Commercial register",
+      desc: "Optional company commercial register document",
+      img: nationalBack,
+      key: "imageCR",
+      inputRef: crRef,
+      required: false,
+    },
+  ];
 
-  const handleFileChange = (e, typeKey) => {
-    const file = e.target.files[0];
+  const handleFileChange = (event, typeKey) => {
+    const file = event.target.files?.[0];
 
-    if (file) {
-      console.log(typeKey, file);
+    if (!file) return;
 
-      setFiles((prev) => ({
-        ...prev,
-        [typeKey]: file,
-      }));
-
-      // remove error if exists
-      setErrors((prev) => ({
-        ...prev,
-        [typeKey]: null,
-      }));
-    }
+    setFiles((currentFiles) => ({
+      ...currentFiles,
+      [typeKey]: file,
+    }));
+    setErrors((currentErrors) => ({
+      ...currentErrors,
+      [typeKey]: null,
+    }));
   };
 
   const handleNextClick = () => {
-    const newErrors = {};
+    const nextErrors = {};
 
-    if (!idNumber) newErrors.idNumber = "ID number is required";
-    else if (!/^[0-9]{14}$/.test(idNumber)) {
-      newErrors.idNumber = "ID number must be exactly 14 digits";
+    if (!signatoryNationalId) {
+      nextErrors.signatoryNationalId = "Signatory national ID is required";
+    } else if (!/^[23][0-9]{13}$/.test(signatoryNationalId)) {
+      nextErrors.signatoryNationalId =
+        "National ID must be 14 digits and start with 2 or 3";
     }
-    if (!files.front) newErrors.front = "Front ID is required";
-    if (!files.back) newErrors.back = "Back ID is required";
-    if (!files.selfie) newErrors.selfie = "Selfie is required";
 
-    setErrors(newErrors);
+    uploadItems.forEach((item) => {
+      if (item.required && !files[item.key]) {
+        nextErrors[item.key] = `${item.title} is required`;
+      }
+    });
 
-    if (Object.keys(newErrors).length > 0) {
-      onError?.(Object.values(newErrors)[0]);
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      onError?.(Object.values(nextErrors)[0]);
       return;
     }
 
-    console.log("STEP 2 DATA ✅", {
-      idNumber,
-      ...files,
-    });
-
     onNext({
-      idNumber,
+      signatoryNationalId,
       ...files,
     });
   };
 
-  const [idNumber, setIdNumber] = useState(initialData.idNumber || "");
-
   return (
-    <div className="space-y-2">
-      {/* Subtitle */}
+    <div className="space-y-2 overflow-y-auto">
       <p className="text-[12px] sm:text-[16px] text-[#808DAF] text-center">
-        Enter the company representative national ID number
+        Add the authorized signatory and company documents
       </p>
 
-      {/* ID Input */}
       <div>
         <input
-          value={idNumber}
-          onChange={(e) => {
-            setIdNumber(e.target.value);
-            setErrors((prev) => ({ ...prev, idNumber: null }));
+          value={signatoryNationalId}
+          onChange={(event) => {
+            setSignatoryNationalId(event.target.value);
+            setErrors((currentErrors) => ({
+              ...currentErrors,
+              signatoryNationalId: null,
+            }));
           }}
-          placeholder="ID Number"
+          placeholder="Signatory national ID"
           className={`
             w-full h-14 rounded-xl sm:rounded-2xl px-4
             text-[12px] sm:text-[16px] text-[#011C60]
             border ${
-              errors.idNumber
+              errors.signatoryNationalId
                 ? "border-red-500 focus:border-red-500"
                 : "border-gray-200 focus:border-[#011C60]"
             }
             outline-none
           `}
         />
-        {errors.idNumber && (
+        {errors.signatoryNationalId && (
           <span className="text-red-500 text-xs">
-            {errors.idNumber}
+            {errors.signatoryNationalId}
           </span>
         )}
       </div>
 
-      {/* Upload Cards */}
-      {[
-        {
-          title: "National ID (Front side)",
-          desc: "Representative ID front side",
-          img: nationalFront,
-          key: "front",
-        },
-        {
-          title: "National ID (Back side)",
-          desc: "Representative ID back side",
-          img: nationalBack,
-          key: "back",
-        },
-        {
-          title: "Representative selfie with ID",
-          desc: "Face and ID should be clearly visible",
-          img: selfie,
-          key: "selfie",
-        },
-      ].map((item, i) => (
-        <div key={i}>
+      {uploadItems.map((item) => (
+        <div key={item.key}>
           <div
             className={`
               flex items-center justify-between
               border-2 border-dashed
-              ${
-                errors[item.key]
-                  ? "border-red-500"
-                  : "border-[#D6DAE6]"
-              }
+              ${errors[item.key] ? "border-red-500" : "border-[#D6DAE6]"}
               rounded-xl sm:rounded-3xl px-3 py-2 sm:px-6 sm:py-4
             `}
           >
             <div className="flex items-center gap-4">
               <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-[#E6E8EF] flex justify-center items-center">
-                <img src={item.img} className="w-4 sm:w-6" />
+                <img src={item.img} alt="" className="w-4 sm:w-6" />
               </div>
 
               <div>
@@ -153,8 +157,6 @@ export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
                 <p className="text-[10px] sm:text-[12px] text-[#6777A0]">
                   {item.desc}
                 </p>
-
-                {/* ✅ FILE NAME */}
                 {files[item.key] && (
                   <p className="text-[10px] text-[#011C60] mt-1">
                     {files[item.key].name}
@@ -163,28 +165,24 @@ export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
               </div>
             </div>
 
-            {/* HIDDEN INPUT */}
             <input
               type="file"
               accept="image/*"
-              ref={inputs[i]}
-              onChange={(e) =>
-                handleFileChange(e, item.key)
-              }
+              ref={item.inputRef}
+              onChange={(event) => handleFileChange(event, item.key)}
               className="hidden"
             />
 
-            {/* BUTTON */}
             <button
               type="button"
-              onClick={() => handleUploadClick(i)}
+              onClick={() => item.inputRef.current?.click()}
               className="hover:scale-110 transition cursor-pointer"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 fill="#011C60"
-                className="w-6 h-6 sm:w-8 sm:h-8 "
+                className="w-6 h-6 sm:w-8 sm:h-8"
               >
                 <path
                   fillRule="evenodd"
@@ -195,16 +193,12 @@ export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
             </button>
           </div>
 
-          {/* ERROR */}
           {errors[item.key] && (
-            <span className="text-red-500 text-xs">
-              {errors[item.key]}
-            </span>
+            <span className="text-red-500 text-xs">{errors[item.key]}</span>
           )}
         </div>
       ))}
 
-      {/* Buttons */}
       <div className="pt-2">
         <button
           type="button"
