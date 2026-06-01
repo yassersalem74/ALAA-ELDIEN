@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   changeRole,
   getGovernorates,
+  getMyInformation,
   getNeighborhoods,
 } from "../../../../api/auth/auth.api";
 import {
@@ -67,6 +68,7 @@ const createEmptyDraft = () => ({
 
 const LANGUAGE = "en";
 const PROVIDER_ROLE = "Provider";
+const PROVIDER_ROLE_ALIASES = ["provider", "serviceprovider"];
 const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SERVICE_API_CURRENCY = "EGY";
@@ -1202,10 +1204,77 @@ const getTokenRoles = (token) => {
     .map((role) => String(role));
 };
 
+const normalizeRoleName = (role) =>
+  String(role || "")
+    .trim()
+    .replace(/[\s_-]+/g, "")
+    .toLowerCase();
+
+const isProviderRole = (role) =>
+  PROVIDER_ROLE_ALIASES.includes(normalizeRoleName(role));
+
 const hasProviderToken = () =>
-  getTokenRoles(getAuthToken()).some(
-    (role) => role.toLowerCase() === PROVIDER_ROLE.toLowerCase()
-  );
+  getTokenRoles(getAuthToken()).some(isProviderRole);
+
+const collectRoleValues = (source, seen = new Set()) => {
+  if (!source) return [];
+
+  if (typeof source === "string") return [source];
+  if (Array.isArray(source)) {
+    return source.flatMap((item) => collectRoleValues(item, seen));
+  }
+  if (typeof source !== "object" || seen.has(source)) return [];
+
+  seen.add(source);
+
+  const roleKeys = [
+    "role",
+    "roles",
+    "Role",
+    "Roles",
+    "userRole",
+    "userRoles",
+    "UserRole",
+    "UserRoles",
+    "accountRole",
+    "accountRoles",
+    "AccountRole",
+    "AccountRoles",
+    "type",
+    "Type",
+    "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+  ];
+  const nestedKeys = [
+    "data",
+    "user",
+    "User",
+    "account",
+    "Account",
+    "profile",
+    "Profile",
+    "result",
+    "Result",
+    "payload",
+    "Payload",
+  ];
+
+  return [
+    ...roleKeys.flatMap((key) => collectRoleValues(source[key], seen)),
+    ...nestedKeys.flatMap((key) => collectRoleValues(source[key], seen)),
+  ].filter(Boolean);
+};
+
+const getProfileRoles = (response) =>
+  collectRoleValues(extractPayloadData(response)).map((role) => String(role));
+
+const getHasProviderAccountRole = async () => {
+  const profile = await getMyInformation();
+  const roles = getProfileRoles(profile);
+
+  if (roles.length === 0) return hasProviderToken();
+
+  return roles.some(isProviderRole);
+};
 
 const extractAuthToken = (response) =>
   [
@@ -1328,8 +1397,18 @@ const saveItemsIfPossible = async (serviceId, items, { allowEmpty = false } = {}
   await createOrUpdateItems(serviceId, payload);
 };
 const ensureProviderRole = async () => {
-  if (hasProviderToken()) {
-    return true;
+  try {
+    if (await getHasProviderAccountRole()) {
+      return true;
+    }
+  } catch (error) {
+    if (isUnauthorizedError(error) || isForbiddenError(error)) {
+      throw error;
+    }
+
+    if (hasProviderToken()) {
+      return true;
+    }
   }
 
   let response;
@@ -1347,11 +1426,29 @@ const ensureProviderRole = async () => {
   const nextToken = extractAuthToken(response);
   storeAuthToken(nextToken);
 
+  if (getProfileRoles(response).some(isProviderRole)) {
+    return true;
+  }
+
+  try {
+    if (await getHasProviderAccountRole()) {
+      return true;
+    }
+  } catch (error) {
+    if (isUnauthorizedError(error) || isForbiddenError(error)) {
+      throw error;
+    }
+
+    if (hasProviderToken()) {
+      return true;
+    }
+  }
+
   if (nextToken && !hasProviderToken()) {
     throw new Error("PROVIDER_TOKEN_REFRESH_REQUIRED");
   }
 
-  return true;
+  throw new Error("PROVIDER_ROLE_NOT_ACTIVE");
 };
 
 export default function BecomePartnerFlow() {
@@ -1472,7 +1569,28 @@ export default function BecomePartnerFlow() {
         return;
       }
 
-      if (!hasProviderToken()) {
+      let hasExistingProviderAccess = false;
+
+      try {
+        hasExistingProviderAccess = await getHasProviderAccountRole();
+      } catch (error) {
+        if (isUnauthorizedError(error)) {
+          clearAuthSession();
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message: "Your session expired. Please sign in again.",
+          });
+          return;
+        }
+
+        if (isForbiddenError(error)) {
+          setHasProviderAccess(false);
+          return;
+        }
+      }
+
+      if (!hasExistingProviderAccess) {
         setHasProviderAccess(false);
         return;
       }

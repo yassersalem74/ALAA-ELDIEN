@@ -63,6 +63,12 @@ export const getPersonalInformation = async () => {
   return res.data;
 };
 
+export const getMyInformation = async () => {
+  const res = await api.get(AUTH_ENDPOINTS.GET_MY_INFORMATION);
+
+  return res.data;
+};
+
 export const changeRole = async (role = "Provider") => {
   const res = await api.post(AUTH_ENDPOINTS.CHANGE_ROLE, { role });
 
