@@ -70,6 +70,7 @@ const PROVIDER_ROLE_ALIASES = ["provider", "serviceprovider"];
 const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SERVICE_API_CURRENCY = "EGY";
+const MY_SERVICES_PAGE_SIZE = 50;
 
 const getTimeslotDurationInMin = (serviceTimeHours) => {
   const durationInMin = Number(serviceTimeHours) * 60;
@@ -113,11 +114,33 @@ const extractList = (response) => {
 
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.services)) return data.services;
   if (Array.isArray(data?.data)) return data.data;
   if (Array.isArray(data?.result)) return data.result;
   if (Array.isArray(data?.results)) return data.results;
 
   return [];
+};
+
+const extractTotalPages = (response) => {
+  const data = extractPayloadData(response);
+  const value =
+    data?.metaData?.pageCount ??
+    data?.metadata?.pageCount ??
+    data?.metaData?.totalPages ??
+    data?.metadata?.totalPages ??
+    data?.totalPages ??
+    data?.totalPage ??
+    data?.pageCount ??
+    data?.pages ??
+    response?.metaData?.pageCount ??
+    response?.metadata?.pageCount ??
+    response?.totalPages ??
+    response?.totalPage ??
+    response?.pageCount ??
+    response?.pages;
+
+  return Math.max(1, Number(value) || 1);
 };
 
 const toOption = (item) => ({
@@ -1090,6 +1113,33 @@ const enrichServicesWithDetails = async (services) => {
   );
 };
 
+const getMyServicesPage = (page) =>
+  getMyServices({
+    language: LANGUAGE,
+    page,
+    pageSize: MY_SERVICES_PAGE_SIZE,
+    search: "",
+    isMine: true,
+  });
+
+const fetchMyServices = async () => {
+  const firstResponse = await getMyServicesPage(1);
+  const pageCount = extractTotalPages(firstResponse);
+  const otherResponses =
+    pageCount > 1
+      ? await Promise.all(
+          Array.from({ length: pageCount - 1 }, (_, index) =>
+            getMyServicesPage(index + 2)
+          )
+        )
+      : [];
+
+  return [firstResponse, ...otherResponses]
+    .flatMap((response) => extractList(response))
+    .map(normalizeService)
+    .filter((service) => service.id);
+};
+
 const buildPackagePayload = (packageItem) => ({
   name: packageItem.packageName.trim(),
   recurrence:
@@ -1501,7 +1551,7 @@ export default function BecomePartnerFlow() {
 
   const loadProviderData = async ({ showPartialError = true } = {}) => {
     const [servicesResult, packagesResult] = await Promise.allSettled([
-      getMyServices({ language: LANGUAGE, page: 1, search: "" }),
+      fetchMyServices(),
       getMyPackages({ page: 1 }),
     ]);
 
@@ -1539,8 +1589,7 @@ export default function BecomePartnerFlow() {
     }
 
     if (servicesResult.status === "fulfilled") {
-      const services = extractList(servicesResult.value).map(normalizeService);
-      setSavedServices(await enrichServicesWithDetails(services));
+      setSavedServices(await enrichServicesWithDetails(servicesResult.value));
     }
 
     if (packagesResult.status === "fulfilled") {
