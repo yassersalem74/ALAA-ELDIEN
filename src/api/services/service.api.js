@@ -99,13 +99,16 @@ const logApiResponse = (label, data) => {
 export const addService = async (data) => {
   logApiPayload("POST /api/v1/services request", data);
 
-  const res = await api.post(SERVICE_ENDPOINTS.ADD_SERVICE, data, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  try {
+    const res = await api.post(SERVICE_ENDPOINTS.ADD_SERVICE, data);
 
-  logApiResponse("POST /api/v1/services response", res.data);
+    logApiResponse("POST /api/v1/services response", res.data);
 
-  return res.data;
+    return res.data;
+  } catch (error) {
+    logApiResponse("POST /api/v1/services error", error?.response?.data);
+    throw error;
+  }
 };
 
 export const getServices = async (params) => {
@@ -116,13 +119,16 @@ export const getServices = async (params) => {
 export const updateService = async (id, data) => {
   logApiPayload(`PUT /api/v1/services/${id} request`, data);
 
-  const res = await api.put(`${SERVICE_ENDPOINTS.UPDATE_SERVICE}/${id}`, data, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  try {
+    const res = await api.put(`${SERVICE_ENDPOINTS.UPDATE_SERVICE}/${id}`, data);
 
-  logApiResponse(`PUT /api/v1/services/${id} response`, res.data);
+    logApiResponse(`PUT /api/v1/services/${id} response`, res.data);
 
-  return res.data;
+    return res.data;
+  } catch (error) {
+    logApiResponse(`PUT /api/v1/services/${id} error`, error?.response?.data);
+    throw error;
+  }
 };
 
 export const deleteService = async (id) => {
@@ -138,7 +144,12 @@ export const getServiceDetails = async (id, language = "en") => {
 };
 
 export const getMyServices = async (params) => {
-  const res = await api.get(SERVICE_ENDPOINTS.GET_MY_SERVICES, { params });
+  const res = await api.get(SERVICE_ENDPOINTS.GET_MY_SERVICES, {
+    params: {
+      ...params,
+      isMine: true,
+    },
+  });
   return res.data;
 };
 

@@ -8,8 +8,6 @@ import {
 } from "../../../../api/auth/auth.api";
 import {
   addService,
-  createOrUpdateAgendas,
-  createOrUpdateItems,
   deletePackage,
   deleteService,
   getMyPackages,
@@ -126,14 +124,6 @@ const toOption = (item) => ({
   value: item.id,
   label: item.name,
 });
-
-const getServiceIdFromResponse = (response) => {
-  const data = extractPayloadData(response);
-
-  if (typeof data === "string") return data;
-
-  return data?.id || data?.serviceId || response?.id || response?.serviceId;
-};
 
 const normalizeTextValue = (value) => String(value || "").trim().replace(/\s+/g, " ");
 
@@ -584,7 +574,7 @@ const normalizeServicePayload = (service) => {
 const buildServiceFormData = (
   details,
   isUpdate = false,
-  { includeImageFiles = true } = {}
+  { includeImageFiles = true, items, availability: serviceAvailability } = {}
 ) => {
   const formData = new FormData();
 
@@ -600,6 +590,17 @@ const buildServiceFormData = (
   formData.append("description", normalizeTextValue(details.description));
   formData.append("subDescription", String(details.longDescription || "").trim());
   formData.append("neighborhoodId", details.coverageArea);
+
+  if (items !== undefined) {
+    formData.append("itemsJson", JSON.stringify(buildItemsPayload(items).items));
+  }
+
+  if (serviceAvailability !== undefined) {
+    formData.append(
+      "agendasJson",
+      JSON.stringify(buildAgendasPayload(serviceAvailability).agendas)
+    );
+  }
 
   if (isUpdate) {
     formData.append("isAvailable", true);
@@ -741,9 +742,9 @@ const buildAgendasPayload = (availability) => ({
     const dayWindow = getAvailabilityDayWindow(availability, normalizedDay);
 
     agendas.push({
-      day: normalizedDay,
-      from: dayWindow.dailyWindow ? "00:00" : toAgendaTime(dayWindow.startHour),
-      to: dayWindow.dailyWindow ? "23:59" : toAgendaTime(dayWindow.endHour),
+      Day: normalizedDay,
+      From: dayWindow.dailyWindow ? "00:00" : toAgendaTime(dayWindow.startHour),
+      To: dayWindow.dailyWindow ? "23:59" : toAgendaTime(dayWindow.endHour),
     });
 
     return agendas;
@@ -753,13 +754,13 @@ const buildAgendasPayload = (availability) => ({
 const normalizeServiceItemsForApi = (items) =>
   (items || [])
     .map((item) => ({
-      name: normalizeTextValue(item.itemName || item.name || item.serviceItemName),
-      price: Number(item.price ?? item.itemPrice ?? item.serviceItemPrice ?? 0) || 0,
-      description: String(
+      Name: normalizeTextValue(item.itemName || item.name || item.serviceItemName),
+      Price: Number(item.price ?? item.itemPrice ?? item.serviceItemPrice ?? 0) || 0,
+      Description: String(
         item.description || item.itemDescription || item.serviceItemDescription || ""
       ).trim(),
     }))
-    .filter((item) => item.name);
+    .filter((item) => item.Name);
 
 const buildItemsPayload = (items) => ({
   items: normalizeServiceItemsForApi(items),
@@ -1216,6 +1217,8 @@ const isProviderRole = (role) =>
 const hasProviderToken = () =>
   getTokenRoles(getAuthToken()).some(isProviderRole);
 
+const hasTokenRoleClaims = () => getTokenRoles(getAuthToken()).length > 0;
+
 const collectRoleValues = (source, seen = new Set()) => {
   if (!source) return [];
 
@@ -1329,7 +1332,10 @@ const getApiErrorMessage = (error, fallbackMessage) => {
       ? Object.values(data.errors).flat().filter(Boolean).join(" ")
       : "";
   const message =
+    data?.Error?.Message ||
+    data?.Error?.Code ||
     data?.error?.message ||
+    data?.error?.code ||
     data?.message ||
     data?.title ||
     validationMessage ||
@@ -1389,24 +1395,27 @@ const logCreateServiceFlowDebug = (label, data) => {
   console.groupEnd();
 };
 
-const saveItemsIfPossible = async (serviceId, items, { allowEmpty = false } = {}) => {
-  const payload = buildItemsPayload(items);
-
-  if (!allowEmpty && payload.items.length === 0) return;
-
-  await createOrUpdateItems(serviceId, payload);
-};
 const ensureProviderRole = async () => {
+  const tokenAlreadyHasProviderRole = hasProviderToken();
+
   try {
     if (await getHasProviderAccountRole()) {
-      return true;
+      if (!hasTokenRoleClaims() || tokenAlreadyHasProviderRole) {
+        return true;
+      }
+
+      throw new Error("PROVIDER_TOKEN_REFRESH_REQUIRED");
     }
   } catch (error) {
+    if (isStaleProviderTokenError(error)) {
+      throw error;
+    }
+
     if (isUnauthorizedError(error) || isForbiddenError(error)) {
       throw error;
     }
 
-    if (hasProviderToken()) {
+    if (tokenAlreadyHasProviderRole) {
       return true;
     }
   }
@@ -1417,6 +1426,10 @@ const ensureProviderRole = async () => {
     response = await changeRole(PROVIDER_ROLE);
   } catch (error) {
     if (isConflictError(error)) {
+      if (hasTokenRoleClaims() && !hasProviderToken()) {
+        throw new Error("PROVIDER_TOKEN_REFRESH_REQUIRED");
+      }
+
       return true;
     }
 
@@ -1426,15 +1439,26 @@ const ensureProviderRole = async () => {
   const nextToken = extractAuthToken(response);
   storeAuthToken(nextToken);
 
-  if (getProfileRoles(response).some(isProviderRole)) {
+  if (
+    getProfileRoles(response).some(isProviderRole) &&
+    (!hasTokenRoleClaims() || hasProviderToken())
+  ) {
     return true;
   }
 
   try {
     if (await getHasProviderAccountRole()) {
+      if (hasTokenRoleClaims() && !hasProviderToken()) {
+        throw new Error("PROVIDER_TOKEN_REFRESH_REQUIRED");
+      }
+
       return true;
     }
   } catch (error) {
+    if (isStaleProviderTokenError(error)) {
+      throw error;
+    }
+
     if (isUnauthorizedError(error) || isForbiddenError(error)) {
       throw error;
     }
@@ -1458,7 +1482,6 @@ export default function BecomePartnerFlow() {
   const [selectedPartnerType, setSelectedPartnerType] = useState("");
   const [serviceDetails, setServiceDetails] = useState(createEmptyServiceDetails);
   const [serviceItems, setServiceItems] = useState([]);
-  const [draftServiceId, setDraftServiceId] = useState("");
   const [availability, setAvailability] = useState(createEmptyAvailabilityData);
   const [uploadError, setUploadError] = useState("");
   const [savedServices, setSavedServices] = useState([]);
@@ -1472,7 +1495,6 @@ export default function BecomePartnerFlow() {
   const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
   const [hasProviderAccess, setHasProviderAccess] = useState(false);
   const [isActivatingProvider, setIsActivatingProvider] = useState(false);
-  const [isPreparingService, setIsPreparingService] = useState(false);
   const [isSavingService, setIsSavingService] = useState(false);
   const [toast, setToast] = useState(null);
   const hasFetchedInitialData = useRef(false);
@@ -1640,7 +1662,6 @@ export default function BecomePartnerFlow() {
         return;
       }
 
-      await loadProviderData();
     };
 
     fetchInitialData();
@@ -1680,7 +1701,6 @@ export default function BecomePartnerFlow() {
     setSelectedPartnerType(emptyDraft.selectedPartnerType);
     setServiceDetails(emptyDraft.serviceDetails);
     setServiceItems(emptyDraft.serviceItems);
-    setDraftServiceId("");
     setAvailability(emptyDraft.availability);
     setUploadError("");
   };
@@ -1954,45 +1974,24 @@ export default function BecomePartnerFlow() {
     return true;
   };
 
-  const saveDraftServiceAndItems = async () => {
-    if (draftServiceId) {
-      try {
-        await updateService(
-          draftServiceId,
-          buildServiceFormData(serviceDetails, true, {
-            includeImageFiles: false,
-          })
-        );
-      } catch (error) {
-        if (!isNoChangesDetectedError(error)) {
-          throw error;
-        }
-      }
-
-      await saveItemsIfPossible(draftServiceId, serviceItems);
-      return draftServiceId;
-    }
-
-    const response = await addService(buildServiceFormData(serviceDetails));
-    const serviceId = getServiceIdFromResponse(response);
-
-    if (!serviceId) {
-      throw new Error("SERVICE_ID_MISSING");
-    }
+  const createServiceWithFullPayload = async () => {
+    const response = await addService(
+      buildServiceFormData(serviceDetails, false, {
+        items: serviceItems,
+        availability,
+      })
+    );
 
     logCreateServiceFlowDebug("service saved", {
       response,
-      serviceId,
       serviceDetails: serializeServiceDetailsForDebug(serviceDetails),
       serviceItems,
       availability,
+      itemsPayload: buildItemsPayload(serviceItems),
       agendasPayload: buildAgendasPayload(availability),
     });
 
-    setDraftServiceId(serviceId);
-    await saveItemsIfPossible(serviceId, serviceItems);
-
-    return serviceId;
+    return response;
   };
 
   const handleServiceSaveError = async (error, fallbackMessage) => {
@@ -2018,17 +2017,6 @@ export default function BecomePartnerFlow() {
       return true;
     }
 
-    if (error.message === "SERVICE_ID_MISSING") {
-      await loadProviderData({ showPartialError: false });
-      setToast({
-        id: Date.now(),
-        type: "error",
-        message:
-          "Service was saved, but the API did not return its id to save items and availability.",
-      });
-      return true;
-    }
-
     setToast({
       id: Date.now(),
       type: "error",
@@ -2037,8 +2025,8 @@ export default function BecomePartnerFlow() {
     return true;
   };
 
-  const handlePrepareServiceForAvailability = async () => {
-    if (isPreparingService || isSavingService) return;
+  const handlePrepareServiceForAvailability = () => {
+    if (isSavingService) return;
 
     const validationMessage = validateServiceDetailsForApi(serviceDetails);
 
@@ -2051,25 +2039,11 @@ export default function BecomePartnerFlow() {
       return;
     }
 
-    if (!(await ensureServiceSaveAccess())) return;
-
-    setIsPreparingService(true);
-
-    try {
-      await saveDraftServiceAndItems();
-      setCurrentStep(4);
-    } catch (error) {
-      await handleServiceSaveError(
-        error,
-        "Failed to save service details. Please try again."
-      );
-    } finally {
-      setIsPreparingService(false);
-    }
+    setCurrentStep(4);
   };
 
   const handleSaveService = async () => {
-    if (isSavingService || isPreparingService) return;
+    if (isSavingService) return;
 
     const validationMessage = validateServiceDetailsForApi(serviceDetails);
     const availabilityValidationMessage = validateAvailabilityForApi(availability);
@@ -2099,16 +2073,7 @@ export default function BecomePartnerFlow() {
         return;
       }
 
-      if (!draftServiceId) {
-        setToast({
-          id: Date.now(),
-          type: "error",
-          message: "Please save service details before saving availability.",
-        });
-        return;
-      }
-
-      await createOrUpdateAgendas(draftServiceId, agendasPayload);
+      await createServiceWithFullPayload();
 
       if (!(await loadProviderData({ showPartialError: false }))) {
         return;
@@ -2116,7 +2081,7 @@ export default function BecomePartnerFlow() {
       setToast({
         id: Date.now(),
         type: "success",
-        message: "Availability has been saved successfully.",
+        message: "Service has been saved successfully.",
       });
 
       resetDraft();
@@ -2125,7 +2090,7 @@ export default function BecomePartnerFlow() {
     } catch (error) {
       await handleServiceSaveError(
         error,
-        "Service was saved, but availability could not be saved."
+        "Failed to save service. Please try again."
       );
     } finally {
       setIsSavingService(false);
@@ -2239,21 +2204,19 @@ export default function BecomePartnerFlow() {
 
     try {
       try {
-        await updateService(nextService.id, buildServiceFormData(nextService, true));
+        await updateService(
+          nextService.id,
+          buildServiceFormData(nextService, true, {
+            items: nextService.items || [],
+            availability: hasAvailabilityDays(nextService.availability)
+              ? nextService.availability
+              : undefined,
+          })
+        );
       } catch (error) {
         if (!isNoChangesDetectedError(error)) {
           throw error;
         }
-      }
-
-      await saveItemsIfPossible(nextService.id, nextService.items || [], {
-        allowEmpty: true,
-      });
-      if (hasAvailabilityDays(nextService.availability)) {
-        await createOrUpdateAgendas(
-          nextService.id,
-          buildAgendasPayload(nextService.availability)
-        );
       }
 
       await loadProviderData({ showPartialError: false });
@@ -2460,9 +2423,21 @@ export default function BecomePartnerFlow() {
           return;
         }
 
-        await createOrUpdateItems(
+        if (!selectedService) {
+          setToast({
+            id: Date.now(),
+            type: "error",
+            message: "Please choose a saved service before saving package features.",
+          });
+          return;
+        }
+
+        await updateService(
           nextPackage.serviceId,
-          buildFeatureItemsPayload(featureNames, selectedService)
+          buildServiceFormData(selectedService, true, {
+            includeImageFiles: false,
+            items: buildFeatureItemsPayload(featureNames, selectedService).items,
+          })
         );
       }
 
@@ -2869,7 +2844,7 @@ export default function BecomePartnerFlow() {
               onBack={() => setCurrentStep(2)}
               onNext={handlePrepareServiceForAvailability}
               onStepClick={handleWizardStepClick}
-              isSaving={isPreparingService}
+              isSaving={false}
             />
           )}
           {currentStep === 4 && (

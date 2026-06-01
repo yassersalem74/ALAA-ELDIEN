@@ -4,7 +4,7 @@ export const SERVICE_ENDPOINTS = {
   UPDATE_SERVICE: "/api/v1/services",
   DELETE_SERVICE: "/api/v1/services",
   GET_SERVICE_DETAILS: "/api/v1/services",
-  GET_MY_SERVICES: "/api/v1/services/me",
+  GET_MY_SERVICES: "/api/v1/services",
   ADD_PACKAGE: "/api/v1/packages",
   UPDATE_PACKAGE: "/api/v1/packages",
   DELETE_PACKAGE: "/api/v1/packages",
