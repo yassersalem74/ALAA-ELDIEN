@@ -1,7 +1,14 @@
 import axios from "axios";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "https://alaaeldin.runasp.net";
+
+export const publicApi = axios.create({
+  baseURL: API_BASE_URL,
+});
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "https://alaaeldin.runasp.net",
+  baseURL: API_BASE_URL,
   // withCredentials: true,
 });
 
@@ -16,6 +23,14 @@ const getCookie = (name) => {
 };
 
 api.interceptors.request.use((config) => {
+  if (config.skipAuth) {
+    if (config.headers) {
+      delete config.headers.Authorization;
+    }
+    delete config.skipAuth;
+    return config;
+  }
+
   const token =
     typeof window !== "undefined"
       ? localStorage.getItem("token") || getCookie("alaa_auth_token")

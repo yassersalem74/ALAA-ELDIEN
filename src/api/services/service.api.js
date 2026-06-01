@@ -1,4 +1,4 @@
-import api from "../api.js";
+import api, { publicApi } from "../api.js";
 import { SERVICE_ENDPOINTS } from "./service.endpoints.js";
 
 const normalizeAgendaPayload = (data, wrapperKey = "agendas") => {
@@ -32,6 +32,22 @@ const normalizeItemsPayload = (data) => {
 };
 
 const isDebugLoggingEnabled = () => import.meta.env.DEV;
+
+const getCookie = (name) => {
+  if (typeof document === "undefined") return "";
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.split("=").slice(1).join("=")) : "";
+};
+
+const hasStoredAuthToken = () =>
+  typeof window !== "undefined" &&
+  Boolean(localStorage.getItem("token") || getCookie("alaa_auth_token"));
+
+const isUnauthorizedError = (error) => error?.response?.status === 401;
 
 const serializeDebugValue = (value) => {
   if (typeof File !== "undefined" && value instanceof File) {
@@ -112,8 +128,17 @@ export const addService = async (data) => {
 };
 
 export const getServices = async (params) => {
-  const res = await api.get(SERVICE_ENDPOINTS.GET_SERVICES, { params });
-  return res.data;
+  try {
+    const res = await publicApi.get(SERVICE_ENDPOINTS.GET_SERVICES, { params });
+    return res.data;
+  } catch (error) {
+    if (!isUnauthorizedError(error) || !hasStoredAuthToken()) {
+      throw error;
+    }
+
+    const res = await api.get(SERVICE_ENDPOINTS.GET_SERVICES, { params });
+    return res.data;
+  }
 };
 
 export const updateService = async (id, data) => {
@@ -137,10 +162,21 @@ export const deleteService = async (id) => {
 };
 
 export const getServiceDetails = async (id, language = "en") => {
-  const res = await api.get(`${SERVICE_ENDPOINTS.GET_SERVICE_DETAILS}/${id}`, {
-    params: { language },
-  });
-  return res.data;
+  try {
+    const res = await publicApi.get(`${SERVICE_ENDPOINTS.GET_SERVICE_DETAILS}/${id}`, {
+      params: { language },
+    });
+    return res.data;
+  } catch (error) {
+    if (!isUnauthorizedError(error) || !hasStoredAuthToken()) {
+      throw error;
+    }
+
+    const res = await api.get(`${SERVICE_ENDPOINTS.GET_SERVICE_DETAILS}/${id}`, {
+      params: { language },
+    });
+    return res.data;
+  }
 };
 
 export const getMyServices = async (params) => {
