@@ -5,6 +5,7 @@ export const AUTH_ENDPOINTS = {
   COMPANY_VERIFY_EMAIL: "/api/v1/authentication/company/verify-email",
   RESEND_EMAIL_VERIFICATION: "/api/v1/authentication/resend-email-verification",
   LOGIN: "/api/v1/authentication/login",
+  REFRESH_TOKEN: "/api/v1/authentication/refresh-token",
   FORGET_PASSWORD: "/api/v1/authentication/forget-password",
   RESET_PASSWORD: "/api/v1/authentication/reset-password",
   PERSONAL_INFORMATION: "/api/v1/users/me",

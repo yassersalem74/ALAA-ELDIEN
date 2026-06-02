@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  clearStoredAuthSession,
+  storeAuthTokens,
+} from "../api/api";
 import { AuthContext } from "./authContext";
 
 const AUTH_COOKIE_NAME = "alaa_auth_session";
 const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
+const REFRESH_TOKEN_COOKIE_NAME = "alaa_refresh_token";
 const ACCOUNT_TYPE_COOKIE_NAME = "alaa_account_type";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const LOCAL_STORAGE_KEYS = ["accountType", "loggedInAs", "token", "user", "userRole"];
 
 const canUseBrowserStorage = () => typeof window !== "undefined";
 
@@ -27,12 +31,6 @@ const setCookie = (name, value) => {
   )}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
 };
 
-const deleteCookie = (name) => {
-  if (!canUseBrowserStorage()) return;
-
-  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
-};
-
 const readStoredUser = () => {
   if (!canUseBrowserStorage()) return null;
 
@@ -49,12 +47,15 @@ const getInitialAuthState = () => {
     return {
       accountType: "",
       token: "",
+      refreshToken: "",
       user: null,
+      userRole: "",
       isAuthenticated: false,
     };
   }
 
   const token = getCookie(AUTH_TOKEN_COOKIE_NAME);
+  const refreshToken = getCookie(REFRESH_TOKEN_COOKIE_NAME);
   const hasSession = Boolean(getCookie(AUTH_COOKIE_NAME) || token);
   const accountType =
     getCookie(ACCOUNT_TYPE_COOKIE_NAME) ||
@@ -63,6 +64,7 @@ const getInitialAuthState = () => {
   return {
     accountType,
     token,
+    refreshToken,
     user: hasSession ? readStoredUser() : null,
     userRole: hasSession ? localStorage.getItem("userRole") || "" : "",
     isAuthenticated: hasSession,
@@ -72,14 +74,10 @@ const getInitialAuthState = () => {
 export function AuthProvider({ children }) {
   const [authState, setAuthState] = useState(getInitialAuthState);
 
-  const login = useCallback(({ accountType, token, user, userRole }) => {
+  const login = useCallback(({ accountType, token, refreshToken, user, userRole }) => {
     setCookie(AUTH_COOKIE_NAME, "true");
     setCookie(ACCOUNT_TYPE_COOKIE_NAME, accountType);
-
-    if (token) {
-      setCookie(AUTH_TOKEN_COOKIE_NAME, token);
-      localStorage.setItem("token", token);
-    }
+    storeAuthTokens({ accessToken: token, refreshToken });
 
     localStorage.setItem("accountType", accountType);
     localStorage.setItem("loggedInAs", accountType);
@@ -92,6 +90,7 @@ export function AuthProvider({ children }) {
     setAuthState({
       accountType,
       token: token || "",
+      refreshToken: refreshToken || "",
       user: user || null,
       userRole: userRole || user?.role || "",
       isAuthenticated: true,
@@ -99,17 +98,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
-    deleteCookie(AUTH_COOKIE_NAME);
-    deleteCookie(AUTH_TOKEN_COOKIE_NAME);
-    deleteCookie(ACCOUNT_TYPE_COOKIE_NAME);
-
-    LOCAL_STORAGE_KEYS.forEach((key) => {
-      localStorage.removeItem(key);
-    });
+    clearStoredAuthSession();
 
     setAuthState({
       accountType: "",
       token: "",
+      refreshToken: "",
       user: null,
       userRole: "",
       isAuthenticated: false,

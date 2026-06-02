@@ -113,12 +113,13 @@ const deleteCookie = (name) => {
 const clearAuthSession = () => {
   if (typeof window === "undefined") return;
 
-  ["token", "user", "accountType", "loggedInAs"].forEach((key) => {
+  ["token", "refreshToken", "user", "accountType", "loggedInAs", "userRole"].forEach((key) => {
     localStorage.removeItem(key);
   });
 
   deleteCookie("alaa_auth_session");
   deleteCookie("alaa_auth_token");
+  deleteCookie("alaa_refresh_token");
   deleteCookie("alaa_account_type");
 };
 

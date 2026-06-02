@@ -3,6 +3,7 @@ import { AUTH_ENDPOINTS } from "./auth.endpoints";
 
 export const registerUser = async (data) => {
   const res = await api.post(AUTH_ENDPOINTS.REGISTER, data, {
+    skipAuth: true,
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -13,6 +14,7 @@ export const registerUser = async (data) => {
 
 export const registerCompany = async (data) => {
   const res = await api.post(AUTH_ENDPOINTS.COMPANY_REGISTER, data, {
+    skipAuth: true,
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -22,37 +24,49 @@ export const registerCompany = async (data) => {
 };
 
 export const verifyEmail = async (data) => {
-  const res = await api.post(AUTH_ENDPOINTS.VERIFY_EMAIL, data);
+  const res = await api.post(AUTH_ENDPOINTS.VERIFY_EMAIL, data, {
+    skipAuth: true,
+  });
 
   return res.data;
 };
 
 export const verifyCompanyEmail = async (data) => {
-  const res = await api.post(AUTH_ENDPOINTS.COMPANY_VERIFY_EMAIL, data);
+  const res = await api.post(AUTH_ENDPOINTS.COMPANY_VERIFY_EMAIL, data, {
+    skipAuth: true,
+  });
 
   return res.data;
 };
 
 export const resendEmailVerification = async (data) => {
-  const res = await api.post(AUTH_ENDPOINTS.RESEND_EMAIL_VERIFICATION, data);
+  const res = await api.post(AUTH_ENDPOINTS.RESEND_EMAIL_VERIFICATION, data, {
+    skipAuth: true,
+  });
 
   return res.data;
 };
 
 export const loginUser = async (data) => {
-  const res = await api.post(AUTH_ENDPOINTS.LOGIN, data);
+  const res = await api.post(AUTH_ENDPOINTS.LOGIN, data, {
+    skipAuth: true,
+  });
 
   return res.data;
 };
 
 export const forgetPassword = async (data) => {
-  const res = await api.post(AUTH_ENDPOINTS.FORGET_PASSWORD, data);
+  const res = await api.post(AUTH_ENDPOINTS.FORGET_PASSWORD, data, {
+    skipAuth: true,
+  });
 
   return res.data;
 };
 
 export const resetPassword = async (data) => {
-  const res = await api.post(AUTH_ENDPOINTS.RESET_PASSWORD, data);
+  const res = await api.post(AUTH_ENDPOINTS.RESET_PASSWORD, data, {
+    skipAuth: true,
+  });
 
   return res.data;
 };

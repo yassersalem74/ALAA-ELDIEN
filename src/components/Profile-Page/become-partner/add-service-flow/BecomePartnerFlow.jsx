@@ -107,6 +107,24 @@ const CATEGORY_UI_VALUES = {
   PersonalCare: "personal-care",
 };
 
+const CATEGORY_DISPLAY_VALUES = {
+  "car-care": "Car Care",
+  "home-service": "Home Care",
+  "personal-care": "Personal Care",
+  Car_Care: "Car Care",
+  Home_Care: "Home Care",
+  Personal_Care: "Personal Care",
+  car_care: "Car Care",
+  home_care: "Home Care",
+  personal_care: "Personal Care",
+  carcare: "Car Care",
+  homecare: "Home Care",
+  personalcare: "Personal Care",
+  "car care": "Car Care",
+  "home care": "Home Care",
+  "personal care": "Personal Care",
+};
+
 const extractPayloadData = (response) => response?.data ?? response;
 
 const extractList = (response) => {
@@ -178,6 +196,23 @@ const normalizeCategoryValue = (value) => {
     parentCategory?.slug ||
     slugValue
   );
+};
+
+const getCategoryDisplayValue = (...values) => {
+  for (const value of values) {
+    const rawValue = String(value || "").trim();
+    if (!rawValue || rawValue === "Service") continue;
+
+    const normalizedValue = normalizeCategoryValue(rawValue);
+    const displayValue =
+      CATEGORY_DISPLAY_VALUES[rawValue] ||
+      CATEGORY_DISPLAY_VALUES[rawValue.toLowerCase()] ||
+      CATEGORY_DISPLAY_VALUES[normalizedValue];
+
+    if (displayValue) return displayValue;
+  }
+
+  return "";
 };
 
 const getCategorySource = (service) =>
@@ -941,7 +976,17 @@ const normalizeService = (servicePayload) => {
     id,
     serviceName: service.name || service.serviceName || "",
     category,
-    categoryName: CATEGORY_API_VALUES[category] || categorySource || category,
+    categoryName:
+      service.serviceCategory ||
+      CATEGORY_API_VALUES[category] ||
+      categorySource ||
+      category,
+    categoryDisplayName: getCategoryDisplayValue(
+      service.serviceCategory,
+      categorySource,
+      category,
+      service.categoryLabel
+    ),
     categoryLabel: service.categoryLabel || getCategoryLabel(category),
     location:
       service.location ||
@@ -1009,6 +1054,8 @@ const mergeServiceForEdit = (baseService, detailsService) => {
     serviceName: detailsService.serviceName || baseService.serviceName,
     category: detailsService.category || baseService.category,
     categoryName: detailsService.categoryName || baseService.categoryName,
+    categoryDisplayName:
+      detailsService.categoryDisplayName || baseService.categoryDisplayName,
     categoryLabel:
       detailsService.category && detailsService.category !== "service"
         ? detailsService.categoryLabel
@@ -1135,9 +1182,20 @@ const fetchMyServices = async () => {
           )
         )
       : [];
+  const responses = [firstResponse, ...otherResponses];
+  const rawServices = responses.flatMap((response) => extractList(response));
 
-  return [firstResponse, ...otherResponses]
-    .flatMap((response) => extractList(response))
+  if (isDebugLoggingEnabled()) {
+    console.groupCollapsed("[Provider Services] my services API objects");
+    console.log("raw response pages", responses);
+    console.log("raw service objects", rawServices);
+    rawServices.forEach((service, index) => {
+      console.log(`service object ${index + 1}`, service);
+    });
+    console.groupEnd();
+  }
+
+  return rawServices
     .map(normalizeService)
     .filter((service) => service.id);
 };
@@ -1361,12 +1419,13 @@ const deleteCookie = (name) => {
 const clearAuthSession = () => {
   if (typeof window === "undefined") return;
 
-  ["token", "user", "accountType", "loggedInAs"].forEach((key) => {
+  ["token", "refreshToken", "user", "accountType", "loggedInAs", "userRole"].forEach((key) => {
     localStorage.removeItem(key);
   });
 
   deleteCookie("alaa_auth_session");
   deleteCookie("alaa_auth_token");
+  deleteCookie("alaa_refresh_token");
   deleteCookie("alaa_account_type");
 };
 
@@ -1452,17 +1511,9 @@ const ensureProviderRole = async () => {
 
   try {
     if (await getHasProviderAccountRole()) {
-      if (!hasTokenRoleClaims() || tokenAlreadyHasProviderRole) {
-        return true;
-      }
-
-      throw new Error("PROVIDER_TOKEN_REFRESH_REQUIRED");
+      return true;
     }
   } catch (error) {
-    if (isStaleProviderTokenError(error)) {
-      throw error;
-    }
-
     if (isUnauthorizedError(error) || isForbiddenError(error)) {
       throw error;
     }
@@ -1478,10 +1529,6 @@ const ensureProviderRole = async () => {
     response = await changeRole(PROVIDER_ROLE);
   } catch (error) {
     if (isConflictError(error)) {
-      if (hasTokenRoleClaims() && !hasProviderToken()) {
-        throw new Error("PROVIDER_TOKEN_REFRESH_REQUIRED");
-      }
-
       return true;
     }
 
@@ -1491,26 +1538,15 @@ const ensureProviderRole = async () => {
   const nextToken = extractAuthToken(response);
   storeAuthToken(nextToken);
 
-  if (
-    getProfileRoles(response).some(isProviderRole) &&
-    (!hasTokenRoleClaims() || hasProviderToken())
-  ) {
+  if (getProfileRoles(response).some(isProviderRole)) {
     return true;
   }
 
   try {
     if (await getHasProviderAccountRole()) {
-      if (hasTokenRoleClaims() && !hasProviderToken()) {
-        throw new Error("PROVIDER_TOKEN_REFRESH_REQUIRED");
-      }
-
       return true;
     }
   } catch (error) {
-    if (isStaleProviderTokenError(error)) {
-      throw error;
-    }
-
     if (isUnauthorizedError(error) || isForbiddenError(error)) {
       throw error;
     }
@@ -1518,10 +1554,6 @@ const ensureProviderRole = async () => {
     if (hasProviderToken()) {
       return true;
     }
-  }
-
-  if (nextToken && !hasProviderToken()) {
-    throw new Error("PROVIDER_TOKEN_REFRESH_REQUIRED");
   }
 
   throw new Error("PROVIDER_ROLE_NOT_ACTIVE");
@@ -2787,7 +2819,14 @@ export default function BecomePartnerFlow() {
       scheduleHeader="Availability"
       priceHeader="Price"
       getName={(service) => service.serviceName}
-      getCategory={(service) => service.categoryName}
+      getCategory={(service) =>
+        service.categoryDisplayName ||
+        getCategoryDisplayValue(
+          service.categoryName,
+          service.category,
+          service.categoryLabel
+        )
+      }
       getPrice={(service) => service.price}
       renderSchedule={renderServiceSchedule}
       onAdd={openServiceFlow}

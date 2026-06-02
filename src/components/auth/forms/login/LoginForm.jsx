@@ -8,6 +8,11 @@ import {
   getMyInformation,
   loginUser,
 } from "../../../../api/auth/auth.api";
+import {
+  extractAccessToken,
+  extractRefreshToken,
+  storeAuthTokens,
+} from "../../../../api/api";
 import { useAuth } from "../../../../context/useAuth";
 
 import loginImage from "../../../../assets/images/auth/login.png";
@@ -26,26 +31,7 @@ const getApiErrorMessage = (error) => {
   return "Invalid email or password.";
 };
 
-const getAuthToken = (data) =>
-  (typeof data?.data === "string" ? data.data : null) ||
-  data?.token ||
-  data?.accessToken ||
-  data?.data?.token ||
-  data?.data?.accessToken ||
-  data?.user?.token;
-
 const getAuthUser = (data) => data?.user || data?.data?.user;
-
-const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-
-const setCookie = (name, value) => {
-  if (typeof document === "undefined" || !value) return;
-
-  document.cookie = `${name}=${encodeURIComponent(
-    value
-  )}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
-};
 
 const decodeJwtPayload = (token) => {
   try {
@@ -197,20 +183,38 @@ export default function LoginForm() {
 
       console.log("LOGIN RESPONSE", res);
 
-      const token = getAuthToken(res);
+      const token = extractAccessToken(res);
+      let activeRefreshToken = extractRefreshToken(res);
+      let activeToken = token;
       const loginUserData = getAuthUser(res);
-      const tokenPayload = token ? decodeJwtPayload(token) : {};
+      let tokenPayload = activeToken ? decodeJwtPayload(activeToken) : {};
 
-      if (token) {
-        localStorage.setItem("token", token);
-        setCookie(AUTH_TOKEN_COOKIE_NAME, token);
-      }
+      storeAuthTokens({
+        accessToken: activeToken,
+        refreshToken: activeRefreshToken,
+      });
 
       const roleRequest = getLoginRoleRequest(accountType);
 
       if (token && roleRequest && getUserRole(tokenPayload) !== roleRequest) {
         try {
-          await changeRole(roleRequest);
+          const roleResponse = await changeRole(roleRequest);
+          const nextToken = extractAccessToken(roleResponse);
+          const nextRefreshToken = extractRefreshToken(roleResponse);
+
+          if (nextToken) {
+            activeToken = nextToken;
+            tokenPayload = decodeJwtPayload(activeToken);
+          }
+
+          if (nextRefreshToken) {
+            activeRefreshToken = nextRefreshToken;
+          }
+
+          storeAuthTokens({
+            accessToken: activeToken,
+            refreshToken: activeRefreshToken,
+          });
         } catch (roleError) {
           if (isNoChangesDetectedError(roleError)) {
             console.log("CHANGE ROLE SKIPPED", roleError?.response?.data);
@@ -271,7 +275,8 @@ export default function LoginForm() {
 
       login({
         accountType: storedAccountType,
-        token,
+        token: activeToken,
+        refreshToken: activeRefreshToken,
         user: currentUser,
         userRole,
       });
