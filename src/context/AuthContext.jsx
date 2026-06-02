@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthContext } from "./authContext";
 
 const AUTH_COOKIE_NAME = "alaa_auth_session";
 const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
 const ACCOUNT_TYPE_COOKIE_NAME = "alaa_account_type";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const LOCAL_STORAGE_KEYS = ["accountType", "loggedInAs", "token", "user"];
+const LOCAL_STORAGE_KEYS = ["accountType", "loggedInAs", "token", "user", "userRole"];
 
 const canUseBrowserStorage = () => typeof window !== "undefined";
 
@@ -64,6 +64,7 @@ const getInitialAuthState = () => {
     accountType,
     token,
     user: hasSession ? readStoredUser() : null,
+    userRole: hasSession ? localStorage.getItem("userRole") || "" : "",
     isAuthenticated: hasSession,
   };
 };
@@ -71,7 +72,7 @@ const getInitialAuthState = () => {
 export function AuthProvider({ children }) {
   const [authState, setAuthState] = useState(getInitialAuthState);
 
-  const login = useCallback(({ accountType, token, user }) => {
+  const login = useCallback(({ accountType, token, user, userRole }) => {
     setCookie(AUTH_COOKIE_NAME, "true");
     setCookie(ACCOUNT_TYPE_COOKIE_NAME, accountType);
 
@@ -82,6 +83,7 @@ export function AuthProvider({ children }) {
 
     localStorage.setItem("accountType", accountType);
     localStorage.setItem("loggedInAs", accountType);
+    localStorage.setItem("userRole", userRole || user?.role || "");
 
     if (user) {
       localStorage.setItem("user", JSON.stringify(user));
@@ -91,6 +93,7 @@ export function AuthProvider({ children }) {
       accountType,
       token: token || "",
       user: user || null,
+      userRole: userRole || user?.role || "",
       isAuthenticated: true,
     });
   }, []);
@@ -108,9 +111,28 @@ export function AuthProvider({ children }) {
       accountType: "",
       token: "",
       user: null,
+      userRole: "",
       isAuthenticated: false,
     });
   }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !authState.isAuthenticated) return undefined;
+
+    const logAuthSnapshot = () => {
+      console.log("[Auth Debug] current user and role", {
+        user: authState.user,
+        role: authState.userRole || authState.user?.role || "",
+        accountType: authState.accountType,
+        loggedInAt: new Date().toISOString(),
+      });
+    };
+
+    logAuthSnapshot();
+    const intervalId = window.setInterval(logAuthSnapshot, 20000);
+
+    return () => window.clearInterval(intervalId);
+  }, [authState.accountType, authState.isAuthenticated, authState.user, authState.userRole]);
 
   const value = useMemo(
     () => ({

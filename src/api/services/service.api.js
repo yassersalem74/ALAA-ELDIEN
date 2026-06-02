@@ -21,13 +21,17 @@ const normalizeItemsPayload = (data) => {
   return {
     items: items
       .map((item) => ({
-        name: String(item.name || item.itemName || item.serviceItemName || "").trim(),
-        price: Number(item.price ?? item.itemPrice ?? item.serviceItemPrice ?? 0) || 0,
-        description: String(
-          item.description || item.itemDescription || item.serviceItemDescription || ""
+        Name: String(item.Name || item.name || item.itemName || item.serviceItemName || "").trim(),
+        Price: Number(item.Price ?? item.price ?? item.itemPrice ?? item.serviceItemPrice ?? 0) || 0,
+        Description: String(
+          item.Description ||
+            item.description ||
+            item.itemDescription ||
+            item.serviceItemDescription ||
+            ""
         ).trim(),
       }))
-      .filter((item) => item.name),
+      .filter((item) => item.Name),
   };
 };
 
@@ -112,6 +116,17 @@ const logApiResponse = (label, data) => {
   console.log(`[Service API] ${label}`, data);
 };
 
+const normalizeServiceQueryParams = (params = {}) =>
+  Object.fromEntries(
+    Object.entries({
+      page: 1,
+      pageSize: 12,
+      language: "en",
+      search: "",
+      ...params,
+    }).filter(([, value]) => value !== undefined && value !== null)
+  );
+
 export const addService = async (data) => {
   logApiPayload("POST /api/v1/services request", data);
 
@@ -127,16 +142,22 @@ export const addService = async (data) => {
   }
 };
 
-export const getServices = async (params) => {
+export const getServices = async (params = {}) => {
+  const queryParams = normalizeServiceQueryParams(params);
+
   try {
-    const res = await publicApi.get(SERVICE_ENDPOINTS.GET_SERVICES, { params });
+    const res = await publicApi.get(SERVICE_ENDPOINTS.GET_SERVICES, {
+      params: queryParams,
+    });
     return res.data;
   } catch (error) {
     if (!isUnauthorizedError(error) || !hasStoredAuthToken()) {
       throw error;
     }
 
-    const res = await api.get(SERVICE_ENDPOINTS.GET_SERVICES, { params });
+    const res = await api.get(SERVICE_ENDPOINTS.GET_SERVICES, {
+      params: queryParams,
+    });
     return res.data;
   }
 };
@@ -162,6 +183,19 @@ export const deleteService = async (id) => {
 };
 
 export const getServiceDetails = async (id, language = "en") => {
+  if (hasStoredAuthToken()) {
+    try {
+      const res = await api.get(`${SERVICE_ENDPOINTS.GET_SERVICE_DETAILS}/${id}`, {
+        params: { language },
+      });
+      return res.data;
+    } catch (error) {
+      if (!isUnauthorizedError(error)) {
+        throw error;
+      }
+    }
+  }
+
   try {
     const res = await publicApi.get(`${SERVICE_ENDPOINTS.GET_SERVICE_DETAILS}/${id}`, {
       params: { language },
@@ -179,12 +213,13 @@ export const getServiceDetails = async (id, language = "en") => {
   }
 };
 
-export const getMyServices = async (params) => {
+export const getMyServices = async (params = {}) => {
   const res = await api.get(SERVICE_ENDPOINTS.GET_MY_SERVICES, {
-    params: {
-      ...params,
+    params: normalizeServiceQueryParams({
+      pageSize: 50,
       isMine: true,
-    },
+      ...params,
+    }),
   });
   return res.data;
 };

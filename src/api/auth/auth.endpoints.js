@@ -9,6 +9,8 @@ export const AUTH_ENDPOINTS = {
   RESET_PASSWORD: "/api/v1/authentication/reset-password",
   PERSONAL_INFORMATION: "/api/v1/users/me",
   GET_MY_INFORMATION: "/api/v1/users/me",
+  DELETE_MY_ACCOUNT: "/api/v1/users/me",
+  CHANGE_PASSWORD: "/api/v1/users/me/change-password",
   CHANGE_ROLE: "/api/v1/users/me/change-role",
   GOVERNORATES: "/api/v1/governorates",
   NEIGHBORHOODS: "/api/v1/neighborhoods",

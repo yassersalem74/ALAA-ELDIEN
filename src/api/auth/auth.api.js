@@ -69,6 +69,18 @@ export const getMyInformation = async () => {
   return res.data;
 };
 
+export const deleteMyAccount = async () => {
+  const res = await api.delete(AUTH_ENDPOINTS.DELETE_MY_ACCOUNT);
+
+  return res.data;
+};
+
+export const changePassword = async (data) => {
+  const res = await api.post(AUTH_ENDPOINTS.CHANGE_PASSWORD, data);
+
+  return res.data;
+};
+
 export const changeRole = async (role = "Provider") => {
   const res = await api.post(AUTH_ENDPOINTS.CHANGE_ROLE, { role });
 

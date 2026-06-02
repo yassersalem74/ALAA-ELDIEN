@@ -3,7 +3,11 @@ import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router-dom";
 import PasswordToggle from "../../../common/PasswordToggle";
 import Toast from "../../../common/Toast";
-import { loginUser } from "../../../../api/auth/auth.api";
+import {
+  changeRole,
+  getMyInformation,
+  loginUser,
+} from "../../../../api/auth/auth.api";
 import { useAuth } from "../../../../context/useAuth";
 
 import loginImage from "../../../../assets/images/auth/login.png";
@@ -31,6 +35,93 @@ const getAuthToken = (data) =>
   data?.user?.token;
 
 const getAuthUser = (data) => data?.user || data?.data?.user;
+
+const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+
+const setCookie = (name, value) => {
+  if (typeof document === "undefined" || !value) return;
+
+  document.cookie = `${name}=${encodeURIComponent(
+    value
+  )}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+};
+
+const decodeJwtPayload = (token) => {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return {};
+
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
+      "="
+    );
+
+    return JSON.parse(atob(paddedPayload));
+  } catch {
+    return {};
+  }
+};
+
+const firstPresentValue = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
+
+const collectRoleValues = (value, seen = new Set()) => {
+  if (value === undefined || value === null || seen.has(value)) return [];
+
+  if (typeof value !== "object") return [value];
+
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectRoleValues(item, seen));
+  }
+
+  const roleKeys = [
+    "role",
+    "roles",
+    "userRole",
+    "accountRole",
+    "accountType",
+    "type",
+    "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+  ];
+
+  return roleKeys.flatMap((key) => collectRoleValues(value[key], seen));
+};
+
+const getUserRole = (...sources) =>
+  sources
+    .flatMap((source) => collectRoleValues(source))
+    .map((role) => String(role || "").trim())
+    .find(Boolean) || "";
+
+const normalizeStoredAccountType = (role, fallbackAccountType) => {
+  const normalizedRole = String(role || "").trim().toLowerCase();
+
+  if (normalizedRole.includes("company")) return "company";
+  if (normalizedRole.includes("provider") || normalizedRole.includes("customer")) {
+    return "individual";
+  }
+
+  return fallbackAccountType;
+};
+
+const getLoginRoleRequest = (accountType) =>
+  accountType === "individual" ? "Provider" : "";
+
+const isNoChangesDetectedError = (error) => {
+  const data = error?.response?.data;
+  const message =
+    data?.error?.message ||
+    data?.error?.code ||
+    data?.message ||
+    data?.code ||
+    "";
+
+  return error?.response?.status === 409 && String(message).includes("NoChangesDetected");
+};
 
 const ACCOUNT_TYPE_OPTIONS = [
   { id: "individual", label: "Provider" },
@@ -107,23 +198,58 @@ export default function LoginForm() {
       console.log("LOGIN RESPONSE", res);
 
       const token = getAuthToken(res);
-      const user = getAuthUser(res);
+      const loginUserData = getAuthUser(res);
+      const tokenPayload = token ? decodeJwtPayload(token) : {};
+
+      if (token) {
+        localStorage.setItem("token", token);
+        setCookie(AUTH_TOKEN_COOKIE_NAME, token);
+      }
+
+      const roleRequest = getLoginRoleRequest(accountType);
+
+      if (token && roleRequest && getUserRole(tokenPayload) !== roleRequest) {
+        try {
+          await changeRole(roleRequest);
+        } catch (roleError) {
+          if (isNoChangesDetectedError(roleError)) {
+            console.log("CHANGE ROLE SKIPPED", roleError?.response?.data);
+          } else {
+            console.error("CHANGE ROLE API ERROR", roleError?.response?.data || roleError);
+          }
+        }
+      }
+
+      let user = loginUserData;
+
+      try {
+        const meResponse = await getMyInformation();
+        user = meResponse?.data || meResponse?.user || meResponse || user;
+        console.log("GET CURRENT USER RESPONSE", meResponse);
+      } catch (meError) {
+        console.error("GET CURRENT USER API ERROR", meError?.response?.data || meError);
+      }
+
+      const userRole = getUserRole(user, tokenPayload, roleRequest);
+      const storedAccountType = normalizeStoredAccountType(userRole, accountType);
+      const userObject = user && typeof user === "object" ? user : {};
       const currentUser = {
-        ...(user || {}),
+        ...userObject,
         email: data.email,
-        accountType,
+        accountType: storedAccountType,
+        role: userRole,
       };
 
       const userAccountType = normalizeAccountType(
-        user?.accountType || user?.type || user?.role || accountType
+        firstPresentValue(user?.accountType, user?.type, userRole, storedAccountType)
       );
 
-      if (userAccountType && userAccountType !== accountType) {
+      if (userAccountType && userAccountType !== storedAccountType) {
         const errorMessage = "Invalid email or password.";
         
         console.error("ACCOUNT TYPE MISMATCH", {
           email: data.email,
-          selectedType: accountType,
+          selectedType: storedAccountType,
           actualType: userAccountType,
           timestamp: new Date().toISOString(),
         });
@@ -136,21 +262,24 @@ export default function LoginForm() {
       // Log successful login
       console.log("LOGIN SUCCESSFUL", {
         email: data.email,
-        accountType: accountType,
+        accountType: storedAccountType,
         userType: userAccountType,
+        userRole,
+        user: currentUser,
         timestamp: new Date().toISOString(),
       });
 
       login({
-        accountType,
+        accountType: storedAccountType,
         token,
         user: currentUser,
+        userRole,
       });
 
       showToast(
         "success",
         `Logged in successfully as ${getAccountTypeLabel(
-          accountType
+          storedAccountType
         )} with email: ${data.email}.`
       );
 

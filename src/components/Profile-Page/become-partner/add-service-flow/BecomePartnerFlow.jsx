@@ -941,6 +941,7 @@ const normalizeService = (servicePayload) => {
     id,
     serviceName: service.name || service.serviceName || "",
     category,
+    categoryName: CATEGORY_API_VALUES[category] || categorySource || category,
     categoryLabel: service.categoryLabel || getCategoryLabel(category),
     location:
       service.location ||
@@ -1007,6 +1008,7 @@ const mergeServiceForEdit = (baseService, detailsService) => {
     id: detailsService.id || baseService.id,
     serviceName: detailsService.serviceName || baseService.serviceName,
     category: detailsService.category || baseService.category,
+    categoryName: detailsService.categoryName || baseService.categoryName,
     categoryLabel:
       detailsService.category && detailsService.category !== "service"
         ? detailsService.categoryLabel
@@ -2785,7 +2787,7 @@ export default function BecomePartnerFlow() {
       scheduleHeader="Availability"
       priceHeader="Price"
       getName={(service) => service.serviceName}
-      getCategory={(service) => service.categoryLabel}
+      getCategory={(service) => service.categoryName}
       getPrice={(service) => service.price}
       renderSchedule={renderServiceSchedule}
       onAdd={openServiceFlow}
