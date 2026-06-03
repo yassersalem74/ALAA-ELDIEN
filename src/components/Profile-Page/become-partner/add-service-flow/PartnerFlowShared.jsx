@@ -12,7 +12,7 @@ export const TEXTAREA_CLASS_NAME =
   "w-full rounded-2xl border border-[#F3F4F7] bg-[#F3F4F7] px-4 py-3 font-['Roboto'] text-[15px] leading-6 text-[#011C60] outline-none transition placeholder:text-[#9AA6C7] focus:border-[#011C60] focus:bg-white";
 
 export const SELECT_CLASS_NAME =
-  "h-12 w-full appearance-none rounded-2xl border border-[#F3F4F7] bg-[#F3F4F7] px-4 pr-11 font-['Roboto'] text-[15px] leading-6 text-[#011C60] outline-none transition focus:border-[#011C60] focus:bg-white";
+  "h-12 w-full appearance-none rounded-[14px] border border-[#D8DDEB] bg-white px-4 pr-14 font-['Roboto'] text-[14px] font-semibold leading-6 text-[#011C60] outline-none shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)] transition hover:-translate-y-0.5 hover:border-[#EECE42] hover:shadow-[0px_12px_28px_rgba(204,210,223,0.45)] focus:border-[#EECE42] focus:bg-white disabled:cursor-not-allowed disabled:bg-[#F8F9FC] disabled:text-[#9AA6C7] disabled:shadow-none";
 
 export const joinClasses = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -133,21 +133,25 @@ export function FieldLabel({ children }) {
 
 export function SelectArrow() {
   return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9AA6C7]"
+    <span
+      className="pointer-events-none absolute right-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-[#F8F9FC] text-[#808DAF]"
       aria-hidden="true"
     >
-      <path
-        d="M5 7.5L10 12.5L15 7.5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+      <svg
+        viewBox="0 0 20 20"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-5 w-5"
+      >
+        <path
+          d="M5 7.5L10 12.5L15 7.5"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   );
 }
 
