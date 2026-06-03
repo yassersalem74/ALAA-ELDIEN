@@ -142,15 +142,53 @@ const pickImageUrl = (value) => {
   return "";
 };
 
-const getFirstImage = (service) => {
-  const directImage =
-    service.image ||
-    service.imageUrl ||
-    service.serviceImage ||
-    service.coverImage ||
-    service.mainImage;
+const DEFAULT_IMAGE_MARKERS = [
+  "default",
+  "placeholder",
+  "no-image",
+  "no_image",
+  "noimage",
+  "fallback",
+];
 
-  if (directImage) return pickImageUrl(directImage);
+const isApiDefaultImage = (value, imageUrl) => {
+  if (value && typeof value === "object") {
+    const hasDefaultFlag =
+      value.isDefault ||
+      value.isDefaultImage ||
+      value.isPlaceholder ||
+      value.defaultImage;
+
+    if (hasDefaultFlag) return true;
+  }
+
+  const normalizedUrl = String(imageUrl || "").toLowerCase();
+
+  return DEFAULT_IMAGE_MARKERS.some((marker) => normalizedUrl.includes(marker));
+};
+
+const pickRealImageUrl = (value) => {
+  const imageUrl = pickImageUrl(value);
+
+  if (!imageUrl || isApiDefaultImage(value, imageUrl)) return "";
+
+  return imageUrl;
+};
+
+const getFirstImage = (service) => {
+  const directImages = [
+    service.image,
+    service.imageUrl,
+    service.serviceImage,
+    service.coverImage,
+    service.mainImage,
+  ];
+
+  for (const directImage of directImages) {
+    const imageUrl = pickRealImageUrl(directImage);
+
+    if (imageUrl) return imageUrl;
+  }
 
   const imageCollections = [
     service.images,
@@ -163,9 +201,11 @@ const getFirstImage = (service) => {
   for (const collection of imageCollections) {
     if (!Array.isArray(collection) || !collection.length) continue;
 
-    const imageUrl = pickImageUrl(collection[0]);
+    for (const image of collection) {
+      const imageUrl = pickRealImageUrl(image);
 
-    if (imageUrl) return imageUrl;
+      if (imageUrl) return imageUrl;
+    }
   }
 
   return "";
@@ -183,12 +223,13 @@ const getServiceImages = (service, fallbackImage = "") => {
     ...(Array.isArray(service.serviceImages) ? service.serviceImages : []),
     ...(Array.isArray(service.imageFiles) ? service.imageFiles : []),
     ...(Array.isArray(service.files) ? service.files : []),
-    fallbackImage,
   ]
-    .map(pickImageUrl)
+    .map(pickRealImageUrl)
     .filter(Boolean);
 
-  return [...new Set(images)];
+  const realImages = [...new Set(images)];
+
+  return realImages.length ? realImages : [fallbackImage].filter(Boolean);
 };
 
 export const normalizeLocationOptions = (payload) =>
