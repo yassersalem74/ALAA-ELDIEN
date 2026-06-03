@@ -3,11 +3,7 @@ import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router-dom";
 import PasswordToggle from "../../../common/PasswordToggle";
 import Toast from "../../../common/Toast";
-import {
-  changeRole,
-  getMyInformation,
-  loginUser,
-} from "../../../../api/auth/auth.api";
+import { getMyInformation, loginUser } from "../../../../api/auth/auth.api";
 import {
   extractAccessToken,
   extractRefreshToken,
@@ -94,26 +90,6 @@ const normalizeStoredAccountType = (role, fallbackAccountType) => {
   return fallbackAccountType;
 };
 
-const getLoginRoleRequest = (accountType) =>
-  accountType === "individual" ? "Provider" : "";
-
-const isNoChangesDetectedError = (error) => {
-  const data = error?.response?.data;
-  const message =
-    data?.error?.message ||
-    data?.error?.code ||
-    data?.message ||
-    data?.code ||
-    "";
-
-  return error?.response?.status === 409 && String(message).includes("NoChangesDetected");
-};
-
-const ACCOUNT_TYPE_OPTIONS = [
-  { id: "individual", label: "Provider" },
-  { id: "company", label: "Company" },
-];
-
 const ACCOUNT_TYPE_LABELS = {
   individual: "Provider",
   company: "Company",
@@ -132,7 +108,6 @@ const getAccountTypeLabel = (accountType) =>
   ACCOUNT_TYPE_LABELS[accountType] || accountType;
 
 export default function LoginForm() {
-  const [accountType, setAccountType] = useState("individual");
   const [apiError, setApiError] = useState("");
   const [toast, setToast] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -150,10 +125,6 @@ export default function LoginForm() {
   const redirectTo = redirectFrom
     ? `${redirectFrom.pathname}${redirectFrom.search || ""}${redirectFrom.hash || ""}`
     : "/";
-
-  const handleAccountTypeChange = (type) => {
-    setAccountType(type);
-  };
 
   const showToast = (type, message) => {
     setToast({
@@ -194,36 +165,6 @@ export default function LoginForm() {
         refreshToken: activeRefreshToken,
       });
 
-      const roleRequest = getLoginRoleRequest(accountType);
-
-      if (token && roleRequest && getUserRole(tokenPayload) !== roleRequest) {
-        try {
-          const roleResponse = await changeRole(roleRequest);
-          const nextToken = extractAccessToken(roleResponse);
-          const nextRefreshToken = extractRefreshToken(roleResponse);
-
-          if (nextToken) {
-            activeToken = nextToken;
-            tokenPayload = decodeJwtPayload(activeToken);
-          }
-
-          if (nextRefreshToken) {
-            activeRefreshToken = nextRefreshToken;
-          }
-
-          storeAuthTokens({
-            accessToken: activeToken,
-            refreshToken: activeRefreshToken,
-          });
-        } catch (roleError) {
-          if (isNoChangesDetectedError(roleError)) {
-            console.log("CHANGE ROLE SKIPPED", roleError?.response?.data);
-          } else {
-            console.error("CHANGE ROLE API ERROR", roleError?.response?.data || roleError);
-          }
-        }
-      }
-
       let user = loginUserData;
 
       try {
@@ -234,8 +175,12 @@ export default function LoginForm() {
         console.error("GET CURRENT USER API ERROR", meError?.response?.data || meError);
       }
 
-      const userRole = getUserRole(user, tokenPayload, roleRequest);
-      const storedAccountType = normalizeStoredAccountType(userRole, accountType);
+      const userRole = getUserRole(user, tokenPayload);
+      const userAccountType = normalizeAccountType(
+        firstPresentValue(user?.accountType, user?.type, userRole)
+      );
+      const storedAccountType =
+        userAccountType || normalizeStoredAccountType(userRole, "individual");
       const userObject = user && typeof user === "object" ? user : {};
       const currentUser = {
         ...userObject,
@@ -243,25 +188,6 @@ export default function LoginForm() {
         accountType: storedAccountType,
         role: userRole,
       };
-
-      const userAccountType = normalizeAccountType(
-        firstPresentValue(user?.accountType, user?.type, userRole, storedAccountType)
-      );
-
-      if (userAccountType && userAccountType !== storedAccountType) {
-        const errorMessage = "Invalid email or password.";
-        
-        console.error("ACCOUNT TYPE MISMATCH", {
-          email: data.email,
-          selectedType: storedAccountType,
-          actualType: userAccountType,
-          timestamp: new Date().toISOString(),
-        });
-
-        setApiError(errorMessage);
-        showToast("error", errorMessage);
-        return;
-      }
 
       // Log successful login
       console.log("LOGIN SUCCESSFUL", {
@@ -336,27 +262,6 @@ export default function LoginForm() {
               onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)}
               className="space-y-6"
             >
-              {/* Account Type */}
-              <div className="flex justify-center">
-                <div className="flex bg-[#E6E8EF] rounded-xl p-1 text-sm sm:text-lg">
-                  {ACCOUNT_TYPE_OPTIONS.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      aria-pressed={accountType === option.id}
-                      onClick={() => handleAccountTypeChange(option.id)}
-                      className={`px-4 py-1.5 rounded-[10px] transition-all duration-300 ${
-                        accountType === option.id
-                          ? "bg-white text-[#011C60] shadow"
-                          : "cursor-pointer text-[#808DAF]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {apiError && (
                 <p className="text-center text-xs sm:text-sm text-red-500">
                   {apiError}
@@ -469,7 +374,7 @@ export default function LoginForm() {
               <p className="text-center text-[14px] sm:text-[18px] leading-6 text-[#808DAF]">
                 Don’t have an account?{" "}
                 <span
-                 onClick={() => navigate("/signup", { state: { accountType } })}
+                 onClick={() => navigate("/signup")}
                   className="
                         text-[#011C60] font-semibold cursor-pointer
                         
