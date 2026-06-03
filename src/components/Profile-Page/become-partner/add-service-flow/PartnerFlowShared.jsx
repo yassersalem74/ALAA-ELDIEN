@@ -1,4 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
+import FlowBackButton from "../../../common/FlowBackButton";
 import { FLOW_STEPS } from "./partnerFlowData";
 
 export const PANEL_CLASS_NAME =
@@ -97,13 +98,7 @@ export function FlowActions({
 
   return (
     <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
-      <button
-        type="button"
-        onClick={onSecondary}
-        className="min-h-12 min-w-[150px] cursor-pointer rounded-2xl border border-[#011C60] bg-white px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60] transition hover:bg-[#F5F7FC]"
-      >
-        {secondaryLabel}
-      </button>
+      <FlowBackButton onClick={onSecondary} label={secondaryLabel} />
 
       <button
         type="button"

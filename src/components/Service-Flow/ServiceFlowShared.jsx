@@ -1,4 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useEffect, useRef, useState } from "react";
+import FlowBackButton from "../common/FlowBackButton";
 
 const joinClasses = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -207,21 +209,13 @@ export function ChevronDownIcon({
 }
 
 export function BackCircleButton({ onClick, size = "default" }) {
-  const dimensions =
-    size === "large" ? "h-[72px] w-[72px]" : "h-[66px] w-[66px]";
-
   return (
-    <button
-      type="button"
+    <FlowBackButton
       onClick={onClick}
-      aria-label="Go back"
-      className={joinClasses(
-        "flex items-center justify-center rounded-full bg-[#B3BBCF] shadow-[0px_12px_24px_rgba(179,187,207,0.3)] transition hover:-translate-y-0.5 hover:bg-[#9ea8bf] cursor-pointer",
-        dimensions
-      )}
-    >
-      <ArrowLeftIcon className="h-7 w-7" />
-    </button>
+      label="Back"
+      ariaLabel="Go back"
+      className={size === "large" ? "min-h-12" : ""}
+    />
   );
 }
 

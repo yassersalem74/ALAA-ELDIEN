@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getMyPackages } from "../../api/services/service.api";
 import oneTimeServiceImage from "../../assets/images/service/add-service/add-service-flow.png";
 import packageServiceImage from "../../assets/images/service/add-service/add-package-flow.png";
+import FlowBackButton from "../common/FlowBackButton";
 import SectionHeader from "./SectionHeader";
 import { serviceCategories } from "./servicePageData";
 
@@ -426,14 +427,12 @@ export default function ServiceCategoriesSection({ mode = "" }) {
   return (
     <section className="mx-auto w-full max-w-[1290px]">
       {mode === "package" && (
-        <button
-          type="button"
+        <FlowBackButton
           onClick={() => window.history.back()}
-          className="mb-6 flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-[#B3BBCF] font-['Roboto'] text-[28px] font-semibold text-white transition hover:bg-[#9ea8bf]"
-          aria-label="Back to booking options"
-        >
-          &larr;
-        </button>
+          label="Back"
+          ariaLabel="Back to booking options"
+          className="mb-6"
+        />
       )}
 
       {mode === "service" && (

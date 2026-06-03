@@ -424,7 +424,7 @@ export default function AddPackageFlow({
           </div>
 
           <FlowActions
-            secondaryLabel="skip"
+            secondaryLabel="Back"
             onSecondary={onBack}
             primaryLabel="Save Changes"
             onPrimary={handleSave}
