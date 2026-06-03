@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   Navigate,
@@ -9,7 +9,6 @@ import {
 import { getGovernorates, getNeighborhoods } from "../../api/auth/auth.api";
 import { getServices } from "../../api/services/service.api";
 import noServicesImage from "../../assets/images/service/choose-service.png";
-import comingSoonImage from "../../assets/images/service/select-provider.png";
 import { serviceCategories } from "../../components/Service-Page/servicePageData";
 import {
   BackCircleButton,
@@ -40,55 +39,6 @@ const PROVIDER_TYPE_OPTIONS = [
   { id: "alaa-eldien", label: "AlaaEldin" },
 ];
 
-const COMING_SOON_PROVIDER_TYPES = new Set(["alaa-eldien"]);
-
-const normalizeFilterText = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase();
-
-const isLastPageExceededError = (error) => {
-  const data = error?.response?.data;
-  const code = data?.error?.code || data?.code;
-  const message = data?.error?.message || data?.message || data?.error;
-
-  return code === "LastPageExceeded" || message === "LastPageExceeded";
-};
-
-function ComingSoonState({ providerType }) {
-  const title =
-    providerType === "alaa-eldien"
-      ? "AlaaEldin services are coming soon"
-      : "This provider role is coming soon";
-
-  return (
-    <section className="mt-8 overflow-hidden rounded-[24px] border border-[#E6E8EF] bg-white shadow-[0px_16px_44px_rgba(1,28,96,0.08)]">
-      <div className="grid gap-6 p-6 md:grid-cols-[minmax(0,1fr)_320px] md:items-center md:p-8">
-        <div>
-          <span className="inline-flex rounded-full bg-[#FFF4C4] px-4 py-2 font-['Roboto'] text-[13px] font-semibold uppercase text-[#011C60]">
-            Coming Soon
-          </span>
-          <h2 className="mt-5 font-['Roboto'] text-[28px] font-semibold leading-10 text-[#011C60] sm:text-[36px] sm:leading-[48px]">
-            {title}
-          </h2>
-          <p className="mt-3 max-w-[620px] font-['Roboto'] text-[16px] leading-7 text-[#808DAF] sm:text-[18px]">
-            We are preparing this provider experience. For now, Provider and
-            Company services are ready to browse, filter, and book.
-          </p>
-        </div>
-
-        <div className="flex justify-center rounded-[22px] bg-[#F8F9FC] p-6">
-          <img
-            src={comingSoonImage}
-            alt=""
-            className="h-[220px] w-full max-w-[260px] object-contain"
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function NoServicesState() {
   return (
     <section className="rounded-[28px] border border-dashed border-[#CCD2DF] bg-white px-6 py-12 text-center shadow-[0px_14px_34px_rgba(204,210,223,0.28)]">
@@ -114,15 +64,17 @@ export default function ServiceCategoryPage() {
   const [selectedGovernorateId, setSelectedGovernorateId] = useState("");
   const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [allServices, setAllServices] = useState([]);
   const [services, setServices] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalServices, setTotalServices] = useState(0);
   const [governorates, setGovernorates] = useState([]);
   const [neighborhoods, setNeighborhoods] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const previousFilterKeyRef = useRef("");
 
   const category = useMemo(
     () => serviceCategories.find((item) => item.slug === categorySlug),
@@ -133,7 +85,9 @@ export default function ServiceCategoryPage() {
     [location.search]
   );
   const detailSearch = flowMode === "one-time" ? "?mode=one-time" : "";
-  const isComingSoonProvider = COMING_SOON_PROVIDER_TYPES.has(activeProviderType);
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() || selectedGovernorateId || selectedNeighborhoodId
+  );
 
   const governorateOptions = useMemo(
     () => [
@@ -156,37 +110,6 @@ export default function ServiceCategoryPage() {
     ],
     [neighborhoods]
   );
-
-  const filteredServices = useMemo(() => {
-    const searchText = normalizeFilterText(searchQuery);
-
-    return allServices.filter((service) => {
-      const matchesGovernorate =
-        !selectedGovernorateId ||
-        String(service.governorateId) === String(selectedGovernorateId);
-      const matchesNeighborhood =
-        !selectedNeighborhoodId ||
-        String(service.neighborhoodId) === String(selectedNeighborhoodId);
-      const matchesSearch =
-        !searchText ||
-        normalizeFilterText(
-          [
-            service.name,
-            service.description,
-            service.subDescription,
-            service.providerName,
-            service.location,
-          ].join(" ")
-        ).includes(searchText);
-
-      return matchesGovernorate && matchesNeighborhood && matchesSearch;
-    });
-  }, [
-    allServices,
-    searchQuery,
-    selectedGovernorateId,
-    selectedNeighborhoodId,
-  ]);
 
   useEffect(() => {
     let isMounted = true;
@@ -251,88 +174,78 @@ export default function ServiceCategoryPage() {
   }, [selectedGovernorateId]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    activeProviderType,
-    categorySlug,
-    searchQuery,
-    selectedGovernorateId,
-    selectedNeighborhoodId,
-  ]);
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 350);
 
-  useEffect(() => {
-    if (isComingSoonProvider) {
-      setServices([]);
-      setTotalPages(1);
-      return;
-    }
-
-    const nextTotalPages = Math.max(
-      1,
-      Math.ceil(filteredServices.length / PAGE_SIZE)
-    );
-    const safePage = Math.min(currentPage, nextTotalPages);
-    const startIndex = (safePage - 1) * PAGE_SIZE;
-
-    if (safePage !== currentPage) {
-      setCurrentPage(safePage);
-      return;
-    }
-
-    setServices(filteredServices.slice(startIndex, startIndex + PAGE_SIZE));
-    setTotalPages(nextTotalPages);
-  }, [currentPage, filteredServices, isComingSoonProvider]);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (!isSupportedServiceCategory(categorySlug)) return undefined;
-    if (isComingSoonProvider) {
-      return undefined;
-    }
 
     let isMounted = true;
 
     const loadServices = async () => {
+      const filterKey = [
+        activeProviderType,
+        categorySlug,
+        debouncedSearchQuery,
+        selectedGovernorateId,
+        selectedNeighborhoodId,
+      ].join("|");
+
+      if (previousFilterKeyRef.current !== filterKey) {
+        previousFilterKeyRef.current = filterKey;
+
+        if (currentPage !== 1) {
+          setCurrentPage(1);
+          return;
+        }
+      }
+
       setIsLoading(true);
       setErrorMessage("");
 
       const baseParams = {
         category: getApiCategoryName(categorySlug),
+        page: currentPage,
         pageSize: PAGE_SIZE,
         language: SERVICE_LANGUAGE,
+        search: debouncedSearchQuery,
         role: getRoleQueryValue(activeProviderType),
+        governorateId: selectedGovernorateId || undefined,
+        neighborhoodId: selectedNeighborhoodId || undefined,
       };
 
       try {
-        const firstResponse = await getServices({ ...baseParams, page: 1 });
-        const pageCount = extractTotalPages(firstResponse);
-        const otherResponses =
-          pageCount > 1
-            ? await Promise.all(
-                Array.from({ length: pageCount - 1 }, (_, index) =>
-                  getServices({ ...baseParams, page: index + 2 })
-                )
-              )
-            : [];
-        const normalizedServices = [firstResponse, ...otherResponses]
-          .flatMap((response) => extractApiArray(response))
+        const response = await getServices(baseParams);
+        const nextTotalPages = extractTotalPages(response);
+        const normalizedServices = extractApiArray(response)
           .map((service) => normalizeService(service, category?.image))
           .filter((service) => service.id);
+        const responseData = response?.data ?? response;
+        const responseMeta = responseData?.metaData || responseData?.metadata || {};
 
         if (!isMounted) return;
 
-        setAllServices(normalizedServices);
+        if (currentPage > nextTotalPages) {
+          setCurrentPage(nextTotalPages);
+          return;
+        }
+
+        setServices(normalizedServices);
+        setTotalPages(nextTotalPages);
+        setTotalServices(Number(responseMeta.total ?? normalizedServices.length) || 0);
       } catch (error) {
         if (!isMounted) return;
 
-        setAllServices([]);
-
-        if (isLastPageExceededError(error)) {
-          setErrorMessage("");
-        } else {
-          setErrorMessage(
-            getApiErrorMessage(error, "Unable to load services right now.")
-          );
-        }
+        setServices([]);
+        setTotalPages(1);
+        setTotalServices(0);
+        setErrorMessage(
+          getApiErrorMessage(error, "Unable to load services right now.")
+        );
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -347,8 +260,22 @@ export default function ServiceCategoryPage() {
     activeProviderType,
     category?.image,
     categorySlug,
-    isComingSoonProvider,
+    currentPage,
+    debouncedSearchQuery,
+    selectedGovernorateId,
+    selectedNeighborhoodId,
   ]);
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setSelectedGovernorateId("");
+    setSelectedNeighborhoodId("");
+  };
+
+  const handleGovernorateChange = (governorateId) => {
+    setSelectedGovernorateId(governorateId);
+    setSelectedNeighborhoodId("");
+  };
 
   if (!category || !isSupportedServiceCategory(categorySlug)) {
     return <Navigate to="/services" replace />;
@@ -364,7 +291,7 @@ export default function ServiceCategoryPage() {
         <div className="mt-8">
           <ServicePageIntro
             title={category.title}
-            description="Choose from live Provider and Company services, then filter by location."
+            description="Browse services by category, provider type, location, and search."
           />
         </div>
 
@@ -387,10 +314,6 @@ export default function ServiceCategoryPage() {
           </div>
         </div>
 
-        {isComingSoonProvider ? (
-          <ComingSoonState providerType={activeProviderType} />
-        ) : (
-          <>
         <div className="mt-8 rounded-2xl border border-[#E6E8EF] bg-[#E6E8EF40] px-4 py-5 shadow-[0px_4px_16px_0px_rgba(230,232,239,0.35)]">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-1 flex-col gap-4">
@@ -399,7 +322,7 @@ export default function ServiceCategoryPage() {
                   label="Governorate"
                   value={selectedGovernorateId}
                   options={governorateOptions}
-                  onChange={setSelectedGovernorateId}
+                  onChange={handleGovernorateChange}
                   placeholder="All Governorates"
                   leading={<LocationIcon className="h-4 w-4" stroke="#011C60" />}
                   renderValue={(option) => option.label}
@@ -440,6 +363,22 @@ export default function ServiceCategoryPage() {
               Loading location filters...
             </p>
           )}
+
+          <div className="mt-4 flex flex-col gap-3 border-t border-[#E6E8EF] pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-['Roboto'] text-[14px] font-medium text-[#6777A0]">
+              {isLoading
+                ? "Loading services..."
+                : `${totalServices} ${totalServices === 1 ? "service" : "services"} found`}
+            </p>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!hasActiveFilters}
+              className="min-h-10 rounded-xl border border-[#CCD2DF] bg-white px-4 font-['Roboto'] text-[14px] font-semibold text-[#011C60] transition hover:border-[#011C60] hover:bg-[#F8F9FC] disabled:cursor-not-allowed disabled:text-[#9AA6C7]"
+            >
+              Reset filters
+            </button>
+          </div>
         </div>
 
         {errorMessage && (
@@ -528,8 +467,6 @@ export default function ServiceCategoryPage() {
             totalPages={totalPages}
             onPageChange={setCurrentPage}
           />
-        )}
-          </>
         )}
       </div>
     </div>

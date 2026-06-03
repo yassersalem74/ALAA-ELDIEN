@@ -1967,6 +1967,12 @@ export default function BecomePartnerFlow() {
     setServiceItems((currentItems) => [...currentItems, nextItem]);
   };
 
+  const handleRemoveItem = (itemId) => {
+    setServiceItems((currentItems) =>
+      currentItems.filter((item) => item.id !== itemId)
+    );
+  };
+
   const handleAvailabilityFieldChange = (fieldName, value) => {
     setAvailability((currentAvailability) => ({
       ...currentAvailability,
@@ -2899,6 +2905,7 @@ export default function BecomePartnerFlow() {
             <ServiceItemsStep
               items={serviceItems}
               onAddItem={handleAddItem}
+              onRemoveItem={handleRemoveItem}
               onBack={() => setCurrentStep(2)}
               onNext={handlePrepareServiceForAvailability}
               onStepClick={handleWizardStepClick}

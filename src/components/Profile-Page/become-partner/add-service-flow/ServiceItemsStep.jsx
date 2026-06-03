@@ -23,6 +23,7 @@ const createEmptyItem = () => ({
 export default function ServiceItemsStep({
   items,
   onAddItem,
+  onRemoveItem,
   onBack,
   onNext,
   onStepClick,
@@ -95,9 +96,20 @@ export default function ServiceItemsStep({
                   key={item.id}
                   className="rounded-[20px] border border-[#E6E8EF] bg-white p-5 shadow-[0px_12px_24px_rgba(17,27,71,0.05)]"
                 >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EFF3FF]">
-                    <BriefcaseIcon />
-                  </span>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EFF3FF]">
+                      <BriefcaseIcon />
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => onRemoveItem(item.id)}
+                      aria-label={`Remove ${item.itemName}`}
+                      className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#E6E8EF] bg-white font-['Roboto'] text-[18px] font-semibold leading-none text-[#6777A0] transition hover:border-[#DC2626] hover:bg-[#FFF0F0] hover:text-[#DC2626]"
+                    >
+                      x
+                    </button>
+                  </div>
 
                   <h3 className="mt-5 font-['Roboto'] text-[24px] font-medium leading-9 text-[#011C60]">
                     {item.itemName}
