@@ -6,6 +6,8 @@ import packageServiceImage from "../../assets/images/service/add-service/add-pac
 import SectionHeader from "./SectionHeader";
 import { serviceCategories } from "./servicePageData";
 
+const PACKAGE_PAGE_SIZE = 8;
+
 const extractPayloadData = (payload) => payload?.data ?? payload;
 
 const extractList = (payload) => {
@@ -27,17 +29,16 @@ const extractList = (payload) => {
   );
 };
 
-const normalizeFeature = (item) => {
-  if (typeof item === "string") return item;
+const extractPaginationMeta = (payload, fallbackPage) => {
+  const data = extractPayloadData(payload);
+  const metaData = data?.metaData || data?.metadata || payload?.metaData || {};
 
-  return (
-    item?.name ||
-    item?.itemName ||
-    item?.serviceItemName ||
-    item?.title ||
-    item?.description ||
-    ""
-  );
+  return {
+    currentPage: Number(metaData.currentPage ?? fallbackPage) || fallbackPage,
+    pageCount: Math.max(1, Number(metaData.pageCount ?? metaData.totalPages ?? 1) || 1),
+    pageSize: Number(metaData.pageSize ?? PACKAGE_PAGE_SIZE) || PACKAGE_PAGE_SIZE,
+    total: Number(metaData.total ?? 0) || 0,
+  };
 };
 
 const getPackageServiceIds = (packageItem) => [
@@ -49,6 +50,27 @@ const getPackageServiceIds = (packageItem) => [
   packageItem.service?.id,
   packageItem.service?.serviceId,
 ].filter(Boolean);
+
+const uniqueTextValues = (values) => [
+  ...new Set(values.map((value) => String(value || "").trim()).filter(Boolean)),
+];
+
+const getPackageSelectedServices = (packageItem) => {
+  const serviceNames = uniqueTextValues([
+    packageItem.serviceName,
+    packageItem.service?.name,
+    packageItem.service?.serviceName,
+    ...(Array.isArray(packageItem.services)
+      ? packageItem.services.map(
+          (service) => service?.name || service?.serviceName || service?.title
+        )
+      : []),
+  ]);
+
+  if (serviceNames.length > 0) return serviceNames;
+
+  return uniqueTextValues(getPackageServiceIds(packageItem));
+};
 
 const getPackageCategorySlug = (packageItem) => {
   const categoryValue =
@@ -72,37 +94,73 @@ const getPackageCategorySlug = (packageItem) => {
 };
 
 const normalizePackage = (packageItem) => {
-  const includedItems =
-    packageItem.includedItems ||
-    packageItem.items ||
-    packageItem.serviceItems ||
-    packageItem.features ||
-    packageItem.packageItems ||
-    [];
   const serviceIds = getPackageServiceIds(packageItem);
 
   return {
     id: String(packageItem.id || packageItem.packageId || ""),
-    name: packageItem.name || packageItem.packageName || "Service Package",
+    name: packageItem.name || packageItem.packageName || "",
+    description:
+      packageItem.description ||
+      packageItem.packageDescription ||
+      packageItem.subDescription ||
+      packageItem.details ||
+      packageItem.services?.[0]?.description ||
+      packageItem.service?.description ||
+      "",
     recurrence: packageItem.recurrence || packageItem.pricingType || "Weekly",
     daysPerInterval: Number(packageItem.daysPerInterval ?? packageItem.times ?? 1) || 1,
     price: Number(packageItem.price ?? packageItem.packagePrice ?? 0) || 0,
     currency: packageItem.currency || packageItem.packageCurrency || "EGP",
     serviceId: String(serviceIds[0] || ""),
+    selectedServices: getPackageSelectedServices(packageItem),
     categorySlug: getPackageCategorySlug(packageItem),
-    includedItems: includedItems.map(normalizeFeature).filter(Boolean),
   };
+};
+
+const getRecurrenceLabel = (recurrence) => {
+  const value = String(recurrence || "").trim().toLowerCase();
+
+  if (value === "daily") return "Daily";
+  if (value === "weekly") return "Weekly";
+  if (value === "monthly") return "Monthly";
+
+  return recurrence || "Package";
 };
 
 const getIntervalLabel = (packageItem) => {
   const recurrence = packageItem.recurrence.toLowerCase();
   const days = packageItem.daysPerInterval;
 
-  if (recurrence === "daily") return "Every day";
-  if (recurrence === "weekly") return `${days} ${days === 1 ? "day" : "days"} / week`;
-  if (recurrence === "monthly") return `${days} ${days === 1 ? "day" : "days"} / month`;
+  if (recurrence === "daily") return "1 time / day";
+  if (recurrence === "weekly") return `${days} ${days === 1 ? "time" : "times"} / week`;
+  if (recurrence === "monthly") return `${days} ${days === 1 ? "time" : "times"} / month`;
 
-  return `${days} sessions`;
+  return `${days} ${days === 1 ? "time" : "times"}`;
+};
+
+const formatPackagePrice = (packageItem) => {
+  const formattedPrice = new Intl.NumberFormat("en-US").format(packageItem.price);
+  const currency = String(packageItem.currency || "").trim();
+
+  if (!currency || currency === "$" || currency.toUpperCase() === "USD") {
+    return `$${formattedPrice}`;
+  }
+
+  return `${currency} ${formattedPrice}`;
+};
+
+const getVisiblePages = (currentPage, pageCount) => {
+  const maxVisiblePages = 5;
+  const startPage = Math.max(
+    1,
+    Math.min(currentPage - 2, pageCount - maxVisiblePages + 1)
+  );
+  const endPage = Math.min(pageCount, startPage + maxVisiblePages - 1);
+
+  return Array.from(
+    { length: endPage - startPage + 1 },
+    (_, index) => startPage + index
+  );
 };
 
 function BookingModeCard({ image, title, description, features, buttonLabel }) {
@@ -141,34 +199,64 @@ function BookingModeCard({ image, title, description, features, buttonLabel }) {
 
 function PackageCard({ packageItem }) {
   const content = (
-    <article className="group flex h-[408px] w-full max-w-[316px] flex-col rounded-[16px] border border-[#CCD2DF] bg-white px-4 py-6 shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)] transition-[width,height,background-color,box-shadow] duration-300 hover:h-[460px] hover:max-w-[356px] hover:bg-[#E6E8EF] sm:w-[316px] sm:hover:w-[356px]">
-      <h3 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60] transition-all duration-300 group-hover:text-[26px] group-hover:leading-9">
+    <article className="group flex min-h-[360px] w-full flex-col rounded-[16px] border border-[#CCD2DF] bg-white px-5 py-6 shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)] transition duration-300 hover:bg-[#F8F9FC] hover:shadow-[8px_10px_24px_0px_rgba(204,210,223,0.65)]">
+      <h3
+        className="line-clamp-2 min-h-16 overflow-hidden text-ellipsis font-['Roboto'] text-[20px] font-semibold leading-8 text-[#011C60]"
+        title={packageItem.name}
+      >
         {packageItem.name}
       </h3>
-      <p className="mt-5 font-['Roboto'] text-[32px] font-semibold leading-9 text-[#011C60]">
-        ${new Intl.NumberFormat("en-US").format(packageItem.price)}
+      {packageItem.description && (
+        <p className="mt-3 min-h-12 font-['Roboto'] text-[14px] leading-6 text-[#6777A0]">
+          {packageItem.description}
+        </p>
+      )}
+      <p className="mt-5 font-['Roboto'] text-[30px] font-semibold leading-9 text-[#011C60]">
+        {formatPackagePrice(packageItem)}
         <span className="ml-1 align-middle text-[14px] font-medium text-[#4D6090]">
           / Flat Fee
         </span>
       </p>
-      <p className="mt-2 border-b border-transparent pb-4 font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#4D6090] group-hover:border-white/70">
-        {getIntervalLabel(packageItem)}
-      </p>
-      <div className="mt-5 flex flex-1 content-start flex-wrap gap-4 overflow-hidden transition-all duration-300 group-hover:mt-6 group-hover:gap-5">
-        {(packageItem.includedItems.length
-          ? packageItem.includedItems
-          : ["Window cleaning", "Eco-friendly supplies", "Deep service"]
-        )
-          .slice(0, 4)
-          .map((feature) => (
-            <span
-              key={feature}
-              className="rounded-[12px] bg-[#F3F5FA] px-3 py-2 font-['Roboto'] text-[13px] font-medium leading-5 text-[#6777A0] transition group-hover:bg-white"
-            >
-              {feature}
-            </span>
-          ))}
+      <div className="mt-5 grid gap-3 border-t border-[#EEF1F7] pt-5">
+        <div className="flex items-center justify-between gap-3 rounded-[12px] bg-[#F3F5FA] px-3 py-2">
+          <span className="font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#6777A0]">
+            Type
+          </span>
+          <span className="font-['Roboto'] text-[13px] font-semibold leading-5 text-[#011C60]">
+            {getRecurrenceLabel(packageItem.recurrence)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-[12px] bg-[#F3F5FA] px-3 py-2">
+          <span className="font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#6777A0]">
+            Times
+          </span>
+          <span className="text-right font-['Roboto'] text-[13px] font-semibold leading-5 text-[#011C60]">
+            {getIntervalLabel(packageItem)}
+          </span>
+        </div>
       </div>
+      {packageItem.selectedServices.length > 0 && (
+        <div className="mt-4 rounded-[12px] bg-[#F8F9FC] px-3 py-3">
+          <p className="font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#6777A0]">
+            Selected services
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {packageItem.selectedServices.slice(0, 4).map((serviceName) => (
+              <span
+                key={serviceName}
+                className="rounded-[10px] bg-white px-3 py-1.5 font-['Roboto'] text-[12px] font-semibold leading-5 text-[#011C60]"
+              >
+                {serviceName}
+              </span>
+            ))}
+            {packageItem.selectedServices.length > 4 && (
+              <span className="rounded-[10px] bg-white px-3 py-1.5 font-['Roboto'] text-[12px] font-semibold leading-5 text-[#6777A0]">
+                +{packageItem.selectedServices.length - 4}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
       <span className="mt-auto flex h-12 w-full items-center justify-center rounded-[10px] bg-[#011C60] font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a]">
         Select package
       </span>
@@ -180,15 +268,71 @@ function PackageCard({ packageItem }) {
   return (
     <Link
       to={`/services/package/${packageItem.id}`}
-      className="flex min-h-[460px] w-full items-start justify-center"
+      className="flex w-full"
     >
       {content}
     </Link>
   );
 }
 
+function PackagePagination({ meta, onPageChange }) {
+  if (meta.pageCount <= 1) return null;
+
+  const currentPage = meta.currentPage;
+  const pages = getVisiblePages(currentPage, meta.pageCount);
+
+  return (
+    <nav
+      className="mt-10 flex flex-wrap items-center justify-center gap-2"
+      aria-label="Package pagination"
+    >
+      <button
+        type="button"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage <= 1}
+        className="min-h-10 rounded-[10px] border border-[#CCD2DF] bg-white px-4 font-['Roboto'] text-[14px] font-semibold text-[#011C60] transition hover:border-[#011C60] disabled:cursor-not-allowed disabled:text-[#9AA6C7]"
+      >
+        Previous
+      </button>
+      {pages.map((page) => {
+        const isActive = page === currentPage;
+
+        return (
+          <button
+            key={page}
+            type="button"
+            onClick={() => onPageChange(page)}
+            className={`flex h-10 min-w-10 items-center justify-center rounded-[10px] border font-['Roboto'] text-[14px] font-semibold transition ${
+              isActive
+                ? "border-[#011C60] bg-[#011C60] text-white"
+                : "border-[#CCD2DF] bg-white text-[#011C60] hover:border-[#011C60]"
+            }`}
+          >
+            {page}
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage >= meta.pageCount}
+        className="min-h-10 rounded-[10px] border border-[#CCD2DF] bg-white px-4 font-['Roboto'] text-[14px] font-semibold text-[#011C60] transition hover:border-[#011C60] disabled:cursor-not-allowed disabled:text-[#9AA6C7]"
+      >
+        Next
+      </button>
+    </nav>
+  );
+}
+
 export default function ServiceCategoriesSection({ mode = "" }) {
   const [packages, setPackages] = useState([]);
+  const [packagePage, setPackagePage] = useState(1);
+  const [packageMeta, setPackageMeta] = useState({
+    currentPage: 1,
+    pageCount: 1,
+    pageSize: PACKAGE_PAGE_SIZE,
+    total: 0,
+  });
   const [isPackagesLoading, setIsPackagesLoading] = useState(false);
   const [packageError, setPackageError] = useState("");
 
@@ -204,13 +348,26 @@ export default function ServiceCategoriesSection({ mode = "" }) {
       setPackageError("");
 
       try {
-        const response = await getMyPackages({ page: 1 });
+        const response = await getMyPackages({
+          page: packagePage,
+          pageSize: PACKAGE_PAGE_SIZE,
+        });
         const nextPackages = extractList(response).map(normalizePackage);
+        const nextMeta = extractPaginationMeta(response, packagePage);
 
-        if (isMounted) setPackages(nextPackages);
+        if (isMounted) {
+          setPackages(nextPackages);
+          setPackageMeta(nextMeta);
+        }
       } catch (error) {
         if (isMounted) {
           setPackages([]);
+          setPackageMeta({
+            currentPage: packagePage,
+            pageCount: 1,
+            pageSize: PACKAGE_PAGE_SIZE,
+            total: 0,
+          });
           setPackageError(
             error?.response?.status === 401
               ? "Packages are not available for this account yet."
@@ -227,7 +384,7 @@ export default function ServiceCategoriesSection({ mode = "" }) {
     return () => {
       isMounted = false;
     };
-  }, [mode]);
+  }, [mode, packagePage]);
 
   if (!mode) {
     return (
@@ -335,20 +492,29 @@ export default function ServiceCategoriesSection({ mode = "" }) {
           />
 
           {isPackagesLoading ? (
-            <div className="mt-10 grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
-              {[1, 2, 3].map((item) => (
+            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {Array.from({ length: 4 }, (_, index) => index + 1).map((item) => (
                 <div
                   key={item}
-                  className="h-[408px] w-full max-w-[316px] animate-pulse rounded-[16px] bg-white shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)]"
+                  className="min-h-[360px] w-full animate-pulse rounded-[16px] bg-white shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)]"
                 />
               ))}
             </div>
           ) : packages.length > 0 ? (
-            <div className="mt-10 grid place-items-center gap-8 sm:grid-cols-2 xl:grid-cols-3">
-              {packages.map((packageItem) => (
-                <PackageCard key={packageItem.id || packageItem.name} packageItem={packageItem} />
-              ))}
-            </div>
+            <>
+              <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                {packages.map((packageItem) => (
+                  <PackageCard
+                    key={packageItem.id || packageItem.name}
+                    packageItem={packageItem}
+                  />
+                ))}
+              </div>
+              <PackagePagination
+                meta={packageMeta}
+                onPageChange={(page) => setPackagePage(page)}
+              />
+            </>
           ) : (
             <div className="mx-auto mt-8 max-w-[520px] rounded-[24px] border border-dashed border-[#CCD2DF] bg-white px-6 py-12 text-center shadow-[0px_8px_24px_rgba(204,210,223,0.22)]">
               <h3 className="font-['Roboto'] text-[22px] font-semibold text-[#011C60]">

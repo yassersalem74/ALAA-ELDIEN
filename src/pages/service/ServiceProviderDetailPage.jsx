@@ -154,6 +154,27 @@ const getPackageServiceIds = (packageItem) => [
   packageItem.service?.serviceId,
 ].filter(Boolean);
 
+const uniqueTextValues = (values) => [
+  ...new Set(values.map((value) => String(value || "").trim()).filter(Boolean)),
+];
+
+const getPackageSelectedServices = (packageItem) => {
+  const serviceNames = uniqueTextValues([
+    packageItem.serviceName,
+    packageItem.service?.name,
+    packageItem.service?.serviceName,
+    ...(Array.isArray(packageItem.services)
+      ? packageItem.services.map(
+          (service) => service?.name || service?.serviceName || service?.title
+        )
+      : []),
+  ]);
+
+  if (serviceNames.length > 0) return serviceNames;
+
+  return uniqueTextValues(getPackageServiceIds(packageItem));
+};
+
 const normalizePackageFeature = (item) => {
   if (typeof item === "string") return item;
 
@@ -180,6 +201,14 @@ const normalizePackage = (packageItem) => {
   return {
     id: String(packageItem.id || packageItem.packageId || ""),
     name: packageItem.name || packageItem.packageName || "Service Package",
+    description:
+      packageItem.description ||
+      packageItem.packageDescription ||
+      packageItem.subDescription ||
+      packageItem.details ||
+      packageItem.services?.[0]?.description ||
+      packageItem.service?.description ||
+      "",
     recurrence: packageItem.recurrence || packageItem.pricingType || "Weekly",
     daysPerInterval: Math.max(
       1,
@@ -193,6 +222,7 @@ const normalizePackage = (packageItem) => {
       packageItem.services?.[0]?.name ||
       packageItem.service?.name ||
       "",
+    selectedServices: getPackageSelectedServices(packageItem),
     includedItems: includedItems.map(normalizePackageFeature).filter(Boolean),
     raw: packageItem,
   };
@@ -208,17 +238,30 @@ const mergePackageDetails = (basePackage, detailedPackage) => ({
   includedItems: detailedPackage.includedItems.length
     ? detailedPackage.includedItems
     : basePackage.includedItems,
+  selectedServices: detailedPackage.selectedServices?.length
+    ? detailedPackage.selectedServices
+    : basePackage.selectedServices,
 });
 
 const getPackageIntervalLabel = (packageItem) => {
   const recurrence = String(packageItem.recurrence || "").toLowerCase();
   const days = packageItem.daysPerInterval;
 
-  if (recurrence === "daily") return "Every day";
-  if (recurrence === "weekly") return `${days} ${days === 1 ? "day" : "days"} / week`;
-  if (recurrence === "monthly") return `${days} ${days === 1 ? "day" : "days"} / month`;
+  if (recurrence === "daily") return "1 time / day";
+  if (recurrence === "weekly") return `${days} ${days === 1 ? "time" : "times"} / week`;
+  if (recurrence === "monthly") return `${days} ${days === 1 ? "time" : "times"} / month`;
 
-  return `${days} sessions`;
+  return `${days} ${days === 1 ? "time" : "times"}`;
+};
+
+const getPackageRecurrenceLabel = (packageItem) => {
+  const recurrence = String(packageItem.recurrence || "").trim().toLowerCase();
+
+  if (recurrence === "daily") return "Daily";
+  if (recurrence === "weekly") return "Weekly";
+  if (recurrence === "monthly") return "Monthly";
+
+  return packageItem.recurrence || "Package";
 };
 
 const getPackageRecurrence = (packageItem) =>
@@ -539,49 +582,78 @@ function PackageSelection({
       </div>
 
       {isLoading ? (
-        <div className="mt-12 grid place-items-center gap-8 sm:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3].map((item) => (
+        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => index + 1).map((item) => (
             <div
               key={item}
-              className="h-[408px] w-full max-w-[316px] animate-pulse rounded-[16px] bg-white shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)]"
+              className="min-h-[360px] w-full animate-pulse rounded-[16px] bg-white shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)]"
             />
           ))}
         </div>
       ) : packages.length > 0 ? (
-        <div className="mt-12 grid place-items-center gap-8 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {packages.map((packageItem) => (
             <article
               key={packageItem.id}
-              className="group flex h-[408px] w-full max-w-[316px] flex-col rounded-[16px] border border-[#CCD2DF] bg-white px-4 py-6 shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)] transition-[width,height,background-color,box-shadow] duration-300 hover:h-[460px] hover:max-w-[356px] hover:bg-[#E6E8EF] sm:w-[316px] sm:hover:w-[356px]"
+              className="group flex min-h-[360px] w-full flex-col rounded-[16px] border border-[#CCD2DF] bg-white px-5 py-6 shadow-[8px_4px_16px_0px_rgba(204,210,223,0.5)] transition duration-300 hover:bg-[#F8F9FC] hover:shadow-[8px_10px_24px_0px_rgba(204,210,223,0.65)]"
             >
-              <h2 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60] transition-all duration-300 group-hover:text-[26px] group-hover:leading-9">
+              <h2
+                className="line-clamp-2 min-h-16 overflow-hidden text-ellipsis font-['Roboto'] text-[20px] font-semibold leading-8 text-[#011C60]"
+                title={packageItem.name}
+              >
                 {packageItem.name}
               </h2>
-              <p className="mt-5 font-['Roboto'] text-[32px] font-semibold leading-9 text-[#011C60]">
+              {packageItem.description && (
+                <p className="mt-3 min-h-12 font-['Roboto'] text-[14px] leading-6 text-[#6777A0]">
+                  {packageItem.description}
+                </p>
+              )}
+              <p className="mt-5 font-['Roboto'] text-[30px] font-semibold leading-9 text-[#011C60]">
                 ${new Intl.NumberFormat("en-US").format(packageItem.price)}
                 <span className="ml-1 align-middle text-[14px] font-medium text-[#4D6090]">
                   / Flat Fee
                 </span>
               </p>
-              <p className="mt-2 border-b border-transparent pb-4 font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#4D6090] group-hover:border-white/70">
-                {getPackageIntervalLabel(packageItem)}
-              </p>
-
-              <div className="mt-5 flex flex-1 content-start flex-wrap gap-4 overflow-hidden transition-all duration-300 group-hover:mt-6 group-hover:gap-5">
-                {(packageItem.includedItems.length
-                  ? packageItem.includedItems
-                  : ["Window cleaning", "Eco-friendly supplies", "Deep service"]
-                )
-                  .slice(0, 4)
-                  .map((feature) => (
-                    <span
-                      key={feature}
-                      className="rounded-[12px] bg-[#F3F5FA] px-3 py-2 font-['Roboto'] text-[13px] font-medium leading-5 text-[#6777A0] transition group-hover:bg-white"
-                    >
-                      {feature}
-                    </span>
-                  ))}
+              <div className="mt-5 grid gap-3 border-t border-[#EEF1F7] pt-5">
+                <div className="flex items-center justify-between gap-3 rounded-[12px] bg-[#F3F5FA] px-3 py-2">
+                  <span className="font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#6777A0]">
+                    Type
+                  </span>
+                  <span className="font-['Roboto'] text-[13px] font-semibold leading-5 text-[#011C60]">
+                    {getPackageRecurrenceLabel(packageItem)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-[12px] bg-[#F3F5FA] px-3 py-2">
+                  <span className="font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#6777A0]">
+                    Times
+                  </span>
+                  <span className="text-right font-['Roboto'] text-[13px] font-semibold leading-5 text-[#011C60]">
+                    {getPackageIntervalLabel(packageItem)}
+                  </span>
+                </div>
               </div>
+              {packageItem.selectedServices?.length > 0 && (
+                <div className="mt-4 rounded-[12px] bg-[#F8F9FC] px-3 py-3">
+                  <p className="font-['Roboto'] text-[12px] font-medium uppercase leading-5 text-[#6777A0]">
+                    Selected services
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {packageItem.selectedServices.slice(0, 4).map((serviceName) => (
+                      <span
+                        key={serviceName}
+                        className="rounded-[10px] bg-white px-3 py-1.5 font-['Roboto'] text-[12px] font-semibold leading-5 text-[#011C60]"
+                      >
+                        {serviceName}
+                      </span>
+                    ))}
+                    {packageItem.selectedServices.length > 4 && (
+                      <span className="rounded-[10px] bg-white px-3 py-1.5 font-['Roboto'] text-[12px] font-semibold leading-5 text-[#6777A0]">
+                        +{packageItem.selectedServices.length - 4}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <button
                 type="button"
