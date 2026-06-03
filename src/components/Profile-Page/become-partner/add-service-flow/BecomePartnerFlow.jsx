@@ -71,6 +71,8 @@ const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SERVICE_API_CURRENCY = "EGY";
 const MY_SERVICES_PAGE_SIZE = 50;
+const MY_PACKAGES_PAGE_SIZE = 50;
+const DAILY_PACKAGE_RECURRENCE = "Daily";
 
 const getTimeslotDurationInMin = (serviceTimeHours) => {
   const durationInMin = Number(serviceTimeHours) * 60;
@@ -133,6 +135,7 @@ const extractList = (response) => {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.items)) return data.items;
   if (Array.isArray(data?.services)) return data.services;
+  if (Array.isArray(data?.packages)) return data.packages;
   if (Array.isArray(data?.data)) return data.data;
   if (Array.isArray(data?.result)) return data.result;
   if (Array.isArray(data?.results)) return data.results;
@@ -1076,69 +1079,66 @@ const mergeServiceForEdit = (baseService, detailsService) => {
   };
 };
 
-const normalizePackage = (packageItem) => ({
-  id: packageItem.id,
-  packageName: packageItem.name || packageItem.packageName || "",
-  serviceId:
-    packageItem.serviceIds?.[0] ||
-    packageItem.serviceId ||
-    packageItem.services?.[0]?.id ||
-    packageItem.service?.id ||
-    "",
-  serviceName:
-    packageItem.serviceName ||
-    packageItem.services?.[0]?.name ||
-    packageItem.service?.name ||
-    "",
-  pricingType:
-    (packageItem.recurrence || packageItem.pricingType || "").charAt(0).toUpperCase() +
-    (packageItem.recurrence || packageItem.pricingType || "").slice(1).toLowerCase(),
-  times: String(packageItem.daysPerInterval ?? packageItem.times ?? ""),
-  price: String(packageItem.price ?? ""),
-  includedItems:
-    packageItem.includedItems ||
-    packageItem.items ||
-    packageItem.serviceItems ||
-    packageItem.features ||
-    [],
-});
+const normalizePackageServiceIds = (serviceIds) => [
+  ...new Set(
+    (serviceIds || []).map((serviceId) => String(serviceId || "").trim()).filter(Boolean)
+  ),
+];
+
+const getPackageServiceIds = (packageItem) =>
+  normalizePackageServiceIds([
+    ...(Array.isArray(packageItem.serviceIds) ? packageItem.serviceIds : []),
+    packageItem.serviceId,
+    ...(Array.isArray(packageItem.services)
+      ? packageItem.services.map((service) => service?.id)
+      : []),
+    packageItem.service?.id,
+  ]);
+
+const getPackageServiceNames = (packageItem) =>
+  [
+    packageItem.serviceName,
+    ...(Array.isArray(packageItem.services)
+      ? packageItem.services.map((service) => service?.name || service?.serviceName)
+      : []),
+    packageItem.service?.name || packageItem.service?.serviceName,
+  ]
+    .map((serviceName) => String(serviceName || "").trim())
+    .filter(Boolean);
+
+const normalizePackage = (packageItem) => {
+  const serviceIds = getPackageServiceIds(packageItem);
+  const serviceNames = getPackageServiceNames(packageItem);
+
+  return {
+    id: packageItem.id,
+    packageName: packageItem.name || packageItem.packageName || "",
+    serviceIds,
+    serviceId: serviceIds[0] || "",
+    serviceName: serviceNames.join(", "),
+    pricingType:
+      (packageItem.recurrence || packageItem.pricingType || "").charAt(0).toUpperCase() +
+      (packageItem.recurrence || packageItem.pricingType || "").slice(1).toLowerCase(),
+    times: String(packageItem.daysPerInterval ?? packageItem.times ?? ""),
+    price: String(packageItem.price ?? ""),
+  };
+};
 
 const mergePackageForEdit = (basePackage, detailsPackage) => ({
   ...basePackage,
   ...detailsPackage,
   id: detailsPackage.id || basePackage.id,
   packageName: detailsPackage.packageName || basePackage.packageName,
+  serviceIds:
+    detailsPackage.serviceIds?.length > 0
+      ? detailsPackage.serviceIds
+      : basePackage.serviceIds,
   serviceId: detailsPackage.serviceId || basePackage.serviceId,
   serviceName: detailsPackage.serviceName || basePackage.serviceName,
   pricingType: detailsPackage.pricingType || basePackage.pricingType,
   times: detailsPackage.times || basePackage.times,
   price: detailsPackage.price || basePackage.price,
-  includedItems:
-    detailsPackage.includedItems?.length > 0
-      ? detailsPackage.includedItems
-      : basePackage.includedItems,
 });
-
-const getServiceItemNames = (service) =>
-  (service?.items || [])
-    .map((item) => item.itemName || item.name)
-    .map((itemName) => String(itemName || "").trim())
-    .filter(Boolean);
-
-const hydratePackageFeaturesFromService = (packageItem, services) => {
-  if ((packageItem.includedItems || []).length > 0) {
-    return packageItem;
-  }
-
-  const packageService = services.find(
-    (service) => service.id === packageItem.serviceId
-  );
-
-  return {
-    ...packageItem,
-    includedItems: getServiceItemNames(packageService),
-  };
-};
 
 const enrichServicesWithDetails = async (services) => {
   const detailResults = await Promise.allSettled(
@@ -1200,60 +1200,64 @@ const fetchMyServices = async () => {
     .filter((service) => service.id);
 };
 
+const getMyPackagesPage = (page) =>
+  getMyPackages({
+    page,
+    pageSize: MY_PACKAGES_PAGE_SIZE,
+    isMine: true,
+  });
+
+const fetchMyPackages = async () => {
+  const firstResponse = await getMyPackagesPage(1);
+  const pageCount = extractTotalPages(firstResponse);
+  const otherResponses =
+    pageCount > 1
+      ? await Promise.all(
+          Array.from({ length: pageCount - 1 }, (_, index) =>
+            getMyPackagesPage(index + 2)
+          )
+        )
+      : [];
+  const responses = [firstResponse, ...otherResponses];
+  const rawPackages = responses.flatMap((response) => extractList(response));
+
+  if (isDebugLoggingEnabled()) {
+    console.groupCollapsed("[Provider Packages] my packages API objects");
+    console.log("request params", {
+      pageSize: MY_PACKAGES_PAGE_SIZE,
+      isMine: true,
+    });
+    console.log("raw response pages", responses);
+    console.log("raw package objects", rawPackages);
+    rawPackages.forEach((packageItem, index) => {
+      console.log(`package object ${index + 1}`, packageItem);
+    });
+    console.groupEnd();
+  }
+
+  return rawPackages.map(normalizePackage);
+};
+
 const buildPackagePayload = (packageItem) => ({
   name: packageItem.packageName.trim(),
   recurrence:
     packageItem.pricingType?.charAt(0).toUpperCase() +
     packageItem.pricingType?.slice(1).toLowerCase(),
-  daysPerInterval: Number(packageItem.times) || 1,
+  daysPerInterval:
+    packageItem.pricingType === DAILY_PACKAGE_RECURRENCE
+      ? 1
+      : Number(packageItem.times) || 1,
   price: Number(packageItem.price) || 0,
-  serviceIds: [packageItem.serviceId].filter(Boolean),
+  serviceIds: normalizePackageServiceIds(
+    packageItem.serviceIds?.length > 0
+      ? packageItem.serviceIds
+      : [packageItem.serviceId]
+  ),
 });
 
 const arePackagePayloadsEqual = (firstPackage, secondPackage) =>
   JSON.stringify(buildPackagePayload(firstPackage)) ===
   JSON.stringify(buildPackagePayload(secondPackage));
-
-const normalizePackageFeatureName = (item) =>
-  String(
-    typeof item === "string"
-      ? item
-      : item?.itemName || item?.name || item?.title || item?.description || ""
-  ).trim();
-
-const getPackageFeatureNames = (packageItem) =>
-  (packageItem?.includedItems || [])
-    .map(normalizePackageFeatureName)
-    .filter(Boolean);
-
-const arePackageFeaturesEqual = (firstPackage, secondPackage) =>
-  JSON.stringify(getPackageFeatureNames(firstPackage)) ===
-  JSON.stringify(getPackageFeatureNames(secondPackage));
-
-const buildFeatureItemsPayload = (featureNames, service) => {
-  const currentItemsByName = new Map(
-    (service?.items || []).map((item) => [
-      normalizeTextValue(item.itemName || item.name).toLowerCase(),
-      item,
-    ])
-  );
-
-  return {
-    items: featureNames.map((featureName) => {
-      const currentItem = currentItemsByName.get(
-        normalizeTextValue(featureName).toLowerCase()
-      );
-
-      return {
-        name: featureName,
-        price: Number(currentItem?.price) > 0 ? Number(currentItem.price) : 1,
-        description:
-          currentItem?.description ||
-          `Included feature for ${service?.serviceName || "this service"}`,
-      };
-    }),
-  };
-};
 
 const getCookie = (name) => {
   if (typeof document === "undefined") return "";
@@ -1326,8 +1330,6 @@ const isProviderRole = (role) =>
 
 const hasProviderToken = () =>
   getTokenRoles(getAuthToken()).some(isProviderRole);
-
-const hasTokenRoleClaims = () => getTokenRoles(getAuthToken()).length > 0;
 
 const collectRoleValues = (source, seen = new Set()) => {
   if (!source) return [];
@@ -1586,7 +1588,7 @@ export default function BecomePartnerFlow() {
   const loadProviderData = async ({ showPartialError = true } = {}) => {
     const [servicesResult, packagesResult] = await Promise.allSettled([
       fetchMyServices(),
-      getMyPackages({ page: 1 }),
+      fetchMyPackages(),
     ]);
 
     const hasUnauthorizedResponse =
@@ -1627,7 +1629,7 @@ export default function BecomePartnerFlow() {
     }
 
     if (packagesResult.status === "fulfilled") {
-      setSavedPackages(extractList(packagesResult.value).map(normalizePackage));
+      setSavedPackages(packagesResult.value);
     }
 
     if (
@@ -2382,21 +2384,16 @@ export default function BecomePartnerFlow() {
 
   const handleEditPackage = async (packageItem) => {
     if (!getAuthToken()) {
-      setEditingPackage(
-        hydratePackageFeaturesFromService(normalizePackage(packageItem), savedServices)
-      );
+      setEditingPackage(normalizePackage(packageItem));
       return;
     }
 
     try {
       const response = await getPackageDetails(packageItem.id, LANGUAGE);
       setEditingPackage(
-        hydratePackageFeaturesFromService(
-          mergePackageForEdit(
-            normalizePackage(packageItem),
-            normalizePackage(extractPayloadData(response))
-          ),
-          savedServices
+        mergePackageForEdit(
+          normalizePackage(packageItem),
+          normalizePackage(extractPayloadData(response))
         )
       );
     } catch (error) {
@@ -2422,9 +2419,7 @@ export default function BecomePartnerFlow() {
         return;
       }
 
-      setEditingPackage(
-        hydratePackageFeaturesFromService(normalizePackage(packageItem), savedServices)
-      );
+      setEditingPackage(normalizePackage(packageItem));
     }
   };
 
@@ -2462,10 +2457,8 @@ export default function BecomePartnerFlow() {
     try {
       const shouldUpdatePackage =
         !editingPackage || !arePackagePayloadsEqual(editingPackage, nextPackage);
-      const shouldUpdateFeatures =
-        !editingPackage || !arePackageFeaturesEqual(editingPackage, nextPackage);
 
-      if (!shouldUpdatePackage && !shouldUpdateFeatures) {
+      if (!shouldUpdatePackage) {
         await closePackageEditAsSaved();
         return;
       }
@@ -2478,50 +2471,6 @@ export default function BecomePartnerFlow() {
             throw error;
           }
         }
-      }
-
-      if (shouldUpdateFeatures) {
-        if (!nextPackage.serviceId) {
-          setToast({
-            id: Date.now(),
-            type: "error",
-            message: "Please choose a service before saving package features.",
-          });
-          return;
-        }
-
-        const selectedService = savedServices.find(
-          (service) => service.id === nextPackage.serviceId
-        );
-
-        const featureNames = getPackageFeatureNames(nextPackage);
-
-        if (featureNames.length === 0) {
-          setToast({
-            id: Date.now(),
-            type: "error",
-            message:
-              "The API requires at least one service item. It does not support clearing all items yet.",
-          });
-          return;
-        }
-
-        if (!selectedService) {
-          setToast({
-            id: Date.now(),
-            type: "error",
-            message: "Please choose a saved service before saving package features.",
-          });
-          return;
-        }
-
-        await updateService(
-          nextPackage.serviceId,
-          buildServiceFormData(selectedService, true, {
-            includeImageFiles: false,
-            items: buildFeatureItemsPayload(featureNames, selectedService).items,
-          })
-        );
       }
 
       await closePackageEditAsSaved();
@@ -2708,7 +2657,7 @@ export default function BecomePartnerFlow() {
             </h2>
             <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
               Create predefined service packages with fixed pricing and included
-              features.
+              services.
             </p>
             <span className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#011C60] px-5 font-['Roboto'] text-[16px] font-semibold text-white transition group-hover:bg-[#02267F]">
               {isActivatingProvider ? "Activating..." : "Start Creating Package"}
@@ -2778,6 +2727,31 @@ export default function BecomePartnerFlow() {
     </section>
   );
 
+  const renderEmptyPackageState = () => (
+    <section className={PANEL_CLASS_NAME}>
+      <div className="mx-auto flex max-w-[700px] flex-col items-center text-center">
+        <img
+          src={FLOW_ASSETS.addPackageFlowImage}
+          alt="Empty packages illustration"
+          className="h-auto w-full max-w-[420px] object-contain"
+        />
+        <h3 className="mt-6 font-['Roboto'] text-center text-[30px] font-medium leading-[46px] text-[#011C60] sm:text-[36px] sm:leading-[56px]">
+          You don&apos;t have any package yet
+        </h3>
+        <p className="mt-3 max-w-[540px] font-['Roboto'] text-center text-[16px] leading-6 text-[#6777A0]">
+          Add your first package and manage edits from this dashboard.
+        </p>
+        <button
+          type="button"
+          onClick={() => setView("package-form")}
+          className="mt-8 min-h-12 w-full cursor-pointer rounded-2xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition hover:bg-[#02267F]"
+        >
+          Add New Package
+        </button>
+      </div>
+    </section>
+  );
+
   const renderServiceSchedule = (service) => {
     const scheduleRows = getServiceScheduleRows(service);
 
@@ -2835,30 +2809,21 @@ export default function BecomePartnerFlow() {
     />
   );
 
-  const renderPackagesDashboard = () =>
-    savedPackages.length > 0 ? (
-      <ManagementTable
-        title="Manage Packages"
-        description="Manage the packages your clients can book through the platform."
-        itemType="package"
-        items={savedPackages}
-        nameHeader="Package Name"
-        priceHeader="Price"
-        getName={(packageItem) => packageItem.packageName}
-        getPrice={(packageItem) => packageItem.price}
-        onAdd={() => setView("package-form")}
-        onEdit={handleEditPackage}
-        onDelete={handleRequestDeletePackage}
-      />
-    ) : (
-      <AddPackageFlow
-        onBack={() => setView("entry")}
-        onToast={setToast}
-        savedServices={savedServices}
-        onSaved={handlePackageSaved}
-        hasProviderAccess={hasProviderAccess}
-      />
-    );
+  const renderPackagesDashboard = () => (
+    <ManagementTable
+      title="Manage Packages"
+      description="Manage the packages your clients can book through the platform."
+      itemType="package"
+      items={savedPackages}
+      nameHeader="Package Name"
+      priceHeader="Price"
+      getName={(packageItem) => packageItem.packageName}
+      getPrice={(packageItem) => packageItem.price}
+      onAdd={() => setView("package-form")}
+      onEdit={handleEditPackage}
+      onDelete={handleRequestDeletePackage}
+    />
+  );
 
   const renderBlankState = (tabLabel) => (
     <section className={PANEL_CLASS_NAME}>
@@ -2887,7 +2852,10 @@ export default function BecomePartnerFlow() {
 
       {view === "entry" && renderEntryChoice()}
 
-      {view === "packages" && renderPackagesDashboard()}
+      {view === "packages" &&
+        (savedPackages.length > 0
+          ? renderPackagesDashboard()
+          : renderEmptyPackageState())}
 
       {view === "package-form" && (
         <AddPackageFlow

@@ -16,28 +16,27 @@ const PRICING_TYPE_OPTIONS = [
   { value: "Monthly", label: "Monthly" },
 ];
 
-const getServiceItems = (service) =>
-  (service?.items || [])
-    .map((item) => item.itemName || item.name)
-    .filter((itemName) => String(itemName || "").trim());
+const DAILY_RECURRENCE = "Daily";
 
-const normalizeIncludedItems = (includedItems) => {
-  if (Array.isArray(includedItems)) {
-    return includedItems
-      .map((item) =>
-        typeof item === "string"
-          ? item
-          : item.itemName || item.name || item.title || item.description || ""
-      )
-      .map((itemName) => String(itemName || "").trim())
-      .filter(Boolean);
-  }
+const normalizeServiceIds = (serviceIds) => [
+  ...new Set(
+    (serviceIds || []).map((serviceId) => String(serviceId || "").trim()).filter(Boolean)
+  ),
+];
 
-  return String(includedItems || "")
-    .split(",")
-    .map((itemName) => itemName.trim())
-    .filter(Boolean);
-};
+const getPackageServiceIds = (packageItem) =>
+  normalizeServiceIds([
+    ...(Array.isArray(packageItem.serviceIds) ? packageItem.serviceIds : []),
+    packageItem.serviceId,
+    ...(Array.isArray(packageItem.services)
+      ? packageItem.services.map((service) => service?.id)
+      : []),
+  ]);
+
+const getServiceId = (service) => String(service?.id || "");
+
+const getServiceName = (service) =>
+  service?.serviceName || service?.name || "Saved service";
 
 export default function PackageEditModal({
   packageItem,
@@ -45,77 +44,60 @@ export default function PackageEditModal({
   onClose,
   onSave,
 }) {
-  const selectedPackageService = savedServices.find(
-    (service) => service.id === packageItem.serviceId
-  );
-  const initialIncludedItems = normalizeIncludedItems(packageItem.includedItems);
+  const initialPricingType =
+    (packageItem.pricingType || packageItem.packageType || "").charAt(0).toUpperCase() +
+    (packageItem.pricingType || packageItem.packageType || "").slice(1).toLowerCase();
   const [draft, setDraft] = useState({
     ...packageItem,
-    pricingType:
-      (packageItem.pricingType || packageItem.packageType || "").charAt(0).toUpperCase() +
-      (packageItem.pricingType || packageItem.packageType || "").slice(1).toLowerCase(),
-    times: packageItem.times || packageItem.durationHours || "",
-    includedItems:
-      initialIncludedItems.length > 0
-        ? initialIncludedItems
-        : getServiceItems(selectedPackageService),
+    serviceIds: getPackageServiceIds(packageItem),
+    pricingType: initialPricingType,
+    times:
+      initialPricingType === DAILY_RECURRENCE
+        ? "1"
+        : packageItem.times || packageItem.durationHours || "",
   });
-  const [newFeature, setNewFeature] = useState("");
-
-  const selectedService = savedServices.find(
-    (service) => service.id === draft.serviceId
-  );
+  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const isDailyPackage = draft.pricingType === DAILY_RECURRENCE;
 
   const handleFieldChange = (fieldName, value) => {
     setDraft((currentDraft) => ({
       ...currentDraft,
       [fieldName]: value,
+      ...(fieldName === "pricingType" && value === DAILY_RECURRENCE
+        ? { times: "1" }
+        : {}),
     }));
   };
 
-  const handleServiceChange = (serviceId) => {
-    const nextService = savedServices.find((service) => service.id === serviceId);
+  const handleAddService = () => {
+    const serviceId = selectedServiceId.trim();
+
+    if (!serviceId) return;
 
     setDraft((currentDraft) => ({
       ...currentDraft,
-      serviceId,
-      serviceName: nextService?.serviceName || "",
-      includedItems: getServiceItems(nextService),
+      serviceIds: normalizeServiceIds([...(currentDraft.serviceIds || []), serviceId]),
     }));
+    setSelectedServiceId("");
   };
 
-  const handleRemoveFeature = (featureName) => {
+  const handleRemoveService = (serviceId) => {
     setDraft((currentDraft) => ({
       ...currentDraft,
-      includedItems: (currentDraft.includedItems || []).filter(
-        (includedItem) => includedItem !== featureName
+      serviceIds: (currentDraft.serviceIds || []).filter(
+        (includedServiceId) => includedServiceId !== serviceId
       ),
     }));
-  };
-
-  const handleAddFeature = () => {
-    const trimmedFeature = newFeature.trim();
-
-    if (!trimmedFeature) return;
-
-    setDraft((currentDraft) => ({
-      ...currentDraft,
-      includedItems: (currentDraft.includedItems || []).includes(trimmedFeature)
-        ? currentDraft.includedItems
-        : [...(currentDraft.includedItems || []), trimmedFeature],
-    }));
-    setNewFeature("");
   };
 
   const handleSave = () => {
     const nextPackage = {
       ...draft,
       packageName: draft.packageName.trim(),
-      serviceName: draft.serviceName.trim(),
       pricingType: draft.pricingType,
-      times: draft.times,
+      times: isDailyPackage ? "1" : draft.times,
       price: String(draft.price || "").trim(),
-      includedItems: draft.includedItems || [],
+      serviceIds: normalizeServiceIds(draft.serviceIds),
     };
 
     onSave(nextPackage);
@@ -133,38 +115,6 @@ export default function PackageEditModal({
               Update the full package data saved through the provider API.
             </p>
           </div>
-
-          <label className="relative">
-            <FieldLabel>Service Name</FieldLabel>
-            <select
-              value={draft.serviceId || ""}
-              onChange={(event) => handleServiceChange(event.target.value)}
-              className={SELECT_CLASS_NAME}
-            >
-              <option value="">Select service</option>
-              {savedServices.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.serviceName}
-                </option>
-              ))}
-            </select>
-            <SelectArrow />
-          </label>
-
-          {!savedServices.some((service) => service.id === draft.serviceId) &&
-            draft.serviceName && (
-              <label>
-                <FieldLabel>Saved Service Name</FieldLabel>
-                <input
-                  type="text"
-                  value={draft.serviceName}
-                  onChange={(event) =>
-                    handleFieldChange("serviceName", event.target.value)
-                  }
-                  className={INPUT_CLASS_NAME}
-                />
-              </label>
-            )}
 
           <label>
             <FieldLabel>Package Name</FieldLabel>
@@ -203,8 +153,12 @@ export default function PackageEditModal({
               <input
                 type="text"
                 value={draft.times}
+                disabled={isDailyPackage}
                 onChange={(event) => handleFieldChange("times", event.target.value)}
-                className={INPUT_CLASS_NAME}
+                className={joinClasses(
+                  INPUT_CLASS_NAME,
+                  isDailyPackage && "cursor-not-allowed opacity-70"
+                )}
               />
             </label>
 
@@ -223,70 +177,86 @@ export default function PackageEditModal({
 
           <div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <FieldLabel>Included Features</FieldLabel>
+              <FieldLabel>Included Services</FieldLabel>
               <button
                 type="button"
-                onClick={handleAddFeature}
-                className="inline-flex min-h-9 cursor-pointer items-center gap-2 self-start rounded-xl px-3 font-['Roboto'] text-[14px] font-medium text-[#011C60] transition hover:bg-[#EFF3FF]"
+                onClick={handleAddService}
+                disabled={!selectedServiceId}
+                className={joinClasses(
+                  "inline-flex min-h-9 items-center gap-2 self-start rounded-xl px-3 font-['Roboto'] text-[14px] font-medium transition",
+                  selectedServiceId
+                    ? "cursor-pointer text-[#011C60] hover:bg-[#EFF3FF]"
+                    : "cursor-not-allowed text-[#9AA6C7]"
+                )}
               >
                 <PlusIcon className="h-4 w-4" />
-                Add Feature
+                Add Service
               </button>
             </div>
 
-            {(draft.includedItems || []).length > 0 ? (
+            {(draft.serviceIds || []).length > 0 ? (
               <div className="flex flex-wrap gap-3">
-                {draft.includedItems.map((feature) => (
+                {draft.serviceIds.map((serviceId) => {
+                  const service = savedServices.find(
+                    (savedService) => getServiceId(savedService) === serviceId
+                  );
+                  const serviceName = getServiceName(service) || serviceId;
+
+                  return (
                   <span
-                    key={feature}
+                    key={serviceId}
                     className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-[#F3F4F7] px-4 font-['Roboto'] text-[13px] font-medium leading-5 text-[#6777A0]"
                   >
-                    {feature}
+                    {serviceName}
                     <button
                       type="button"
-                      onClick={() => handleRemoveFeature(feature)}
-                      aria-label={`Remove ${feature}`}
+                      onClick={() => handleRemoveService(serviceId)}
+                      aria-label={`Remove ${serviceName}`}
                       className="cursor-pointer text-[#6777A0] transition hover:text-[#011C60]"
                     >
                       x
                     </button>
                   </span>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="font-['Roboto'] text-[14px] leading-5 text-[#6777A0]">
-                {selectedService
-                  ? "This service has no items yet. Add package features manually."
-                  : "Choose a service to load its items, or add package features manually."}
+                Choose one or more saved services to include in this package.
               </p>
             )}
 
-            <div className="mt-3 flex max-w-[260px] items-center gap-2 rounded-xl bg-white shadow-[0px_8px_24px_rgba(17,27,71,0.08)]">
-              <input
-                type="text"
-                value={newFeature}
-                onChange={(event) => setNewFeature(event.target.value)}
+            <label className="relative mt-3 block max-w-[360px]">
+              <select
+                value={selectedServiceId}
+                onChange={(event) => setSelectedServiceId(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    handleAddFeature();
+                    handleAddService();
                   }
                 }}
-                placeholder="Type new feature"
-                className="min-h-9 min-w-0 flex-1 rounded-xl px-3 font-['Roboto'] text-[13px] font-medium text-[#011C60] outline-none placeholder:text-[#6777A0]"
-              />
-              <button
-                type="button"
-                onClick={handleAddFeature}
-                className={joinClasses(
-                  "mr-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-[#EFF3FF] transition",
-                  newFeature.trim() ? "text-[#011C60]" : "text-[#9AA6C7]"
-                )}
-                aria-label="Add typed feature"
+                className={SELECT_CLASS_NAME}
               >
-                <PlusIcon className="h-4 w-4" />
-              </button>
-            </div>
+                <option value="">Select service</option>
+                {savedServices
+                  .filter(
+                    (service) => !(draft.serviceIds || []).includes(getServiceId(service))
+                  )
+                  .map((service) => (
+                    <option key={getServiceId(service)} value={getServiceId(service)}>
+                      {getServiceName(service)}
+                    </option>
+                  ))}
+              </select>
+              <SelectArrow />
+            </label>
+
+            {savedServices.length === 0 && (
+              <p className="mt-3 font-['Roboto'] text-[14px] leading-5 text-[#6777A0]">
+                Add a service first, then include it in a package.
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">

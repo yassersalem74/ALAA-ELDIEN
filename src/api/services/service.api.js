@@ -281,6 +281,16 @@ export const getPackageDetails = async (id, language = "en") => {
 };
 
 export const getMyPackages = async (params) => {
-  const res = await api.get(SERVICE_ENDPOINTS.GET_MY_PACKAGES, { params });
-  return res.data;
+  logApiResponse("GET /api/v1/packages request params", params);
+
+  try {
+    const res = await api.get(SERVICE_ENDPOINTS.GET_MY_PACKAGES, { params });
+
+    logApiResponse("GET /api/v1/packages response", res.data);
+
+    return res.data;
+  } catch (error) {
+    logApiResponse("GET /api/v1/packages error", error?.response?.data);
+    throw error;
+  }
 };
