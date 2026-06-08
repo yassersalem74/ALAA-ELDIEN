@@ -131,7 +131,7 @@ export default function StepThreeAddress({
     const governorateId = event.target.value;
 
     setSelectedGovernorateId(governorateId);
-    setValue("areaId", "");
+    setValue("neighborhoodId", "");
   };
 
   const onSubmit = (data) => {
@@ -197,14 +197,14 @@ export default function StepThreeAddress({
       <div>
         <select
           disabled={!selectedGovernorateId || isLoadingNeighborhoods}
-          {...register("areaId", {
-            required: "Area is required",
+          {...register("neighborhoodId", {
+            required: "Neighborhood is required",
           })}
           className={`
             w-full h-10 sm:h-14 rounded-xl sm:rounded-2xl px-4
             text-[10px] sm:text-[14px] text-[#011C60]
             border ${
-              errors.areaId
+              errors.neighborhoodId
                 ? "border-red-500 focus:border-red-500"
                 : "border-gray-200 focus:border-[#011C60]"
             }
@@ -212,7 +212,7 @@ export default function StepThreeAddress({
           `}
         >
           <option value="">
-            {isLoadingNeighborhoods ? "Loading areas..." : "Area"}
+            {isLoadingNeighborhoods ? "Loading neighborhoods..." : "Neighborhood"}
           </option>
           {neighborhoods.map((neighborhood) => (
             <option
@@ -224,9 +224,9 @@ export default function StepThreeAddress({
           ))}
         </select>
 
-        {errors.areaId && (
+        {errors.neighborhoodId && (
           <span className="text-red-500 text-xs">
-            {errors.areaId.message}
+            {errors.neighborhoodId.message}
           </span>
         )}
       </div>
@@ -235,24 +235,32 @@ export default function StepThreeAddress({
       <div>
         <input
           placeholder="Street Name"
-          {...register("streetName", {
+          {...register("street", {
             required: "Street is required",
+            minLength: {
+              value: 3,
+              message: "Street must be at least 3 characters",
+            },
+            maxLength: {
+              value: 200,
+              message: "Street must be 200 characters or less",
+            },
           })}
           className={`
             w-full h-10 sm:h-14 rounded-xl sm:rounded-2xl px-4
             text-[10px] sm:text-[14px] text-[#011C60]
             placeholder:text-[#808DAF]
             border ${
-              errors.streetName
+              errors.street
                 ? "border-red-500 focus:border-red-500"
                 : "border-gray-200 focus:border-[#011C60]"
             }
             outline-none
           `}
         />
-        {errors.streetName && (
+        {errors.street && (
           <span className="text-red-500 text-xs">
-            {errors.streetName.message}
+            {errors.street.message}
           </span>
         )}
       </div>
@@ -262,24 +270,28 @@ export default function StepThreeAddress({
         <div className="w-1/2">
           <input
             placeholder="Building Number"
-            {...register("buildingNumber", {
+            {...register("building", {
               required: "Building number is required",
+              maxLength: {
+                value: 50,
+                message: "Building must be 50 characters or less",
+              },
             })}
             className={`
               w-full h-10 sm:h-14 rounded-xl sm:rounded-2xl px-4
               text-[10px] sm:text-[14px] text-[#011C60]
               placeholder:text-[#808DAF]
               border ${
-                errors.buildingNumber
+                errors.building
                   ? "border-red-500 focus:border-red-500"
                   : "border-gray-200 focus:border-[#011C60]"
               }
               outline-none
             `}
           />
-          {errors.buildingNumber && (
+          {errors.building && (
             <span className="text-red-500 text-xs">
-              {errors.buildingNumber.message}
+              {errors.building.message}
             </span>
           )}
         </div>
@@ -287,24 +299,28 @@ export default function StepThreeAddress({
         <div className="w-1/2">
           <input
             placeholder="Floor Number"
-            {...register("floorNumber", {
+            {...register("floor", {
               required: "Floor number is required",
+              maxLength: {
+                value: 10,
+                message: "Floor must be 10 characters or less",
+              },
             })}
             className={`
               w-full h-10 sm:h-14 rounded-xl sm:rounded-2xl px-4
               text-[10px] sm:text-[14px] text-[#011C60]
               placeholder:text-[#808DAF]
               border ${
-                errors.floorNumber
+                errors.floor
                   ? "border-red-500 focus:border-red-500"
                   : "border-gray-200 focus:border-[#011C60]"
               }
               outline-none
             `}
           />
-          {errors.floorNumber && (
+          {errors.floor && (
             <span className="text-red-500 text-xs">
-              {errors.floorNumber.message}
+              {errors.floor.message}
             </span>
           )}
         </div>
@@ -316,6 +332,10 @@ export default function StepThreeAddress({
           placeholder="Apartment"
           {...register("apartment", {
             required: "Apartment is required",
+            maxLength: {
+              value: 20,
+              message: "Apartment must be 20 characters or less",
+            },
           })}
           className={`
             w-full h-10 sm:h-14 rounded-xl sm:rounded-2xl px-4
@@ -339,7 +359,12 @@ export default function StepThreeAddress({
       {/* Additional */}
       <input
         placeholder="Additional Details (optional)"
-        {...register("additionalDetails")}
+        {...register("details", {
+          maxLength: {
+            value: 400,
+            message: "Additional details must be 400 characters or less",
+          },
+        })}
         className="
           w-full h-10 sm:h-14 rounded-xl sm:rounded-2xl px-4
           text-[10px] sm:text-[14px] text-[#011C60]
@@ -348,6 +373,11 @@ export default function StepThreeAddress({
           focus:border-[#011C60] outline-none
         "
       />
+      {errors.details && (
+        <span className="text-red-500 text-xs">
+          {errors.details.message}
+        </span>
+      )}
 
       {/* Button */}
       <div className="pt-2">

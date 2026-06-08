@@ -66,7 +66,8 @@ const createEmptyDraft = () => ({
 
 const LANGUAGE = "en";
 const PROVIDER_ROLE = "Provider";
-const PROVIDER_ROLE_ALIASES = ["provider", "serviceprovider"];
+const PROVIDER_CAPABLE_ROLE_ALIASES = ["provider", "serviceprovider", "company"];
+const COMPANY_ACCOUNT_TYPE_ALIASES = ["company"];
 const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SERVICE_API_CURRENCY = "EGY";
@@ -80,6 +81,16 @@ const getTimeslotDurationInMin = (serviceTimeHours) => {
   if (!Number.isFinite(durationInMin) || durationInMin <= 0) return 60;
 
   return Math.min(durationInMin, MAX_SERVICE_TIME_HOURS * 60);
+};
+
+const normalizeServiceTimeHoursInput = (value) => {
+  if (value === "") return "";
+
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) return "";
+
+  return String(Math.min(Math.max(numericValue, 1), MAX_SERVICE_TIME_HOURS));
 };
 
 const CATEGORY_API_VALUES = {
@@ -1326,10 +1337,26 @@ const normalizeRoleName = (role) =>
     .toLowerCase();
 
 const isProviderRole = (role) =>
-  PROVIDER_ROLE_ALIASES.includes(normalizeRoleName(role));
+  PROVIDER_CAPABLE_ROLE_ALIASES.includes(normalizeRoleName(role));
+
+const isCompanyAccountType = (accountType) =>
+  COMPANY_ACCOUNT_TYPE_ALIASES.includes(normalizeRoleName(accountType));
 
 const hasProviderToken = () =>
   getTokenRoles(getAuthToken()).some(isProviderRole);
+
+const getStoredAccountType = () => {
+  if (typeof window === "undefined") return "";
+
+  return (
+    localStorage.getItem("accountType") ||
+    localStorage.getItem("loggedInAs") ||
+    ""
+  );
+};
+
+const hasProviderCapableSession = () =>
+  hasProviderToken() || isCompanyAccountType(getStoredAccountType());
 
 const collectRoleValues = (source, seen = new Set()) => {
   if (!source) return [];
@@ -1382,13 +1409,65 @@ const collectRoleValues = (source, seen = new Set()) => {
 const getProfileRoles = (response) =>
   collectRoleValues(extractPayloadData(response)).map((role) => String(role));
 
+const collectAccountTypeValues = (source, seen = new Set()) => {
+  if (!source) return [];
+
+  if (typeof source === "string") return [source];
+  if (Array.isArray(source)) {
+    return source.flatMap((item) => collectAccountTypeValues(item, seen));
+  }
+  if (typeof source !== "object" || seen.has(source)) return [];
+
+  seen.add(source);
+
+  const accountTypeKeys = [
+    "accountType",
+    "AccountType",
+    "account_type",
+    "type",
+    "Type",
+  ];
+  const nestedKeys = [
+    "data",
+    "user",
+    "User",
+    "account",
+    "Account",
+    "profile",
+    "Profile",
+    "result",
+    "Result",
+    "payload",
+    "Payload",
+  ];
+
+  return [
+    ...accountTypeKeys.flatMap((key) =>
+      collectAccountTypeValues(source[key], seen)
+    ),
+    ...nestedKeys.flatMap((key) => collectAccountTypeValues(source[key], seen)),
+  ].filter(Boolean);
+};
+
+const getProfileAccountTypes = (response) =>
+  collectAccountTypeValues(extractPayloadData(response)).map((accountType) =>
+    String(accountType)
+  );
+
 const getHasProviderAccountRole = async () => {
   const profile = await getMyInformation();
   const roles = getProfileRoles(profile);
+  const accountTypes = getProfileAccountTypes(profile);
 
-  if (roles.length === 0) return hasProviderToken();
+  if (roles.some(isProviderRole) || accountTypes.some(isCompanyAccountType)) {
+    return true;
+  }
 
-  return roles.some(isProviderRole);
+  if (roles.length === 0 && accountTypes.length === 0) {
+    return hasProviderCapableSession();
+  }
+
+  return false;
 };
 
 const extractAuthToken = (response) =>
@@ -1438,7 +1517,7 @@ const getApiErrorMessage = (error, fallbackMessage) => {
   return message || fallbackMessage;
 };
 const getProviderForbiddenMessage = (fallbackMessage) =>
-  hasProviderToken()
+  hasProviderCapableSession()
     ? fallbackMessage
     : "Provider mode is ready. Please sign in again so your session gets provider access.";
 const SESSION_REFRESH_RETRY_MESSAGE =
@@ -1492,7 +1571,7 @@ const logCreateServiceFlowDebug = (label, data) => {
 };
 
 const ensureProviderRole = async () => {
-  const tokenAlreadyHasProviderRole = hasProviderToken();
+  const sessionAlreadyHasProviderAccess = hasProviderCapableSession();
 
   try {
     if (await getHasProviderAccountRole()) {
@@ -1503,7 +1582,7 @@ const ensureProviderRole = async () => {
       throw error;
     }
 
-    if (tokenAlreadyHasProviderRole) {
+    if (sessionAlreadyHasProviderAccess) {
       return true;
     }
   }
@@ -1536,7 +1615,7 @@ const ensureProviderRole = async () => {
       throw error;
     }
 
-    if (hasProviderToken()) {
+    if (hasProviderCapableSession()) {
       return true;
     }
   }
@@ -1882,6 +1961,19 @@ export default function BecomePartnerFlow() {
       setSelectedPartnerType("services");
     }
 
+    if (stepId > 2) {
+      const validationMessage = validateServiceDetailsForApi(serviceDetails);
+
+      if (validationMessage) {
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: validationMessage,
+        });
+        return;
+      }
+    }
+
     setCurrentStep(stepId);
   };
 
@@ -1897,7 +1989,10 @@ export default function BecomePartnerFlow() {
 
       return {
         ...currentDetails,
-        [fieldName]: value,
+        [fieldName]:
+          fieldName === "serviceTimeHours"
+            ? normalizeServiceTimeHoursInput(value)
+            : value,
       };
     });
   };

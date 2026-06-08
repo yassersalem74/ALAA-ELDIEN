@@ -6,6 +6,7 @@ import emailIcon from "../../../../assets/images/auth/email.png";
 const NAME_PATTERN = /^[A-Za-z ]+$/;
 const PASSWORD_PATTERN =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&+])\S{8,50}$/;
+const EGYPTIAN_PHONE_PATTERN = /^01[0125][0-9]{8}$/;
 
 export default function StepOneInfo({
   onNext,
@@ -55,7 +56,7 @@ export default function StepOneInfo({
       <div>
         <input
           placeholder="Company name"
-          {...register("companyName", {
+          {...register("name", {
             required: "Company name is required",
             minLength: {
               value: 3,
@@ -70,15 +71,15 @@ export default function StepOneInfo({
           px-4 text-[12px] sm:text-[16px]
           placeholder:text-[#808DAF] text-[#011C60]
           border ${
-            errors.companyName
+            errors.name
               ? "border-red-500 focus:border-red-500"
               : "border-gray-200 focus:border-[#011C60]"
           }
           outline-none`}
         />
-        {errors.companyName && (
+        {errors.name && (
           <span className="text-red-500 text-xs">
-            {errors.companyName.message}
+            {errors.name.message}
           </span>
         )}
       </div>
@@ -158,26 +159,26 @@ export default function StepOneInfo({
       <div>
         <input
           placeholder="Phone Number"
-          {...register("phone", {
+          {...register("phoneNumber", {
             required: "Phone number is required",
             pattern: {
-              value: /^01[0-9]{9}$/,
-              message: "Phone number must be 11 digits and start with 01",
+              value: EGYPTIAN_PHONE_PATTERN,
+              message: "Phone number must be a valid Egyptian mobile number",
             },
           })}
           className={`w-full h-12 sm:h-14 rounded-[14px] px-4
           text-[12px] sm:text-[16px]
           placeholder:text-[#808DAF] text-[#011C60]
           border ${
-            errors.phone
+            errors.phoneNumber
               ? "border-red-500 focus:border-red-500"
               : "border-gray-200 focus:border-[#011C60]"
           }
           outline-none`}
         />
-        {errors.phone && (
+        {errors.phoneNumber && (
           <span className="text-red-500 text-xs">
-            {errors.phone.message}
+            {errors.phoneNumber.message}
           </span>
         )}
       </div>

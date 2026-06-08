@@ -4,6 +4,22 @@ import nationalFront from "../../../../assets/images/auth/nationalFront.png";
 import nationalBack from "../../../../assets/images/auth/nationalBack.png";
 import selfie from "../../../../assets/images/auth/selfie.png";
 
+const isValidEgyptianNationalId = (value) => {
+  if (!/^[23][0-9]{13}$/.test(value)) return false;
+
+  const century = value[0] === "2" ? 1900 : 2000;
+  const year = century + Number(value.slice(1, 3));
+  const month = Number(value.slice(3, 5));
+  const day = Number(value.slice(5, 7));
+  const birthDate = new Date(year, month - 1, day);
+
+  return (
+    birthDate.getFullYear() === year &&
+    birthDate.getMonth() === month - 1 &&
+    birthDate.getDate() === day
+  );
+};
+
 export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
   const signatoryNationalIdRef = useRef(null);
   const taxRegistrationRef = useRef(null);
@@ -76,9 +92,9 @@ export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
 
     if (!signatoryNationalId) {
       nextErrors.signatoryNationalId = "Signatory national ID is required";
-    } else if (!/^[23][0-9]{13}$/.test(signatoryNationalId)) {
+    } else if (!isValidEgyptianNationalId(signatoryNationalId)) {
       nextErrors.signatoryNationalId =
-        "National ID must be 14 digits and start with 2 or 3";
+        "National ID must be 14 digits, start with 2 or 3, and include a valid birth date";
     }
 
     uploadItems.forEach((item) => {

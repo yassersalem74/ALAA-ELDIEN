@@ -60,7 +60,7 @@ const getApiErrorMessage = (error) => {
 
 const getAccountName = (data, type) => {
   if (type === "company") {
-    return data.companyName || "company account";
+    return data.name || data.companyName || "company account";
   }
 
   return [data.firstName, data.lastName].filter(Boolean).join(" ");
@@ -149,13 +149,13 @@ export default function SignupForm() {
   const buildCompanyRegisterForm = (allData) => {
     const form = new FormData();
 
-    appendIfPresent(form, "name", allData.companyName);
+    appendIfPresent(form, "name", allData.name || allData.companyName);
     appendIfPresent(form, "email", allData.email);
     appendIfPresent(form, "password", allData.password);
     appendIfPresent(form, "signatoryFirstName", allData.signatoryFirstName);
     appendIfPresent(form, "signatoryLastName", allData.signatoryLastName);
     appendIfPresent(form, "signatoryNationalId", allData.signatoryNationalId);
-    appendIfPresent(form, "phoneNumber", allData.phone);
+    appendIfPresent(form, "phoneNumber", allData.phoneNumber || allData.phone);
 
     form.append("language", "en");
 
@@ -168,12 +168,20 @@ export default function SignupForm() {
     appendIfPresent(form, "logo", allData.logo);
     appendIfPresent(form, "imageCR", allData.imageCR);
 
-    appendIfPresent(form, "neighborhoodId", allData.areaId);
-    appendIfPresent(form, "street", allData.streetName);
+    appendIfPresent(
+      form,
+      "neighborhoodId",
+      allData.neighborhoodId || allData.areaId
+    );
+    appendIfPresent(form, "street", allData.street || allData.streetName);
     appendIfPresent(form, "apartment", allData.apartment);
-    appendIfPresent(form, "floor", allData.floorNumber);
-    appendIfPresent(form, "building", allData.buildingNumber);
-    appendIfPresent(form, "details", allData.additionalDetails);
+    appendIfPresent(form, "floor", allData.floor || allData.floorNumber);
+    appendIfPresent(
+      form,
+      "building",
+      allData.building || allData.buildingNumber
+    );
+    appendIfPresent(form, "details", allData.details || allData.additionalDetails);
 
     return form;
   };
@@ -183,10 +191,10 @@ export default function SignupForm() {
       const requiredFields =
         type === "company"
           ? [
-              "companyName",
+              "name",
               "signatoryFirstName",
               "signatoryLastName",
-              "phone",
+              "phoneNumber",
               "email",
               "password",
               "confirmPassword",
@@ -227,10 +235,10 @@ export default function SignupForm() {
     if (stepNumber === 3) {
       return [
         "governorateId",
-        "areaId",
-        "streetName",
-        "buildingNumber",
-        "floorNumber",
+        "neighborhoodId",
+        "street",
+        "building",
+        "floor",
         "apartment",
       ].every((field) => hasValue(data[field]));
     }
