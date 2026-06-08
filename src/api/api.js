@@ -6,6 +6,8 @@ const AUTH_SESSION_COOKIE_NAME = "alaa_auth_session";
 const AUTH_TOKEN_COOKIE_NAME = "alaa_auth_token";
 const REFRESH_TOKEN_COOKIE_NAME = "alaa_refresh_token";
 const ACCOUNT_TYPE_COOKIE_NAME = "alaa_account_type";
+export const AUTH_TOKENS_REFRESHED_EVENT = "alaa:auth-tokens-refreshed";
+export const AUTH_SESSION_CLEARED_EVENT = "alaa:auth-session-cleared";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const REFRESH_TOKEN_ENDPOINT = "/api/v1/authentication/refresh-token";
 const AUTH_STORAGE_KEYS = [
@@ -69,22 +71,60 @@ const getRefreshToken = () =>
 const isJwtLike = (value) =>
   typeof value === "string" && value.split(".").length === 3;
 
+const normalizeTokenKey = (key) => String(key || "").toLowerCase().replace(/[_-]/g, "");
+
+const findTokenValue = (data, keyNames, seen = new Set()) => {
+  if (!data || seen.has(data)) return "";
+
+  if (typeof data !== "object") {
+    return "";
+  }
+
+  seen.add(data);
+
+  for (const [key, value] of Object.entries(data)) {
+    const normalizedKey = normalizeTokenKey(key);
+
+    if (keyNames.includes(normalizedKey) && typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  for (const value of Object.values(data)) {
+    const token = findTokenValue(value, keyNames, seen);
+
+    if (token) return token;
+  }
+
+  return "";
+};
+
 export const extractAccessToken = (data) =>
-  (typeof data?.data === "string" && isJwtLike(data.data) ? data.data : null) ||
-  data?.token ||
-  data?.accessToken ||
-  data?.data?.token ||
-  data?.data?.accessToken ||
-  data?.user?.token ||
-  data?.data?.user?.token ||
-  "";
+  (typeof data === "string" && isJwtLike(data) ? data : "") ||
+  (typeof data?.data === "string" && isJwtLike(data.data) ? data.data : "") ||
+  findTokenValue(data, ["accesstoken", "token", "jwt"]);
 
 export const extractRefreshToken = (data) =>
-  data?.refreshToken ||
-  data?.data?.refreshToken ||
-  data?.user?.refreshToken ||
-  data?.data?.user?.refreshToken ||
-  "";
+  findTokenValue(data, ["refreshtoken"]);
+
+const dispatchAuthTokensRefreshed = ({ accessToken, refreshToken }) => {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(
+    new CustomEvent(AUTH_TOKENS_REFRESHED_EVENT, {
+      detail: {
+        accessToken,
+        refreshToken,
+      },
+    })
+  );
+};
+
+const dispatchAuthSessionCleared = () => {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(new CustomEvent(AUTH_SESSION_CLEARED_EVENT));
+};
 
 export const storeAuthTokens = ({ accessToken, refreshToken }) => {
   if (typeof window === "undefined") return;
@@ -99,6 +139,8 @@ export const storeAuthTokens = ({ accessToken, refreshToken }) => {
     localStorage.setItem("refreshToken", refreshToken);
     setCookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken);
   }
+
+  dispatchAuthTokensRefreshed({ accessToken, refreshToken });
 };
 
 export const clearStoredAuthSession = () => {
@@ -109,6 +151,7 @@ export const clearStoredAuthSession = () => {
   deleteCookie(AUTH_TOKEN_COOKIE_NAME);
   deleteCookie(REFRESH_TOKEN_COOKIE_NAME);
   deleteCookie(ACCOUNT_TYPE_COOKIE_NAME);
+  dispatchAuthSessionCleared();
 };
 
 const redirectToLogin = () => {
@@ -161,6 +204,7 @@ api.interceptors.request.use((config) => {
   const token = getAccessToken();
 
   if (token) {
+    config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
 
@@ -189,8 +233,10 @@ api.interceptors.response.use(
       const accessToken = await refreshPromise;
       refreshPromise = null;
 
-      originalRequest.headers = originalRequest.headers || {};
-      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      originalRequest.headers = {
+        ...(originalRequest.headers || {}),
+        Authorization: `Bearer ${accessToken}`,
+      };
 
       return api(originalRequest);
     } catch (refreshError) {

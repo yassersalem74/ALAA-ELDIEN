@@ -73,12 +73,12 @@ const signupSteps = [
 ];
 
 const ACCOUNT_TYPE_OPTIONS = [
-  { id: "individual", label: "Provider" },
+  { id: "individual", label: "Individual" },
   { id: "company", label: "Company" },
 ];
 
 const ACCOUNT_TYPE_LABELS = {
-  individual: "Provider",
+  individual: "Individual",
   company: "Company",
 };
 
@@ -112,7 +112,7 @@ export default function SignupForm() {
   };
 
   const titles = {
-    1: type === "company" ? "Create Company Account" : "Create Provider Account",
+    1: type === "company" ? "Create Company Account" : "Create Individual Account",
     2: "Verify Your Identity",
     3: "Add Address",
     4: "Verify Email",

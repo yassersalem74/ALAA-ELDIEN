@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AUTH_SESSION_CLEARED_EVENT,
+  AUTH_TOKENS_REFRESHED_EVENT,
   clearStoredAuthSession,
   storeAuthTokens,
 } from "../api/api";
@@ -54,8 +56,10 @@ const getInitialAuthState = () => {
     };
   }
 
-  const token = getCookie(AUTH_TOKEN_COOKIE_NAME);
-  const refreshToken = getCookie(REFRESH_TOKEN_COOKIE_NAME);
+  const token =
+    localStorage.getItem("token") || getCookie(AUTH_TOKEN_COOKIE_NAME);
+  const refreshToken =
+    localStorage.getItem("refreshToken") || getCookie(REFRESH_TOKEN_COOKIE_NAME);
   const hasSession = Boolean(getCookie(AUTH_COOKIE_NAME) || token);
   const accountType =
     getCookie(ACCOUNT_TYPE_COOKIE_NAME) ||
@@ -108,6 +112,40 @@ export function AuthProvider({ children }) {
       userRole: "",
       isAuthenticated: false,
     });
+  }, []);
+
+  useEffect(() => {
+    const handleTokensRefreshed = (event) => {
+      const { accessToken, refreshToken } = event.detail || {};
+
+      if (!accessToken && !refreshToken) return;
+
+      setAuthState((currentState) => ({
+        ...currentState,
+        token: accessToken || currentState.token,
+        refreshToken: refreshToken || currentState.refreshToken,
+        isAuthenticated: currentState.isAuthenticated || Boolean(accessToken),
+      }));
+    };
+
+    const handleSessionCleared = () => {
+      setAuthState({
+        accountType: "",
+        token: "",
+        refreshToken: "",
+        user: null,
+        userRole: "",
+        isAuthenticated: false,
+      });
+    };
+
+    window.addEventListener(AUTH_TOKENS_REFRESHED_EVENT, handleTokensRefreshed);
+    window.addEventListener(AUTH_SESSION_CLEARED_EVENT, handleSessionCleared);
+
+    return () => {
+      window.removeEventListener(AUTH_TOKENS_REFRESHED_EVENT, handleTokensRefreshed);
+      window.removeEventListener(AUTH_SESSION_CLEARED_EVENT, handleSessionCleared);
+    };
   }, []);
 
   useEffect(() => {

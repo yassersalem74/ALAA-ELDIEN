@@ -119,26 +119,9 @@ const getAuthToken = () =>
     ? localStorage.getItem("token") || getCookie("alaa_auth_token")
     : "";
 
-const deleteCookie = (name) => {
-  if (typeof document === "undefined") return;
-
-  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
-};
-
-const clearAuthSession = () => {
-  if (typeof window === "undefined") return;
-
-  ["token", "refreshToken", "user", "accountType", "loggedInAs", "userRole"].forEach((key) => {
-    localStorage.removeItem(key);
-  });
-
-  deleteCookie("alaa_auth_session");
-  deleteCookie("alaa_auth_token");
-  deleteCookie("alaa_refresh_token");
-  deleteCookie("alaa_account_type");
-};
-
 const isUnauthorizedError = (error) => error?.response?.status === 401;
+const SESSION_REFRESH_RETRY_MESSAGE =
+  "Your session was refreshed. Please try again.";
 
 export default function AddPackageFlow({
   onBack,
@@ -234,11 +217,10 @@ export default function AddPackageFlow({
       });
     } catch (error) {
       if (isUnauthorizedError(error)) {
-        clearAuthSession();
         onToast({
           id: Date.now(),
           type: "error",
-          message: "Your session expired. Please sign in again.",
+          message: SESSION_REFRESH_RETRY_MESSAGE,
         });
         return;
       }

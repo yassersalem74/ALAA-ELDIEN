@@ -1412,25 +1412,6 @@ const storeAuthToken = (token) => {
   setCookie(AUTH_TOKEN_COOKIE_NAME, token);
 };
 
-const deleteCookie = (name) => {
-  if (typeof document === "undefined") return;
-
-  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
-};
-
-const clearAuthSession = () => {
-  if (typeof window === "undefined") return;
-
-  ["token", "refreshToken", "user", "accountType", "loggedInAs", "userRole"].forEach((key) => {
-    localStorage.removeItem(key);
-  });
-
-  deleteCookie("alaa_auth_session");
-  deleteCookie("alaa_auth_token");
-  deleteCookie("alaa_refresh_token");
-  deleteCookie("alaa_account_type");
-};
-
 const isUnauthorizedError = (error) => error?.response?.status === 401;
 const isForbiddenError = (error) => error?.response?.status === 403;
 const isConflictError = (error) => error?.response?.status === 409;
@@ -1460,6 +1441,8 @@ const getProviderForbiddenMessage = (fallbackMessage) =>
   hasProviderToken()
     ? fallbackMessage
     : "Provider mode is ready. Please sign in again so your session gets provider access.";
+const SESSION_REFRESH_RETRY_MESSAGE =
+  "Your session was refreshed. Please try again.";
 
 const isDebugLoggingEnabled = () => import.meta.env.DEV;
 
@@ -1603,11 +1586,10 @@ export default function BecomePartnerFlow() {
         isForbiddenError(packagesResult.reason));
 
     if (hasUnauthorizedResponse) {
-      clearAuthSession();
       setToast({
         id: Date.now(),
         type: "error",
-        message: "Your session expired. Please sign in again.",
+        message: SESSION_REFRESH_RETRY_MESSAGE,
       });
       return false;
     }
@@ -1682,11 +1664,10 @@ export default function BecomePartnerFlow() {
         hasExistingProviderAccess = await getHasProviderAccountRole();
       } catch (error) {
         if (isUnauthorizedError(error)) {
-          clearAuthSession();
           setToast({
             id: Date.now(),
             type: "error",
-            message: "Your session expired. Please sign in again.",
+            message: SESSION_REFRESH_RETRY_MESSAGE,
           });
           return;
         }
@@ -1707,11 +1688,10 @@ export default function BecomePartnerFlow() {
         setHasProviderAccess(true);
       } catch (error) {
         if (isUnauthorizedError(error)) {
-          clearAuthSession();
           setToast({
             id: Date.now(),
             type: "error",
-            message: "Your session expired. Please sign in again.",
+            message: SESSION_REFRESH_RETRY_MESSAGE,
           });
           return;
         }
@@ -1816,11 +1796,10 @@ export default function BecomePartnerFlow() {
       return true;
     } catch (error) {
       if (isUnauthorizedError(error)) {
-        clearAuthSession();
         setToast({
           id: Date.now(),
           type: "error",
-          message: "Your session expired. Please sign in again.",
+          message: SESSION_REFRESH_RETRY_MESSAGE,
         });
         return false;
       }
@@ -2087,11 +2066,10 @@ export default function BecomePartnerFlow() {
 
   const handleServiceSaveError = async (error, fallbackMessage) => {
     if (isUnauthorizedError(error)) {
-      clearAuthSession();
       setToast({
         id: Date.now(),
         type: "error",
-        message: "Your session expired. Please sign in again.",
+        message: SESSION_REFRESH_RETRY_MESSAGE,
       });
       return true;
     }
@@ -2205,11 +2183,10 @@ export default function BecomePartnerFlow() {
       );
     } catch (error) {
       if (isUnauthorizedError(error)) {
-        clearAuthSession();
         setToast({
           id: Date.now(),
           type: "error",
-          message: "Your session expired. Please sign in again.",
+          message: SESSION_REFRESH_RETRY_MESSAGE,
         });
         return;
       }
@@ -2319,11 +2296,10 @@ export default function BecomePartnerFlow() {
       });
     } catch (error) {
       if (isUnauthorizedError(error)) {
-        clearAuthSession();
         setToast({
           id: Date.now(),
           type: "error",
-          message: "Your session expired. Please sign in again.",
+          message: SESSION_REFRESH_RETRY_MESSAGE,
         });
         return;
       }
@@ -2404,11 +2380,10 @@ export default function BecomePartnerFlow() {
       );
     } catch (error) {
       if (isUnauthorizedError(error)) {
-        clearAuthSession();
         setToast({
           id: Date.now(),
           type: "error",
-          message: "Your session expired. Please sign in again.",
+          message: SESSION_REFRESH_RETRY_MESSAGE,
         });
         return;
       }
@@ -2482,11 +2457,10 @@ export default function BecomePartnerFlow() {
       await closePackageEditAsSaved();
     } catch (error) {
       if (isUnauthorizedError(error)) {
-        clearAuthSession();
         setToast({
           id: Date.now(),
           type: "error",
-          message: "Your session expired. Please sign in again.",
+          message: SESSION_REFRESH_RETRY_MESSAGE,
         });
         return;
       }
@@ -2558,11 +2532,10 @@ export default function BecomePartnerFlow() {
       setPendingDelete(null);
     } catch (error) {
       if (isUnauthorizedError(error)) {
-        clearAuthSession();
         setToast({
           id: Date.now(),
           type: "error",
-          message: "Your session expired. Please sign in again.",
+          message: SESSION_REFRESH_RETRY_MESSAGE,
         });
         setPendingDelete(null);
         return;
