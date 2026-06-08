@@ -800,6 +800,12 @@ const toAgendaTime = (hour) => {
   return `${String(Math.min(Math.max(hourNumber, 0), 23)).padStart(2, "0")}:00`;
 };
 
+const toAgendaFromTime = (hour) => {
+  const time = toAgendaTime(hour);
+
+  return time === "00:00" ? "00:01" : time;
+};
+
 const toAgendaDay = (day) => {
   const normalizedDay = normalizeWeekdayValue(day);
 
@@ -815,7 +821,7 @@ const buildAgendasPayload = (availability) => ({
 
     agendas.push({
       Day: normalizedDay,
-      From: dayWindow.dailyWindow ? "00:00" : toAgendaTime(dayWindow.startHour),
+      From: dayWindow.dailyWindow ? "00:01" : toAgendaFromTime(dayWindow.startHour),
       To: dayWindow.dailyWindow ? "23:59" : toAgendaTime(dayWindow.endHour),
     });
 
