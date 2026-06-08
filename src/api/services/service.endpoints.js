@@ -13,4 +13,7 @@ export const SERVICE_ENDPOINTS = {
   ADD_REVIEW: "/api/v1/reviews/providers",
   CREATE_UPDATE_ITEMS: "/api/v1/items/services",
   CREATE_UPDATE_AGENDAS: "/api/v1/agendas/services",
+  BOOK_SERVICE_APPOINTMENT: "/api/v1/appointments/book/service",
+  GET_SERVICE_APPOINTMENT_AVAILABILITIES:
+    "/api/v1/appointments/availabilities/service",
 };

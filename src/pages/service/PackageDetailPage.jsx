@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
+  bookServiceAppointment,
+  getServiceAppointmentAvailabilities,
   getPackageDetails,
   getServiceDetails,
 } from "../../api/services/service.api";
@@ -22,6 +24,11 @@ import {
   getApiErrorMessage,
   normalizeService,
 } from "./serviceApiMappers";
+import {
+  applyAvailabilitySecurityStamp,
+  formatTimeForApi,
+  saveAppointmentBookings,
+} from "../../utils/appointments/appointmentUtils";
 
 const toDateKey = (date) => {
   const year = date.getFullYear();
@@ -32,6 +39,40 @@ const toDateKey = (date) => {
 };
 
 const getTodayKey = () => toDateKey(new Date());
+
+const getNextDateForWeekday = (dayIndex) => {
+  const today = new Date();
+  const offset = (Number(dayIndex) - today.getDay() + 7) % 7;
+  const date = new Date(today);
+
+  date.setDate(today.getDate() + offset);
+
+  return toDateKey(date);
+};
+
+const getNextDateForMonthDay = (monthDay) => {
+  const today = new Date();
+  let year = today.getFullYear();
+  let month = today.getMonth();
+  const getCandidate = () => {
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    return new Date(year, month, Math.min(Number(monthDay) || 1, lastDayOfMonth));
+  };
+  let candidate = getCandidate();
+
+  if (candidate < new Date(today.getFullYear(), today.getMonth(), today.getDate())) {
+    month += 1;
+
+    if (month > 11) {
+      month = 0;
+      year += 1;
+    }
+
+    candidate = getCandidate();
+  }
+
+  return toDateKey(candidate);
+};
 
 const formatMonthTitle = (date) =>
   new Intl.DateTimeFormat("en-US", {
@@ -141,6 +182,27 @@ const formatRangeLabel = (range) =>
     : "";
 
 const getTimeButtonLabel = (range) => formatTimeLabel(range.from);
+
+const buildAppointmentBody = ({ date, timeSlot }) => ({
+  date,
+  from: formatTimeForApi(timeSlot?.from),
+  to: formatTimeForApi(timeSlot?.to),
+  securityStamp: timeSlot?.securityStamp || null,
+  itemIds: [],
+});
+
+const getAppointmentId = (packageId, serviceId, body) =>
+  ["package", packageId, serviceId || "service", body.date, body.from]
+    .filter(Boolean)
+    .join("-");
+
+const getScheduleSelectionDate = (selection, fallbackDate = "") => {
+  if (selection.dateKey) return selection.dateKey;
+  if (selection.type === "weekday") return getNextDateForWeekday(selection.dayIndex);
+  if (selection.type === "month-day") return getNextDateForMonthDay(selection.monthDay);
+
+  return fallbackDate || getTodayKey();
+};
 
 const DAILY_WEEKDAY_INDEXES = [0, 1, 2, 3, 4, 5, 6];
 
@@ -797,7 +859,13 @@ function PackageDetailsView({ service, packageItem, onConfirmBooking }) {
   );
 }
 
-function ConfirmBookingModal({ booking, onClose, onConfirm }) {
+function ConfirmBookingModal({
+  booking,
+  onClose,
+  onConfirm,
+  isSubmitting = false,
+  errorMessage = "",
+}) {
   if (!booking) return null;
 
   const {
@@ -1003,12 +1071,18 @@ function ConfirmBookingModal({ booking, onClose, onConfirm }) {
         </div>
 
         <div className="mt-5">
+          {errorMessage && (
+            <p className="mb-3 rounded-[8px] bg-red-50 px-3 py-2 text-center font-['Roboto'] text-[12px] font-semibold text-red-600">
+              {errorMessage}
+            </p>
+          )}
           <button
             type="button"
             onClick={onConfirm}
-            className="h-12 w-full rounded-[8px] bg-[#011C60] font-['Roboto'] text-[13px] font-semibold text-white transition hover:bg-[#02237a]"
+            disabled={isSubmitting}
+            className="h-12 w-full rounded-[8px] bg-[#011C60] font-['Roboto'] text-[13px] font-semibold text-white transition hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF]"
           >
-            Confirm Booking
+            {isSubmitting ? "Booking..." : "Confirm Booking"}
           </button>
         </div>
       </div>
@@ -1072,6 +1146,8 @@ export default function PackageDetailPage() {
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
+  const [bookingErrorMessage, setBookingErrorMessage] = useState("");
 
   useEffect(() => {
     if (!packageId) return undefined;
@@ -1145,72 +1221,120 @@ export default function PackageDetailPage() {
     return <Navigate to="/services/package" replace />;
   }
 
-  const handleConfirmBooking = () => {
+  const getBookableAppointment = async (body) => {
+    const response = await getServiceAppointmentAvailabilities(
+      bookingDraft.service.id,
+      body.date
+    );
+
+    return {
+      body: applyAvailabilitySecurityStamp(body, response),
+      availabilityResponse: response,
+    };
+  };
+
+  const handleConfirmBooking = async () => {
     if (!bookingDraft) return;
+    if (!bookingDraft.service.id) {
+      setBookingErrorMessage("This package is missing a service id for booking.");
+      return;
+    }
 
     const scheduleSelections = Array.isArray(bookingDraft.scheduleSelections)
       ? bookingDraft.scheduleSelections
       : [];
-    const firstScheduleSelection = scheduleSelections[0] || {};
-    const firstTimeSlot =
-      firstScheduleSelection.timeSlot || bookingDraft.selectedTimeSlot || {};
-    const scheduleId =
-      scheduleSelections
-        .map(
-          (selection) =>
-            `${selection.key}-${selection.timeSlot?.from || "time"}`
-        )
-        .join("_") ||
-      `${bookingDraft.selectedDateKey || "schedule"}-${
-        firstTimeSlot.from || "time"
-      }`;
+    const appointmentSelections = scheduleSelections.length
+      ? scheduleSelections
+      : [
+          {
+            key: bookingDraft.selectedDateKey || "selected-date",
+            label: bookingDraft.selectedDateKey || "Selected date",
+            dateKey: bookingDraft.selectedDateKey,
+            timeSlot: bookingDraft.selectedTimeSlot,
+          },
+        ];
 
-    const bookingPayload = {
-      id: `package-${bookingDraft.packageItem.id}-${
-        bookingDraft.service.id || "service"
-      }-${scheduleId}`,
-      mode: "package",
-      serviceId: bookingDraft.service.id,
-      serviceName: bookingDraft.service.name,
-      packageId: bookingDraft.packageItem.id,
-      packageName: bookingDraft.packageItem.name,
-      providerId: bookingDraft.service.providerId,
-      providerName: bookingDraft.service.providerName,
-      date: bookingDraft.selectedDateKey || firstScheduleSelection.label || "",
-      from: firstTimeSlot.from || "",
-      to: firstTimeSlot.to || "",
-      items: [],
-      schedule: scheduleSelections.map((selection) => ({
-        key: selection.key,
-        type: selection.type,
-        label: selection.label,
-        dayIndex: selection.dayIndex,
-        monthDay: selection.monthDay,
-        from: selection.timeSlot?.from || "",
-        to: selection.timeSlot?.to || "",
-      })),
-      selectedSchedule: bookingDraft.selectedSchedule || [],
-      total: bookingDraft.total,
-      currency: bookingDraft.packageItem.currency,
-      createdAt: new Date().toISOString(),
-    };
+    setIsBookingSubmitting(true);
+    setBookingErrorMessage("");
 
     try {
-      const existingBookings = JSON.parse(
-        localStorage.getItem("serviceBookings") || "[]"
-      );
-      const nextBookings = [
-        bookingPayload,
-        ...existingBookings.filter((booking) => booking.id !== bookingPayload.id),
-      ];
+      const appointmentResults = [];
 
-      localStorage.setItem("serviceBookings", JSON.stringify(nextBookings));
+      for (const selection of appointmentSelections) {
+        const appointment = await getBookableAppointment(
+          buildAppointmentBody({
+            date: getScheduleSelectionDate(
+              selection,
+              bookingDraft.selectedDateKey
+            ),
+            timeSlot: selection.timeSlot,
+          })
+        );
+        const appointmentBody = appointment.body;
+        const appointmentResponse = await bookServiceAppointment(
+          bookingDraft.service.id,
+          appointmentBody
+        );
+
+        appointmentResults.push({
+          selection,
+          request: appointmentBody,
+          response: appointmentResponse,
+          availabilityResponse: appointment.availabilityResponse,
+        });
+      }
+
+      const firstResult = appointmentResults[0];
+      const bookingPayload = {
+        id: getAppointmentId(
+          bookingDraft.packageItem.id,
+          bookingDraft.service.id,
+          firstResult.request
+        ),
+        mode: "package",
+        serviceId: bookingDraft.service.id,
+        serviceName: bookingDraft.service.name,
+        packageId: bookingDraft.packageItem.id,
+        packageName: bookingDraft.packageItem.name,
+        providerId: bookingDraft.service.providerId,
+        providerName: bookingDraft.service.providerName,
+        date: firstResult.request.date,
+        from: firstResult.request.from,
+        to: firstResult.request.to,
+        items: [],
+        schedule: appointmentResults.map(({ selection, request }) => ({
+          key: selection.key,
+          type: selection.type,
+          label: selection.label,
+          dayIndex: selection.dayIndex,
+          monthDay: selection.monthDay,
+          date: request.date,
+          from: request.from,
+          to: request.to,
+        })),
+        selectedSchedule: bookingDraft.selectedSchedule || [],
+        total: bookingDraft.total,
+        currency: bookingDraft.packageItem.currency,
+        appointmentRequests: appointmentResults.map((result) => result.request),
+        appointmentResponses: appointmentResults.map((result) => result.response),
+        availabilityResponses: appointmentResults.map(
+          (result) => result.availabilityResponse
+        ),
+        status: "Booked",
+        createdAt: new Date().toISOString(),
+      };
+
+      saveAppointmentBookings(bookingPayload);
+
+      setBookingDraft(null);
+      setIsSuccessOpen(true);
     } catch (error) {
-      console.warn("Unable to save selected package booking locally.", error);
+      setBookingErrorMessage(
+        getApiErrorMessage(error, "Unable to confirm booking. Please try again.")
+      );
+    } finally {
+      setIsBookingSubmitting(false);
     }
-
-    setBookingDraft(null);
-    setIsSuccessOpen(true);
   };
 
   return (
@@ -1236,12 +1360,21 @@ export default function PackageDetailPage() {
               <PackageDetailsView
                 service={service}
                 packageItem={packageItem}
-                onConfirmBooking={setBookingDraft}
+                onConfirmBooking={(draft) => {
+                  setBookingErrorMessage("");
+                  setBookingDraft(draft);
+                }}
               />
               <ConfirmBookingModal
                 booking={bookingDraft}
-                onClose={() => setBookingDraft(null)}
+                onClose={() => {
+                  if (isBookingSubmitting) return;
+                  setBookingErrorMessage("");
+                  setBookingDraft(null);
+                }}
                 onConfirm={handleConfirmBooking}
+                isSubmitting={isBookingSubmitting}
+                errorMessage={bookingErrorMessage}
               />
               <BookingSuccessModal
                 isOpen={isSuccessOpen}

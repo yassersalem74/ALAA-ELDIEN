@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
+  bookServiceAppointment,
+  getServiceAppointmentAvailabilities,
   getPackageDetails,
   getServiceDetails,
 } from "../../api/services/service.api";
@@ -25,6 +27,12 @@ import {
   isSupportedServiceCategory,
   normalizeService,
 } from "./serviceApiMappers";
+import {
+  applyAvailabilitySecurityStamp,
+  formatTimeForApi,
+  normalizeAppointmentSlots,
+  saveAppointmentBookings,
+} from "../../utils/appointments/appointmentUtils";
 
 const toDateKey = (date) => {
   const year = date.getFullYear();
@@ -91,6 +99,34 @@ const formatRangeLabel = (range) =>
   `${formatTimeLabel(range.from)} - ${formatTimeLabel(range.to)}`;
 
 const getTimeButtonLabel = (range) => formatTimeLabel(range.from);
+
+const getBookingItemIds = (selectedItems = []) => [
+  ...new Set(
+    selectedItems
+      .map((item) => item.id || item.itemId || item.serviceItemId)
+      .filter(Boolean)
+      .map(String)
+  ),
+];
+
+const buildAppointmentBody = ({ date, timeSlot, selectedItems = [], securityStamp }) => ({
+  date,
+  from: formatTimeForApi(timeSlot?.from),
+  to: formatTimeForApi(timeSlot?.to),
+  securityStamp: securityStamp || timeSlot?.securityStamp || null,
+  itemIds: getBookingItemIds(selectedItems),
+});
+
+const getAppointmentId = (mode, serviceId, packageId, body) =>
+  [
+    mode || "service",
+    serviceId || "service",
+    packageId || "one-time",
+    body.date,
+    body.from,
+  ]
+    .filter(Boolean)
+    .join("-");
 
 const parseTimeToMinutes = (value) => {
   const [hourPart = "0", minutePart = "0"] = String(value || "").split(":");
@@ -863,6 +899,11 @@ function BookingPanel({ service, onConfirmBooking }) {
   const durationInMin = service.timeslotDurationInMin || 60;
   const [selectedDateKey, setSelectedDateKey] = useState("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [apiTimeSlots, setApiTimeSlots] = useState([]);
+  const [availabilityResponse, setAvailabilityResponse] = useState(null);
+  const [hasLoadedAvailability, setHasLoadedAvailability] = useState(false);
+  const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
   const [quantities, setQuantities] = useState({});
 
   const selectedDayIndex = useMemo(() => {
@@ -878,7 +919,7 @@ function BookingPanel({ service, onConfirmBooking }) {
     [agendas, selectedDayIndex]
   );
 
-  const selectedTimeSlots = useMemo(
+  const localTimeSlots = useMemo(
     () =>
       selectedAgendas.flatMap((agenda) =>
         getAgendaRanges(agenda, durationInMin).map((range) => ({
@@ -890,6 +931,62 @@ function BookingPanel({ service, onConfirmBooking }) {
       ),
     [durationInMin, selectedAgendas]
   );
+  const selectedTimeSlots =
+    selectedDateKey && hasLoadedAvailability ? apiTimeSlots : localTimeSlots;
+
+  useEffect(() => {
+    if (!selectedDateKey || !service.id) {
+      setApiTimeSlots([]);
+      setAvailabilityResponse(null);
+      setHasLoadedAvailability(false);
+      setAvailabilityError("");
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const loadAvailability = async () => {
+      setIsAvailabilityLoading(true);
+      setAvailabilityError("");
+      setHasLoadedAvailability(false);
+
+      try {
+        const response = await getServiceAppointmentAvailabilities(
+          service.id,
+          selectedDateKey
+        );
+        const slots = normalizeAppointmentSlots(response, selectedDateKey);
+
+        if (!isMounted) return;
+
+        setAvailabilityResponse(response);
+        setApiTimeSlots(
+          slots.map((slot) => ({
+            ...slot,
+            id: `api-${slot.id}`,
+          }))
+        );
+        setHasLoadedAvailability(true);
+      } catch (error) {
+        if (!isMounted) return;
+
+        setAvailabilityResponse(null);
+        setApiTimeSlots([]);
+        setHasLoadedAvailability(false);
+        setAvailabilityError(
+          getApiErrorMessage(error, "Unable to load available appointments.")
+        );
+      } finally {
+        if (isMounted) setIsAvailabilityLoading(false);
+      }
+    };
+
+    loadAvailability();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDateKey, service.id]);
 
   const selectedItems = useMemo(
     () =>
@@ -933,6 +1030,7 @@ function BookingPanel({ service, onConfirmBooking }) {
       selectedTimeSlot,
       selectedItems,
       total,
+      availabilityResponse,
     });
   };
 
@@ -1000,6 +1098,10 @@ function BookingPanel({ service, onConfirmBooking }) {
             <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
               Available times will show after the provider adds a schedule.
             </p>
+          ) : isAvailabilityLoading ? (
+            <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
+              Loading available appointments...
+            </p>
           ) : selectedTimeSlots.length ? (
             selectedTimeSlots.map((slot) => {
               const isSelected = selectedTimeSlot?.id === slot.id;
@@ -1021,16 +1123,28 @@ function BookingPanel({ service, onConfirmBooking }) {
             })
           ) : (
             <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
-              Choose an available day first.
+              {selectedDateKey
+                ? "No available appointments for this date."
+                : "Choose an available day first."}
             </p>
           )}
         </div>
+        {availabilityError && (
+          <p className="mt-3 text-center font-['Roboto'] text-[12px] leading-5 text-[#DC2626]">
+            {availabilityError}
+          </p>
+        )}
       </SectionPanel>
 
       <button
         type="button"
         onClick={handleBookNow}
-        disabled={!agendas.length || !selectedDateKey || !selectedTimeSlot}
+        disabled={
+          !agendas.length ||
+          !selectedDateKey ||
+          !selectedTimeSlot ||
+          isAvailabilityLoading
+        }
         className="flex h-14 w-full items-center justify-center rounded-[12px] bg-[#011C60] font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF]"
       >
         Book Now
@@ -1048,6 +1162,11 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   const [selectedMonthDays, setSelectedMonthDays] = useState([]);
   const [selectedDateKey, setSelectedDateKey] = useState("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [apiTimeSlots, setApiTimeSlots] = useState([]);
+  const [availabilityResponse, setAvailabilityResponse] = useState(null);
+  const [hasLoadedAvailability, setHasLoadedAvailability] = useState(false);
+  const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
   const durationInMin = service.timeslotDurationInMin || 60;
 
   const selectedDayIndex = useMemo(() => {
@@ -1058,7 +1177,7 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
     return new Date(year, month - 1, day).getDay();
   }, [selectedDateKey]);
 
-  const selectedTimeSlots = useMemo(() => {
+  const localTimeSlots = useMemo(() => {
     const matchingAgendas = (service.agendas || []).filter(
       (agenda) => agenda.dayIndex === selectedDayIndex
     );
@@ -1074,6 +1193,62 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
 
     return selectedDateKey ? getDefaultTimeSlots(durationInMin) : [];
   }, [durationInMin, selectedDateKey, selectedDayIndex, service.agendas]);
+  const selectedTimeSlots =
+    selectedDateKey && hasLoadedAvailability ? apiTimeSlots : localTimeSlots;
+
+  useEffect(() => {
+    if (!selectedDateKey || !service.id) {
+      setApiTimeSlots([]);
+      setAvailabilityResponse(null);
+      setHasLoadedAvailability(false);
+      setAvailabilityError("");
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const loadAvailability = async () => {
+      setIsAvailabilityLoading(true);
+      setAvailabilityError("");
+      setHasLoadedAvailability(false);
+
+      try {
+        const response = await getServiceAppointmentAvailabilities(
+          service.id,
+          selectedDateKey
+        );
+        const slots = normalizeAppointmentSlots(response, selectedDateKey);
+
+        if (!isMounted) return;
+
+        setAvailabilityResponse(response);
+        setApiTimeSlots(
+          slots.map((slot) => ({
+            ...slot,
+            id: `api-${slot.id}`,
+          }))
+        );
+        setHasLoadedAvailability(true);
+      } catch (error) {
+        if (!isMounted) return;
+
+        setAvailabilityResponse(null);
+        setApiTimeSlots([]);
+        setHasLoadedAvailability(false);
+        setAvailabilityError(
+          getApiErrorMessage(error, "Unable to load available appointments.")
+        );
+      } finally {
+        if (isMounted) setIsAvailabilityLoading(false);
+      }
+    };
+
+    loadAvailability();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDateKey, service.id]);
 
   const hasScheduleSelection =
     recurrence === "daily" ||
@@ -1133,6 +1308,7 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
       selectedSchedule: selectedScheduleLabel,
       selectedItems: [],
       total: packageItem.price,
+      availabilityResponse,
     });
   };
 
@@ -1166,7 +1342,11 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
 
       <SectionPanel title="Select Time">
         <div className="flex flex-wrap justify-center gap-2 pb-1">
-          {selectedTimeSlots.length ? (
+          {isAvailabilityLoading ? (
+            <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
+              Loading available appointments...
+            </p>
+          ) : selectedTimeSlots.length ? (
             selectedTimeSlots.map((slot) => {
               const isSelected = selectedTimeSlot?.id === slot.id;
 
@@ -1187,16 +1367,28 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
             })
           ) : (
             <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
-              Choose an available date first.
+              {selectedDateKey
+                ? "No available appointments for this date."
+                : "Choose an available date first."}
             </p>
           )}
         </div>
+        {availabilityError && (
+          <p className="mt-3 text-center font-['Roboto'] text-[12px] leading-5 text-[#DC2626]">
+            {availabilityError}
+          </p>
+        )}
       </SectionPanel>
 
       <button
         type="button"
         onClick={handleBookNow}
-        disabled={!hasScheduleSelection || !selectedDateKey || !selectedTimeSlot}
+        disabled={
+          !hasScheduleSelection ||
+          !selectedDateKey ||
+          !selectedTimeSlot ||
+          isAvailabilityLoading
+        }
         className="flex h-14 w-full items-center justify-center rounded-[12px] bg-[#011C60] font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF]"
       >
         Book Now
@@ -1321,7 +1513,13 @@ function PackageDetailsView({ service, packageItem, onConfirmBooking }) {
   );
 }
 
-function ConfirmBookingModal({ booking, onClose, onConfirm }) {
+function ConfirmBookingModal({
+  booking,
+  onClose,
+  onConfirm,
+  isSubmitting = false,
+  errorMessage = "",
+}) {
   if (!booking) return null;
 
   const {
@@ -1513,12 +1711,18 @@ function ConfirmBookingModal({ booking, onClose, onConfirm }) {
         </div>
 
         <div className="mt-5">
+          {errorMessage && (
+            <p className="mb-3 rounded-[8px] bg-red-50 px-3 py-2 text-center font-['Roboto'] text-[12px] font-semibold text-red-600">
+              {errorMessage}
+            </p>
+          )}
           <button
             type="button"
             onClick={onConfirm}
-            className="h-12 w-full rounded-[8px] bg-[#011C60] font-['Roboto'] text-[13px] font-semibold text-white transition hover:bg-[#02237a]"
+            disabled={isSubmitting}
+            className="h-12 w-full rounded-[8px] bg-[#011C60] font-['Roboto'] text-[13px] font-semibold text-white transition hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF]"
           >
-            Confirm Booking
+            {isSubmitting ? "Booking..." : "Confirm Booking"}
           </button>
         </div>
       </div>
@@ -1587,6 +1791,8 @@ export default function ServiceProviderDetailPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [bookingDraft, setBookingDraft] = useState(null);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
+  const [bookingErrorMessage, setBookingErrorMessage] = useState("");
 
   const category = useMemo(
     () => serviceCategories.find((item) => item.slug === categorySlug),
@@ -1695,46 +1901,90 @@ export default function ServiceProviderDetailPage() {
     }
   };
 
-  const handleConfirmBooking = () => {
-    if (!bookingDraft) return;
+  const getBookableAppointment = async (body, availabilityResponse) => {
+    const bodyWithKnownStamp = applyAvailabilitySecurityStamp(
+      body,
+      availabilityResponse
+    );
 
-    const bookingPayload = {
-      id: `${bookingDraft.mode || "service"}-${bookingDraft.service.id}-${
-        bookingDraft.packageItem?.id || "one-time"
-      }-${bookingDraft.selectedDateKey}-${bookingDraft.selectedTimeSlot.from}`,
-      mode: bookingDraft.mode || "service",
-      serviceId: bookingDraft.service.id,
-      serviceName: bookingDraft.service.name,
-      packageId: bookingDraft.packageItem?.id || "",
-      packageName: bookingDraft.packageItem?.name || "",
-      providerId: bookingDraft.service.providerId,
-      providerName: bookingDraft.service.providerName,
-      date: bookingDraft.selectedDateKey,
-      from: bookingDraft.selectedTimeSlot.from,
-      to: bookingDraft.selectedTimeSlot.to,
-      items: bookingDraft.selectedItems,
-      schedule: bookingDraft.selectedSchedule || [],
-      total: bookingDraft.total,
-      currency: bookingDraft.packageItem?.currency || bookingDraft.service.currency,
-      createdAt: new Date().toISOString(),
-    };
-
-    try {
-      const existingBookings = JSON.parse(
-        localStorage.getItem("serviceBookings") || "[]"
-      );
-      const nextBookings = [
-        bookingPayload,
-        ...existingBookings.filter((booking) => booking.id !== bookingPayload.id),
-      ];
-
-      localStorage.setItem("serviceBookings", JSON.stringify(nextBookings));
-    } catch (error) {
-      console.warn("Unable to save selected service booking locally.", error);
+    if (bodyWithKnownStamp.securityStamp) {
+      return {
+        body: bodyWithKnownStamp,
+        availabilityResponse: availabilityResponse || null,
+      };
     }
 
-    setBookingDraft(null);
-    setIsSuccessOpen(true);
+    const response = await getServiceAppointmentAvailabilities(
+      bookingDraft.service.id,
+      body.date
+    );
+
+    return {
+      body: applyAvailabilitySecurityStamp(body, response),
+      availabilityResponse: response,
+    };
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!bookingDraft) return;
+
+    setIsBookingSubmitting(true);
+    setBookingErrorMessage("");
+
+    try {
+      const baseAppointmentBody = buildAppointmentBody({
+        date: bookingDraft.selectedDateKey,
+        timeSlot: bookingDraft.selectedTimeSlot,
+        selectedItems: bookingDraft.selectedItems,
+      });
+      const appointment = await getBookableAppointment(
+        baseAppointmentBody,
+        bookingDraft.availabilityResponse
+      );
+      const appointmentBody = appointment.body;
+      const appointmentResponse = await bookServiceAppointment(
+        bookingDraft.service.id,
+        appointmentBody
+      );
+      const bookingPayload = {
+        id: getAppointmentId(
+          bookingDraft.mode,
+          bookingDraft.service.id,
+          bookingDraft.packageItem?.id,
+          appointmentBody
+        ),
+        mode: bookingDraft.mode || "service",
+        serviceId: bookingDraft.service.id,
+        serviceName: bookingDraft.service.name,
+        packageId: bookingDraft.packageItem?.id || "",
+        packageName: bookingDraft.packageItem?.name || "",
+        providerId: bookingDraft.service.providerId,
+        providerName: bookingDraft.service.providerName,
+        date: appointmentBody.date,
+        from: appointmentBody.from,
+        to: appointmentBody.to,
+        items: bookingDraft.selectedItems,
+        schedule: bookingDraft.selectedSchedule || [],
+        total: bookingDraft.total,
+        currency: bookingDraft.packageItem?.currency || bookingDraft.service.currency,
+        appointmentRequest: appointmentBody,
+        appointmentResponse,
+        availabilityResponse: appointment.availabilityResponse,
+        status: "Booked",
+        createdAt: new Date().toISOString(),
+      };
+
+      saveAppointmentBookings(bookingPayload);
+
+      setBookingDraft(null);
+      setIsSuccessOpen(true);
+    } catch (error) {
+      setBookingErrorMessage(
+        getApiErrorMessage(error, "Unable to confirm booking. Please try again.")
+      );
+    } finally {
+      setIsBookingSubmitting(false);
+    }
   };
 
   return (
@@ -1776,7 +2026,10 @@ export default function ServiceProviderDetailPage() {
                 <PackageDetailsView
                   service={service}
                   packageItem={selectedPackage}
-                  onConfirmBooking={setBookingDraft}
+                  onConfirmBooking={(draft) => {
+                    setBookingErrorMessage("");
+                    setBookingDraft(draft);
+                  }}
                 />
               )}
 
@@ -1876,14 +2129,26 @@ export default function ServiceProviderDetailPage() {
                   </section>
                 </div>
 
-                <BookingPanel service={service} onConfirmBooking={setBookingDraft} />
+                <BookingPanel
+                  service={service}
+                  onConfirmBooking={(draft) => {
+                    setBookingErrorMessage("");
+                    setBookingDraft(draft);
+                  }}
+                />
               </div>
               )}
 
               <ConfirmBookingModal
                 booking={bookingDraft}
-                onClose={() => setBookingDraft(null)}
+                onClose={() => {
+                  if (isBookingSubmitting) return;
+                  setBookingErrorMessage("");
+                  setBookingDraft(null);
+                }}
                 onConfirm={handleConfirmBooking}
+                isSubmitting={isBookingSubmitting}
+                errorMessage={bookingErrorMessage}
               />
               <BookingSuccessModal
                 isOpen={isSuccessOpen}

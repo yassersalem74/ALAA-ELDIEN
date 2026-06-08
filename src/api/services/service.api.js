@@ -1,4 +1,10 @@
-import api, { publicApi } from "../api.js";
+import api, {
+  extractAccessToken,
+  extractRefreshToken,
+  publicApi,
+  storeAuthTokens,
+} from "../api.js";
+import { changeRole } from "../auth/auth.api.js";
 import { SERVICE_ENDPOINTS } from "./service.endpoints.js";
 
 const normalizeAgendaPayload = (data, wrapperKey = "agendas") => {
@@ -52,6 +58,19 @@ const hasStoredAuthToken = () =>
   Boolean(localStorage.getItem("token") || getCookie("alaa_auth_token"));
 
 const isUnauthorizedError = (error) => error?.response?.status === 401;
+const isForbiddenError = (error) => error?.response?.status === 403;
+
+const switchToBookingRole = async () => {
+  const response = await changeRole("Customer");
+  const accessToken = extractAccessToken(response);
+  const refreshToken = extractRefreshToken(response);
+
+  if (accessToken || refreshToken) {
+    storeAuthTokens({ accessToken, refreshToken });
+  }
+
+  return response;
+};
 
 const serializeDebugValue = (value) => {
   if (typeof File !== "undefined" && value instanceof File) {
@@ -278,6 +297,82 @@ export const getPackageDetails = async (id, language = "en") => {
     params: { language },
   });
   return res.data;
+};
+
+export const getServiceAppointmentAvailabilities = async (id, date) => {
+  const url = `${SERVICE_ENDPOINTS.GET_SERVICE_APPOINTMENT_AVAILABILITIES}/${id}`;
+  const params = { date };
+
+  logApiResponse(
+    `GET /api/v1/appointments/availabilities/service/${id} request params`,
+    params
+  );
+
+  if (hasStoredAuthToken()) {
+    try {
+      const res = await api.get(url, { params });
+      logApiResponse(
+        `GET /api/v1/appointments/availabilities/service/${id} response`,
+        res.data
+      );
+      return res.data;
+    } catch (error) {
+      if (!isUnauthorizedError(error)) {
+        logApiResponse(
+          `GET /api/v1/appointments/availabilities/service/${id} error`,
+          error?.response?.data
+        );
+        throw error;
+      }
+    }
+  }
+
+  const res = await publicApi.get(url, { params });
+  logApiResponse(
+    `GET /api/v1/appointments/availabilities/service/${id} response`,
+    res.data
+  );
+  return res.data;
+};
+
+export const bookServiceAppointment = async (id, data, { didRetry = false } = {}) => {
+  logApiPayload(`POST /api/v1/appointments/book/service/${id} request`, data);
+
+  try {
+    const res = await api.post(
+      `${SERVICE_ENDPOINTS.BOOK_SERVICE_APPOINTMENT}/${id}`,
+      data,
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    logApiResponse(
+      `POST /api/v1/appointments/book/service/${id} response`,
+      res.data
+    );
+
+    return res.data;
+  } catch (error) {
+    logApiResponse(
+      `POST /api/v1/appointments/book/service/${id} error`,
+      error?.response?.data
+    );
+
+    if (isForbiddenError(error) && !didRetry) {
+      try {
+        await switchToBookingRole();
+        return bookServiceAppointment(id, data, { didRetry: true });
+      } catch (roleError) {
+        logApiResponse(
+          "POST /api/v1/users/me/change-role Customer error",
+          roleError?.response?.data
+        );
+      }
+    }
+
+    throw error;
+  }
 };
 
 export const getMyPackages = async (params) => {
