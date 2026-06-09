@@ -1,4 +1,10 @@
-import api, { publicApi } from "../api.js";
+import api, {
+  extractAccessToken,
+  extractRefreshToken,
+  publicApi,
+  storeAuthTokens,
+} from "../api.js";
+import { changeRole } from "../auth/auth.api.js";
 import { SERVICE_ENDPOINTS } from "./service.endpoints.js";
 
 const normalizeAgendaPayload = (data, wrapperKey = "agendas") => {
@@ -54,58 +60,31 @@ const hasStoredAuthToken = () =>
 const isUnauthorizedError = (error) => error?.response?.status === 401;
 const isForbiddenError = (error) => error?.response?.status === 403;
 
-const getStoredAuthToken = () =>
-  typeof window !== "undefined"
-    ? localStorage.getItem("token") || getCookie("alaa_auth_token")
-    : "";
+const switchToBookingRole = async () => {
+  const response = await changeRole("Customer");
+  const accessToken = extractAccessToken(response);
+  const refreshToken = extractRefreshToken(response);
 
-const decodeJwtPayload = (token) => {
-  try {
-    const payload = token.split(".")[1];
-
-    if (!payload) return null;
-
-    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const decodedPayload = atob(
-      normalizedPayload.padEnd(
-        normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
-        "="
-      )
-    );
-
-    return JSON.parse(decodedPayload);
-  } catch {
-    return null;
+  if (accessToken || refreshToken) {
+    storeAuthTokens({ accessToken, refreshToken });
   }
+
+  return response;
 };
 
-const getStoredTokenRoles = () => {
-  const tokenPayload = decodeJwtPayload(getStoredAuthToken());
-  const roles = tokenPayload?.role || tokenPayload?.roles || [];
-
-  return (Array.isArray(roles) ? roles : [roles])
-    .map((role) => String(role || "").toLowerCase())
-    .filter(Boolean);
-};
-
-const createBookingPermissionError = (originalError) => {
-  const roles = getStoredTokenRoles();
-  const hasProviderRole = roles.some((role) =>
-    ["provider", "partner", "company"].includes(role)
-  );
-  const hasCustomerRole = roles.some((role) =>
-    ["customer", "user", "individual"].includes(role)
-  );
-  const message =
-    hasProviderRole && !hasCustomerRole
-      ? "Booking is only available for customer accounts. You are currently signed in as a provider/partner."
-      : "You do not have permission to book this appointment with the current account.";
+const createBookingRoleSwitchError = (roleError) => {
+  const roleMessage =
+    roleError?.response?.data?.error?.message ||
+    roleError?.response?.data?.message ||
+    roleError?.message ||
+    "Unable to switch to customer mode.";
+  const message = `Booking requires customer mode, but switching to customer mode failed: ${roleMessage}`;
   const error = new Error(message);
 
   error.response = {
-    ...(originalError.response || {}),
+    ...(roleError.response || {}),
     data: {
-      ...(originalError.response?.data || {}),
+      ...(roleError.response?.data || {}),
       message,
     },
   };
@@ -406,7 +385,7 @@ export const getServiceAppointmentAvailabilities = async (id, date) => {
   return res.data;
 };
 
-export const bookServiceAppointment = async (id, data) => {
+export const bookServiceAppointment = async (id, data, { didRetry = false } = {}) => {
   const payload = normalizeAppointmentBookingPayload(data);
 
   assertAppointmentConcurrencyStamp(payload);
@@ -433,8 +412,18 @@ export const bookServiceAppointment = async (id, data) => {
       error?.response?.data
     );
 
-    if (isForbiddenError(error)) {
-      throw createBookingPermissionError(error);
+    if (isForbiddenError(error) && !didRetry) {
+      try {
+        await switchToBookingRole();
+      } catch (roleError) {
+        logApiResponse(
+          "POST /api/v1/users/me/change-role Customer error",
+          roleError?.response?.data
+        );
+        throw createBookingRoleSwitchError(roleError);
+      }
+
+      return bookServiceAppointment(id, data, { didRetry: true });
     }
 
     throw error;
