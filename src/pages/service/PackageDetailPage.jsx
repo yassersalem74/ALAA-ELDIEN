@@ -26,6 +26,8 @@ import {
 } from "./serviceApiMappers";
 import {
   applyAvailabilitySecurityStamp,
+  extractAppointmentConcurrencyStamp,
+  extractAppointmentStatus,
   formatTimeForApi,
   saveAppointmentBookings,
 } from "../../utils/appointments/appointmentUtils";
@@ -183,11 +185,19 @@ const formatRangeLabel = (range) =>
 
 const getTimeButtonLabel = (range) => formatTimeLabel(range.from);
 
-const buildAppointmentBody = ({ date, timeSlot }) => ({
+const buildAppointmentBody = ({ date, timeSlot, service, packageItem }) => ({
   date,
   from: formatTimeForApi(timeSlot?.from),
   to: formatTimeForApi(timeSlot?.to),
-  securityStamp: timeSlot?.securityStamp || null,
+  concurrencyStamp:
+    timeSlot?.concurrencyStamp ||
+    timeSlot?.securityStamp ||
+    extractAppointmentConcurrencyStamp(timeSlot?.raw) ||
+    service?.concurrencyStamp ||
+    extractAppointmentConcurrencyStamp(service?.raw) ||
+    packageItem?.concurrencyStamp ||
+    extractAppointmentConcurrencyStamp(packageItem?.raw) ||
+    null,
   itemIds: [],
 });
 
@@ -308,6 +318,13 @@ const normalizePackage = (packageItem) => {
       packageItem.services?.[0]?.name ||
       packageItem.service?.name ||
       "",
+    concurrencyStamp:
+      packageItem.concurrencyStamp ||
+      packageItem.ConcurrencyStamp ||
+      packageItem.serviceConcurrencyStamp ||
+      packageItem.ServiceConcurrencyStamp ||
+      extractAppointmentConcurrencyStamp(packageItem) ||
+      "",
     includedItems: includedItems.map(normalizePackageFeature).filter(Boolean),
     raw: packageItem,
   };
@@ -355,6 +372,7 @@ const createFallbackService = (packageItem) => ({
   items: [],
   agendas: [],
   timeslotDurationInMin: 60,
+  concurrencyStamp: packageItem.concurrencyStamp || "",
   rate: 0,
 });
 
@@ -1268,6 +1286,8 @@ export default function PackageDetailPage() {
               bookingDraft.selectedDateKey
             ),
             timeSlot: selection.timeSlot,
+            service: bookingDraft.service,
+            packageItem: bookingDraft.packageItem,
           })
         );
         const appointmentBody = appointment.body;
@@ -1320,7 +1340,7 @@ export default function PackageDetailPage() {
         availabilityResponses: appointmentResults.map(
           (result) => result.availabilityResponse
         ),
-        status: "Booked",
+        status: extractAppointmentStatus(firstResult.response),
         createdAt: new Date().toISOString(),
       };
 

@@ -14,6 +14,35 @@ const isObject = (value) =>
 
 export const extractAppointmentPayload = (response) => response?.data ?? response;
 
+const STAMP_KEYS = [
+  "concurrencyStamp",
+  "concurrency_stamp",
+  "serviceConcurrencyStamp",
+  "appointmentConcurrencyStamp",
+  "availabilityConcurrencyStamp",
+  "securityStamp",
+  "bookingSecurityStamp",
+  "appointmentSecurityStamp",
+  "availabilitySecurityStamp",
+  "securityToken",
+  "bookingToken",
+  "token",
+  "stamp",
+  "security_stamp",
+];
+
+const DATE_KEYS = ["date", "day", "appointmentDate"];
+
+const FROM_KEYS = [
+  "from",
+  "fromTime",
+  "start",
+  "startTime",
+  "startHour",
+];
+
+const TO_KEYS = ["to", "toTime", "end", "endTime", "endHour"];
+
 const getValueByNormalizedKeys = (source, keys) => {
   if (!source || typeof source !== "object") return undefined;
 
@@ -52,13 +81,41 @@ const findFirstValueByNormalizedKeys = (source, keys, seen = new Set()) => {
   return undefined;
 };
 
-const findAppointmentArray = (value, seen = new Set()) => {
+export const extractAppointmentConcurrencyStamp = (source) =>
+  findFirstValueByNormalizedKeys(extractAppointmentPayload(source), STAMP_KEYS);
+
+const collectAppointmentEntries = (value, context = {}, seen = new Set()) => {
   if (!value || seen.has(value)) return [];
 
-  if (Array.isArray(value)) return value;
-  if (!isObject(value)) return [];
+  if (Array.isArray(value)) {
+    seen.add(value);
+
+    return value.flatMap((item) =>
+      collectAppointmentEntries(item, context, seen)
+    );
+  }
+
+  if (!isObject(value)) {
+    return typeof value === "string" ? [{ slot: value, context }] : [];
+  }
 
   seen.add(value);
+
+  const nextContext = {
+    date:
+      firstPresentValue(getValueByNormalizedKeys(value, DATE_KEYS), context.date) ||
+      "",
+    concurrencyStamp:
+      firstPresentValue(
+        getValueByNormalizedKeys(value, STAMP_KEYS),
+        context.concurrencyStamp
+      ) || null,
+  };
+  const hasTimeRange =
+    getValueByNormalizedKeys(value, FROM_KEYS) &&
+    getValueByNormalizedKeys(value, TO_KEYS);
+
+  if (hasTimeRange) return [{ slot: value, context: nextContext }];
 
   const preferredKeys = [
     "appointments",
@@ -76,21 +133,23 @@ const findAppointmentArray = (value, seen = new Set()) => {
 
   for (const key of preferredKeys) {
     const nestedValue = getValueByNormalizedKeys(value, [key]);
-    const nestedArray = findAppointmentArray(nestedValue, seen);
+    const nestedEntries = collectAppointmentEntries(
+      nestedValue,
+      nextContext,
+      seen
+    );
 
-    if (nestedArray.length > 0) return nestedArray;
+    if (nestedEntries.length > 0) return nestedEntries;
   }
 
-  const hasTimeRange =
-    getValueByNormalizedKeys(value, ["from", "fromTime", "start", "startTime"]) &&
-    getValueByNormalizedKeys(value, ["to", "toTime", "end", "endTime"]);
-
-  if (hasTimeRange) return [value];
-
   for (const nestedValue of Object.values(value)) {
-    const nestedArray = findAppointmentArray(nestedValue, seen);
+    const nestedEntries = collectAppointmentEntries(
+      nestedValue,
+      nextContext,
+      seen
+    );
 
-    if (nestedArray.length > 0) return nestedArray;
+    if (nestedEntries.length > 0) return nestedEntries;
   }
 
   return [];
@@ -134,50 +193,22 @@ export const normalizeTimeForCompare = (value) => {
   )}`;
 };
 
-const createFallbackSecurityStamp = (appointmentBody) =>
-  [
-    "appointment",
-    appointmentBody.date,
-    normalizeTimeForCompare(appointmentBody.from),
-    normalizeTimeForCompare(appointmentBody.to),
-  ]
-    .filter(Boolean)
-    .join("-");
-
 export const normalizeAppointmentSlots = (response, fallbackDate = "") => {
   const payload = extractAppointmentPayload(response);
-  const topLevelSecurityStamp = findFirstValueByNormalizedKeys(payload, [
-    "securityStamp",
-    "bookingSecurityStamp",
-    "appointmentSecurityStamp",
-    "availabilitySecurityStamp",
-    "securityToken",
-    "bookingToken",
-    "token",
-    "stamp",
-  ]);
-  const slots = findAppointmentArray(payload);
+  const topLevelConcurrencyStamp = extractAppointmentConcurrencyStamp(payload);
+  const entries = collectAppointmentEntries(payload, {
+    date: fallbackDate,
+    concurrencyStamp: topLevelConcurrencyStamp,
+  });
 
-  return slots
-    .map((slot, index) => {
+  return entries
+    .map(({ slot, context }, index) => {
       const slotObject = isObject(slot) ? slot : { from: slot };
       const from = firstPresentValue(
-        getValueByNormalizedKeys(slotObject, [
-          "from",
-          "fromTime",
-          "start",
-          "startTime",
-          "startHour",
-        ]),
+        getValueByNormalizedKeys(slotObject, FROM_KEYS),
         typeof slot === "string" ? slot : ""
       );
-      const to = getValueByNormalizedKeys(slotObject, [
-        "to",
-        "toTime",
-        "end",
-        "endTime",
-        "endHour",
-      ]);
+      const to = getValueByNormalizedKeys(slotObject, TO_KEYS);
 
       return {
         id: String(
@@ -188,25 +219,24 @@ export const normalizeAppointmentSlots = (response, fallbackDate = "") => {
         ),
         date:
           firstPresentValue(
-            getValueByNormalizedKeys(slotObject, ["date", "day", "appointmentDate"]),
+            getValueByNormalizedKeys(slotObject, DATE_KEYS),
+            context.date,
             fallbackDate
           ) || "",
         from: from ? normalizeTimeForCompare(from) : "",
         to: to ? normalizeTimeForCompare(to) : "",
+        concurrencyStamp:
+          firstPresentValue(
+            getValueByNormalizedKeys(slotObject, STAMP_KEYS),
+            context.concurrencyStamp,
+            topLevelConcurrencyStamp,
+            null
+          ) || null,
         securityStamp:
           firstPresentValue(
-            getValueByNormalizedKeys(slotObject, [
-              "securityStamp",
-              "bookingSecurityStamp",
-              "appointmentSecurityStamp",
-              "availabilitySecurityStamp",
-              "securityToken",
-              "bookingToken",
-              "token",
-              "stamp",
-              "security_stamp",
-            ]),
-            topLevelSecurityStamp,
+            getValueByNormalizedKeys(slotObject, STAMP_KEYS),
+            context.concurrencyStamp,
+            topLevelConcurrencyStamp,
             null
           ) || null,
         raw: slot,
@@ -216,8 +246,9 @@ export const normalizeAppointmentSlots = (response, fallbackDate = "") => {
 };
 
 export const applyAvailabilitySecurityStamp = (appointmentBody, availability) => {
-  if (appointmentBody.securityStamp) return appointmentBody;
+  if (appointmentBody.concurrencyStamp) return appointmentBody;
 
+  const { securityStamp, ...bodyWithoutLegacyStamp } = appointmentBody;
   const slots = normalizeAppointmentSlots(availability, appointmentBody.date);
   const requestFrom = normalizeTimeForCompare(appointmentBody.from);
   const requestTo = normalizeTimeForCompare(appointmentBody.to);
@@ -229,12 +260,27 @@ export const applyAvailabilitySecurityStamp = (appointmentBody, availability) =>
     ) || slots.find((slot) => normalizeTimeForCompare(slot.from) === requestFrom);
 
   return {
-    ...appointmentBody,
-    securityStamp:
+    ...bodyWithoutLegacyStamp,
+    concurrencyStamp:
+      matchingSlot?.concurrencyStamp ||
       matchingSlot?.securityStamp ||
-      appointmentBody.securityStamp ||
-      createFallbackSecurityStamp(appointmentBody),
+      appointmentBody.concurrencyStamp ||
+      securityStamp ||
+      extractAppointmentConcurrencyStamp(availability) ||
+      null,
   };
+};
+
+export const extractAppointmentStatus = (response, fallback = "Pending") => {
+  const payload = extractAppointmentPayload(response);
+  const status = findFirstValueByNormalizedKeys(payload, [
+    "status",
+    "appointmentStatus",
+    "appointmentState",
+    "state",
+  ]);
+
+  return status ? String(status) : fallback;
 };
 
 export const getStoredAppointmentBookings = () => {
@@ -264,5 +310,11 @@ export const saveAppointmentBookings = (bookings) => {
       ...nextBookings,
       ...existingBookings.filter((booking) => !nextBookingIds.has(booking.id)),
     ])
+  );
+
+  window.dispatchEvent(
+    new CustomEvent("appointmentBookingsChanged", {
+      detail: nextBookings,
+    })
   );
 };

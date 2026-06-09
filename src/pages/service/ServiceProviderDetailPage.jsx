@@ -29,6 +29,8 @@ import {
 } from "./serviceApiMappers";
 import {
   applyAvailabilitySecurityStamp,
+  extractAppointmentConcurrencyStamp,
+  extractAppointmentStatus,
   formatTimeForApi,
   normalizeAppointmentSlots,
   saveAppointmentBookings,
@@ -109,11 +111,27 @@ const getBookingItemIds = (selectedItems = []) => [
   ),
 ];
 
-const buildAppointmentBody = ({ date, timeSlot, selectedItems = [], securityStamp }) => ({
+const buildAppointmentBody = ({
+  date,
+  timeSlot,
+  selectedItems = [],
+  concurrencyStamp,
+  service,
+  packageItem,
+}) => ({
   date,
   from: formatTimeForApi(timeSlot?.from),
   to: formatTimeForApi(timeSlot?.to),
-  securityStamp: securityStamp || timeSlot?.securityStamp || null,
+  concurrencyStamp:
+    concurrencyStamp ||
+    timeSlot?.concurrencyStamp ||
+    timeSlot?.securityStamp ||
+    extractAppointmentConcurrencyStamp(timeSlot?.raw) ||
+    service?.concurrencyStamp ||
+    extractAppointmentConcurrencyStamp(service?.raw) ||
+    packageItem?.concurrencyStamp ||
+    extractAppointmentConcurrencyStamp(packageItem?.raw) ||
+    null,
   itemIds: getBookingItemIds(selectedItems),
 });
 
@@ -257,6 +275,13 @@ const normalizePackage = (packageItem) => {
       packageItem.serviceName ||
       packageItem.services?.[0]?.name ||
       packageItem.service?.name ||
+      "",
+    concurrencyStamp:
+      packageItem.concurrencyStamp ||
+      packageItem.ConcurrencyStamp ||
+      packageItem.serviceConcurrencyStamp ||
+      packageItem.ServiceConcurrencyStamp ||
+      extractAppointmentConcurrencyStamp(packageItem) ||
       "",
     selectedServices: getPackageSelectedServices(packageItem),
     includedItems: includedItems.map(normalizePackageFeature).filter(Boolean),
@@ -1907,7 +1932,7 @@ export default function ServiceProviderDetailPage() {
       availabilityResponse
     );
 
-    if (bodyWithKnownStamp.securityStamp) {
+    if (bodyWithKnownStamp.concurrencyStamp) {
       return {
         body: bodyWithKnownStamp,
         availabilityResponse: availabilityResponse || null,
@@ -1936,6 +1961,8 @@ export default function ServiceProviderDetailPage() {
         date: bookingDraft.selectedDateKey,
         timeSlot: bookingDraft.selectedTimeSlot,
         selectedItems: bookingDraft.selectedItems,
+        service: bookingDraft.service,
+        packageItem: bookingDraft.packageItem,
       });
       const appointment = await getBookableAppointment(
         baseAppointmentBody,
@@ -1970,7 +1997,7 @@ export default function ServiceProviderDetailPage() {
         appointmentRequest: appointmentBody,
         appointmentResponse,
         availabilityResponse: appointment.availabilityResponse,
-        status: "Booked",
+        status: extractAppointmentStatus(appointmentResponse),
         createdAt: new Date().toISOString(),
       };
 

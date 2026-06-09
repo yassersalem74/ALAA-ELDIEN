@@ -470,6 +470,12 @@ export const normalizeService = (service, fallbackImage = "") => {
     timeslotDurationInMin: Number(service.timeslotDurationInMin) || 60,
     numberOfCustomerPerTimeSlots:
       Number(service.numberOfCustomerPerTimeSlots) || 1,
+    concurrencyStamp:
+      service.concurrencyStamp ||
+      service.ConcurrencyStamp ||
+      service.serviceConcurrencyStamp ||
+      service.ServiceConcurrencyStamp ||
+      "",
     rate: Number(service.rate || service.rating) || 0,
     isAvailable: service.isAvailable ?? service.available ?? true,
     raw: service,

@@ -9,7 +9,7 @@ export const PROFILE_NAV_ITEMS = [
   { slug: "notifications", label: "Notification", icon: "bell" },
   { slug: "chats", label: "Chats", icon: "chat" },
   { slug: "cart", label: "Cart", icon: "cart" },
-  { slug: "orders", label: "My Order", icon: "orders" },
+  { slug: "orders", label: "My Orders", icon: "orders" },
   { slug: "become-provider", label: "Become a Partner", icon: "provider" },
   { slug: "settings", label: "Setting", icon: "settings" },
 ];

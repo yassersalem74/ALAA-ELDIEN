@@ -36,24 +36,26 @@ const JsonBlock = ({ title, data }) => {
 };
 
 export default function ProfileOrdersSection() {
-  const [bookings, setBookings] = useState([]);
-
-  const loadBookings = () => {
-    setBookings(getStoredAppointmentBookings());
-  };
+  const [bookings, setBookings] = useState(() => getStoredAppointmentBookings());
 
   useEffect(() => {
-    loadBookings();
+    const refreshBookings = () => {
+      setBookings(getStoredAppointmentBookings());
+    };
 
     const handleStorage = (event) => {
       if (!event.key || event.key === "serviceBookings") {
-        loadBookings();
+        refreshBookings();
       }
     };
 
+    window.addEventListener("appointmentBookingsChanged", refreshBookings);
     window.addEventListener("storage", handleStorage);
 
-    return () => window.removeEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("appointmentBookingsChanged", refreshBookings);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   const sortedBookings = useMemo(
@@ -70,7 +72,7 @@ export default function ProfileOrdersSection() {
     <section className="space-y-6">
       <div>
         <h1 className="font-['Roboto'] text-[30px] font-semibold leading-10 text-[#011C60]">
-          My Order
+          My Orders
         </h1>
         <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
           Confirmed service and package appointments from the booking flow.
