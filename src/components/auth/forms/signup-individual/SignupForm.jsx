@@ -28,6 +28,14 @@ const appendIfPresent = (form, key, value) => {
   }
 };
 
+const appendFilesIfPresent = (form, key, value) => {
+  const files = Array.isArray(value) ? value : value ? [value] : [];
+
+  files.forEach((file) => {
+    appendIfPresent(form, key, file);
+  });
+};
+
 const getApiErrorMessage = (error) => {
   const data = error?.response?.data;
 
@@ -82,7 +90,10 @@ const ACCOUNT_TYPE_LABELS = {
   company: "Company",
 };
 
-const hasValue = (value) => value !== undefined && value !== null && value !== "";
+const hasValue = (value) =>
+  Array.isArray(value)
+    ? value.length > 0
+    : value !== undefined && value !== null && value !== "";
 
 const getAccountTypeLabel = (accountType) =>
   ACCOUNT_TYPE_LABELS[accountType] || accountType;
@@ -164,9 +175,18 @@ export default function SignupForm() {
       "imageSignatoryNationalId",
       allData.imageSignatoryNationalId
     );
-    appendIfPresent(form, "imageTaxRegistration", allData.imageTaxRegistration);
+    appendFilesIfPresent(
+      form,
+      "taxCardImages",
+      allData.taxCardImages || allData.imageTaxRegistration
+    );
+    appendFilesIfPresent(form, "ownersNationalIdImages", allData.ownersNationalIdImages);
     appendIfPresent(form, "logo", allData.logo);
-    appendIfPresent(form, "imageCR", allData.imageCR);
+    appendFilesIfPresent(
+      form,
+      "commercialRegisterImages",
+      allData.commercialRegisterImages || allData.imageCR
+    );
 
     appendIfPresent(
       form,
@@ -219,7 +239,8 @@ export default function SignupForm() {
         return (
           /^[23][0-9]{13}$/.test(data.signatoryNationalId || "") &&
           hasValue(data.imageSignatoryNationalId) &&
-          hasValue(data.imageTaxRegistration) &&
+          hasValue(data.taxCardImages) &&
+          hasValue(data.ownersNationalIdImages) &&
           hasValue(data.logo)
         );
       }

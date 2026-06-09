@@ -22,18 +22,24 @@ const isValidEgyptianNationalId = (value) => {
 
 export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
   const signatoryNationalIdRef = useRef(null);
-  const taxRegistrationRef = useRef(null);
+  const taxCardImagesRef = useRef(null);
+  const ownersNationalIdImagesRef = useRef(null);
   const logoRef = useRef(null);
-  const crRef = useRef(null);
+  const commercialRegisterImagesRef = useRef(null);
 
   const [signatoryNationalId, setSignatoryNationalId] = useState(
     initialData.signatoryNationalId || ""
   );
   const [files, setFiles] = useState({
     imageSignatoryNationalId: initialData.imageSignatoryNationalId || null,
-    imageTaxRegistration: initialData.imageTaxRegistration || null,
+    taxCardImages:
+      initialData.taxCardImages ||
+      (initialData.imageTaxRegistration ? [initialData.imageTaxRegistration] : []),
+    ownersNationalIdImages: initialData.ownersNationalIdImages || [],
     logo: initialData.logo || null,
-    imageCR: initialData.imageCR || null,
+    commercialRegisterImages:
+      initialData.commercialRegisterImages ||
+      (initialData.imageCR ? [initialData.imageCR] : []),
   });
   const [errors, setErrors] = useState({});
 
@@ -47,11 +53,21 @@ export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
       required: true,
     },
     {
-      title: "Tax registration",
-      desc: "Upload the company tax registration document",
+      title: "Tax card images",
+      desc: "Upload one or more company tax card images",
       img: nationalBack,
-      key: "imageTaxRegistration",
-      inputRef: taxRegistrationRef,
+      key: "taxCardImages",
+      inputRef: taxCardImagesRef,
+      multiple: true,
+      required: true,
+    },
+    {
+      title: "Owners national IDs",
+      desc: "Upload one or more owner national ID images",
+      img: nationalFront,
+      key: "ownersNationalIdImages",
+      inputRef: ownersNationalIdImagesRef,
+      multiple: true,
       required: true,
     },
     {
@@ -64,27 +80,44 @@ export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
     },
     {
       title: "Commercial register",
-      desc: "Optional company commercial register document",
+      desc: "Optional company commercial register images",
       img: nationalBack,
-      key: "imageCR",
-      inputRef: crRef,
+      key: "commercialRegisterImages",
+      inputRef: commercialRegisterImagesRef,
+      multiple: true,
       required: false,
     },
   ];
 
   const handleFileChange = (event, typeKey) => {
-    const file = event.target.files?.[0];
+    const item = uploadItems.find((uploadItem) => uploadItem.key === typeKey);
+    const nextFiles = item?.multiple
+      ? Array.from(event.target.files || [])
+      : event.target.files?.[0];
 
-    if (!file) return;
+    if (!nextFiles || (Array.isArray(nextFiles) && nextFiles.length === 0)) return;
 
     setFiles((currentFiles) => ({
       ...currentFiles,
-      [typeKey]: file,
+      [typeKey]: nextFiles,
     }));
     setErrors((currentErrors) => ({
       ...currentErrors,
       [typeKey]: null,
     }));
+  };
+
+  const getFilesSummary = (value) => {
+    if (Array.isArray(value)) {
+      if (value.length === 0) return "";
+
+      const names = value.slice(0, 2).map((file) => file.name).join(", ");
+      const extraCount = value.length > 2 ? ` +${value.length - 2} more` : "";
+
+      return `${names}${extraCount}`;
+    }
+
+    return value?.name || "";
   };
 
   const handleNextClick = () => {
@@ -98,7 +131,10 @@ export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
     }
 
     uploadItems.forEach((item) => {
-      if (item.required && !files[item.key]) {
+      const value = files[item.key];
+      const isMissing = Array.isArray(value) ? value.length === 0 : !value;
+
+      if (item.required && isMissing) {
         nextErrors[item.key] = `${item.title} is required`;
       }
     });
@@ -173,9 +209,9 @@ export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
                 <p className="text-[10px] sm:text-[12px] text-[#6777A0]">
                   {item.desc}
                 </p>
-                {files[item.key] && (
+                {getFilesSummary(files[item.key]) && (
                   <p className="text-[10px] text-[#011C60] mt-1">
-                    {files[item.key].name}
+                    {getFilesSummary(files[item.key])}
                   </p>
                 )}
               </div>
@@ -184,6 +220,7 @@ export default function StepTwoVerify({ onNext, onError, initialData = {} }) {
             <input
               type="file"
               accept="image/*"
+              multiple={item.multiple}
               ref={item.inputRef}
               onChange={(event) => handleFileChange(event, item.key)}
               className="hidden"
