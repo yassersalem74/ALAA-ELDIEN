@@ -385,6 +385,33 @@ export const getServiceAppointmentAvailabilities = async (id, date) => {
   return res.data;
 };
 
+export const getMyAppointments = async (params = {}) => {
+  const queryParams = Object.fromEntries(
+    Object.entries({
+      page: 1,
+      pageSize: 50,
+      language: "en",
+      ByMe: true,
+      ...params,
+    }).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
+
+  logApiResponse("GET /api/v1/appointments request params", queryParams);
+
+  try {
+    const res = await api.get(SERVICE_ENDPOINTS.GET_APPOINTMENTS, {
+      params: queryParams,
+    });
+
+    logApiResponse("GET /api/v1/appointments response", res.data);
+
+    return res.data;
+  } catch (error) {
+    logApiResponse("GET /api/v1/appointments error", error?.response?.data);
+    throw error;
+  }
+};
+
 export const bookServiceAppointment = async (id, data, { didRetry = false } = {}) => {
   const payload = normalizeAppointmentBookingPayload(data);
 
