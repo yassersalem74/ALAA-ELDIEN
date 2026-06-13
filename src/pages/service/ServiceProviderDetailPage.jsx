@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../context/useAuth";
 import {
   bookServiceAppointment,
   getServiceAppointmentAvailabilities,
@@ -133,6 +134,80 @@ const getNeighborhoodLabel = (service, neighborhoodId) =>
     (neighborhood) => neighborhood.id === neighborhoodId
   )?.name || "";
 
+const OWN_SERVICE_BOOKING_ERROR = "You cannot book your own service.";
+const OWN_PACKAGE_BOOKING_ERROR = "You cannot book your own package.";
+const USER_ID_KEYS = [
+  "id",
+  "userId",
+  "userID",
+  "applicationUserId",
+  "accountId",
+  "signatoryId",
+  "partnerId",
+  "providerId",
+  "companyId",
+];
+const OWNER_ID_KEYS = [
+  "providerId",
+  "partnerId",
+  "signatoryId",
+  "ownerId",
+  "createdById",
+  "userId",
+  "userID",
+  "companyId",
+];
+const USER_NESTED_KEYS = ["user", "profile", "account", "company", "provider", "signatory", "partner"];
+const OWNER_NESTED_KEYS = ["provider", "partner", "signatory", "owner", "createdBy", "company", "user"];
+
+const normalizeComparableId = (value) =>
+  String(value || "").trim().toLowerCase();
+
+const collectIdsFromKeys = (source, directKeys, nestedKeys = []) => {
+  if (!source || typeof source !== "object") return [];
+
+  const directIds = directKeys
+    .map((key) => normalizeComparableId(source[key]))
+    .filter(Boolean);
+  const nestedIds = nestedKeys.flatMap((key) =>
+    collectIdsFromKeys(source[key], directKeys)
+  );
+
+  return [...new Set([...directIds, ...nestedIds])];
+};
+
+const getCurrentUserIds = (user) =>
+  collectIdsFromKeys(user, USER_ID_KEYS, USER_NESTED_KEYS);
+
+const getEntityOwnerIds = (entity) => [
+  ...new Set([
+    ...collectIdsFromKeys(entity, OWNER_ID_KEYS, OWNER_NESTED_KEYS),
+    ...collectIdsFromKeys(entity?.raw, OWNER_ID_KEYS, OWNER_NESTED_KEYS),
+  ]),
+];
+
+const isOwnedByCurrentUser = (user, ...entities) => {
+  const currentUserIds = new Set(getCurrentUserIds(user));
+
+  if (currentUserIds.size === 0) return false;
+
+  return entities
+    .flatMap(getEntityOwnerIds)
+    .some((ownerId) => currentUserIds.has(ownerId));
+};
+
+const getOwnBookingErrorMessage = (user, booking) => {
+  if (!booking) return "";
+
+  const isPackageBooking = booking.mode === "package" || booking.packageItem;
+
+  if (!isOwnedByCurrentUser(user, booking.service, booking.packageItem)) {
+    return "";
+  }
+
+  return isPackageBooking ? OWN_PACKAGE_BOOKING_ERROR : OWN_SERVICE_BOOKING_ERROR;
+};
+
 const buildAppointmentBody = ({
   date,
   timeSlot,
@@ -210,17 +285,6 @@ const splitRangeIntoTimeSlots = (range, durationInMin) => {
 
   return slots.length ? slots : [range];
 };
-
-const getDefaultTimeSlots = (durationInMin = 60) =>
-  ["08:00", "10:00", "12:00", "14:00"].map((from, index) => {
-    const start = parseTimeToMinutes(from);
-
-    return {
-      id: `default-slot-${index + 1}`,
-      from,
-      to: minutesToTimeValue(start + Math.max(30, Number(durationInMin) || 60)),
-    };
-  });
 
 const getPackageServiceIds = (packageItem) => [
   ...(Array.isArray(packageItem.serviceIds) ? packageItem.serviceIds : []),
@@ -1309,8 +1373,8 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
       );
     }
 
-    return selectedDateKey ? getDefaultTimeSlots(durationInMin) : [];
-  }, [durationInMin, selectedDateKey, selectedDayIndex, service.agendas]);
+    return [];
+  }, [durationInMin, selectedDayIndex, service.agendas]);
   const selectedTimeSlots =
     selectedDateKey && hasLoadedAvailability ? apiTimeSlots : localTimeSlots;
 
@@ -1949,6 +2013,7 @@ function BookingSuccessModal({ isOpen, onClose }) {
 export default function ServiceProviderDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const { categorySlug, serviceId } = useParams();
   const [service, setService] = useState(null);
   const [packages, setPackages] = useState([]);
@@ -2097,6 +2162,13 @@ export default function ServiceProviderDetailPage() {
   const handleConfirmBooking = async () => {
     if (!bookingDraft) return;
 
+    const ownBookingMessage = getOwnBookingErrorMessage(user, bookingDraft);
+
+    if (ownBookingMessage) {
+      setBookingErrorMessage(ownBookingMessage);
+      return;
+    }
+
     setIsBookingSubmitting(true);
     setBookingErrorMessage("");
 
@@ -2201,7 +2273,12 @@ export default function ServiceProviderDetailPage() {
                   service={service}
                   packageItem={selectedPackage}
                   onConfirmBooking={(draft) => {
+                    const ownBookingMessage = getOwnBookingErrorMessage(user, draft);
+
                     setBookingErrorMessage("");
+                    if (ownBookingMessage) {
+                      setBookingErrorMessage(ownBookingMessage);
+                    }
                     setBookingDraft(draft);
                   }}
                 />
@@ -2306,7 +2383,12 @@ export default function ServiceProviderDetailPage() {
                 <BookingPanel
                   service={service}
                   onConfirmBooking={(draft) => {
+                    const ownBookingMessage = getOwnBookingErrorMessage(user, draft);
+
                     setBookingErrorMessage("");
+                    if (ownBookingMessage) {
+                      setBookingErrorMessage(ownBookingMessage);
+                    }
                     setBookingDraft(draft);
                   }}
                 />

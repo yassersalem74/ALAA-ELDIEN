@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../context/useAuth";
 import {
   bookServiceAppointment,
   getServiceAppointmentAvailabilities,
@@ -167,17 +168,6 @@ const getAgendaRanges = (agenda, durationInMin) => {
   return ranges.flatMap((range) => splitRangeIntoTimeSlots(range, durationInMin));
 };
 
-const getDefaultTimeSlots = (durationInMin = 60) =>
-  ["08:00", "10:00", "12:00", "14:00"].map((from, index) => {
-    const start = parseTimeToMinutes(from);
-
-    return {
-      id: `default-slot-${index + 1}`,
-      from,
-      to: minutesToTimeValue(start + Math.max(30, Number(durationInMin) || 60)),
-    };
-  });
-
 const formatRangeLabel = (range) =>
   range?.from && range?.to
     ? `${formatTimeLabel(range.from)} - ${formatTimeLabel(range.to)}`
@@ -206,6 +196,67 @@ const getNeighborhoodLabel = (service, neighborhoodId) =>
   getServiceNeighborhoodOptions(service).find(
     (neighborhood) => neighborhood.id === neighborhoodId
   )?.name || "";
+
+const OWN_PACKAGE_BOOKING_ERROR = "You cannot book your own package.";
+const USER_ID_KEYS = [
+  "id",
+  "userId",
+  "userID",
+  "applicationUserId",
+  "accountId",
+  "signatoryId",
+  "partnerId",
+  "providerId",
+  "companyId",
+];
+const OWNER_ID_KEYS = [
+  "providerId",
+  "partnerId",
+  "signatoryId",
+  "ownerId",
+  "createdById",
+  "userId",
+  "userID",
+  "companyId",
+];
+const USER_NESTED_KEYS = ["user", "profile", "account", "company", "provider", "signatory", "partner"];
+const OWNER_NESTED_KEYS = ["provider", "partner", "signatory", "owner", "createdBy", "company", "user"];
+
+const normalizeComparableId = (value) =>
+  String(value || "").trim().toLowerCase();
+
+const collectIdsFromKeys = (source, directKeys, nestedKeys = []) => {
+  if (!source || typeof source !== "object") return [];
+
+  const directIds = directKeys
+    .map((key) => normalizeComparableId(source[key]))
+    .filter(Boolean);
+  const nestedIds = nestedKeys.flatMap((key) =>
+    collectIdsFromKeys(source[key], directKeys)
+  );
+
+  return [...new Set([...directIds, ...nestedIds])];
+};
+
+const getCurrentUserIds = (user) =>
+  collectIdsFromKeys(user, USER_ID_KEYS, USER_NESTED_KEYS);
+
+const getEntityOwnerIds = (entity) => [
+  ...new Set([
+    ...collectIdsFromKeys(entity, OWNER_ID_KEYS, OWNER_NESTED_KEYS),
+    ...collectIdsFromKeys(entity?.raw, OWNER_ID_KEYS, OWNER_NESTED_KEYS),
+  ]),
+];
+
+const isOwnedByCurrentUser = (user, ...entities) => {
+  const currentUserIds = new Set(getCurrentUserIds(user));
+
+  if (currentUserIds.size === 0) return false;
+
+  return entities
+    .flatMap(getEntityOwnerIds)
+    .some((ownerId) => currentUserIds.has(ownerId));
+};
 
 const buildAppointmentBody = ({
   date,
@@ -276,10 +327,17 @@ const getScheduleSelections = (
 };
 
 const getScheduleTimeOptions = (selection, service, durationInMin) => {
-  const matchingAgendas =
+  const selectionDate = getScheduleSelectionDate(selection);
+  const selectionDayIndex =
     typeof selection.dayIndex === "number"
+      ? selection.dayIndex
+      : selectionDate
+        ? new Date(`${selectionDate}T00:00:00`).getDay()
+        : -1;
+  const matchingAgendas =
+    selectionDayIndex >= 0
       ? (service.agendas || []).filter(
-          (agenda) => agenda.dayIndex === selection.dayIndex
+          (agenda) => agenda.dayIndex === selectionDayIndex
         )
       : [];
 
@@ -289,13 +347,10 @@ const getScheduleTimeOptions = (selection, service, durationInMin) => {
         ...range,
         id: `${selection.key}-${agenda.id}-${range.id}`,
       }))
-    );
+      );
   }
 
-  return getDefaultTimeSlots(durationInMin).map((slot) => ({
-    ...slot,
-    id: `${selection.key}-${slot.id}`,
-  }));
+  return [];
 };
 
 const getPackageServiceIds = (packageItem) => [
@@ -610,24 +665,30 @@ function ScheduleTimeSelections({
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {timeSlots.map((slot) => {
-                const isSelected = selectedTime?.id === slot.id;
+              {timeSlots.length > 0 ? (
+                timeSlots.map((slot) => {
+                  const isSelected = selectedTime?.id === slot.id;
 
-                return (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() => onSelectTime(selection.key, slot)}
-                    className={`min-w-[82px] rounded-xl border px-3 py-2.5 font-['Roboto'] text-[12px] font-semibold transition ${
-                      isSelected
-                        ? "border-[#011C60] bg-[#011C60] text-white"
-                        : "border-[#CCD2DF] bg-white text-[#011C60] hover:border-[#EECE42]"
-                    }`}
-                  >
-                    {getTimeButtonLabel(slot)}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => onSelectTime(selection.key, slot)}
+                      className={`min-w-[82px] rounded-xl border px-3 py-2.5 font-['Roboto'] text-[12px] font-semibold transition ${
+                        isSelected
+                          ? "border-[#011C60] bg-[#011C60] text-white"
+                          : "border-[#CCD2DF] bg-white text-[#011C60] hover:border-[#EECE42]"
+                      }`}
+                    >
+                      {getTimeButtonLabel(slot)}
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="rounded-xl bg-[#F8F9FC] px-3 py-2 font-['Roboto'] text-[12px] font-semibold text-[#DC2626]">
+                  No available service time for this package day.
+                </p>
+              )}
             </div>
           </div>
         );
@@ -1251,6 +1312,7 @@ function BookingSuccessModal({ isOpen, onClose }) {
 
 export default function PackageDetailPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { packageId } = useParams();
   const [packageItem, setPackageItem] = useState(null);
   const [service, setService] = useState(null);
@@ -1349,6 +1411,10 @@ export default function PackageDetailPage() {
     if (!bookingDraft) return;
     if (!bookingDraft.service.id) {
       setBookingErrorMessage("This package is missing a service id for booking.");
+      return;
+    }
+    if (isOwnedByCurrentUser(user, bookingDraft.service, bookingDraft.packageItem)) {
+      setBookingErrorMessage(OWN_PACKAGE_BOOKING_ERROR);
       return;
     }
 
@@ -1478,7 +1544,16 @@ export default function PackageDetailPage() {
                 service={service}
                 packageItem={packageItem}
                 onConfirmBooking={(draft) => {
+                  const isOwnPackage = isOwnedByCurrentUser(
+                    user,
+                    draft.service,
+                    draft.packageItem
+                  );
+
                   setBookingErrorMessage("");
+                  if (isOwnPackage) {
+                    setBookingErrorMessage(OWN_PACKAGE_BOOKING_ERROR);
+                  }
                   setBookingDraft(draft);
                 }}
               />
