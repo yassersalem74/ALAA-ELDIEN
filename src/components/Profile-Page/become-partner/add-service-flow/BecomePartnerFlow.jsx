@@ -676,7 +676,11 @@ const buildServiceFormData = (
     CATEGORY_API_VALUES[details.category] || details.category
   );
   formData.append("timeslotDurationInMin", getTimeslotDurationInMin(details.serviceTimeHours));
-  formData.append("numberOfCustomerPerTimeSlots", 1);
+
+  if (!isUpdate) {
+    formData.append("numberOfCustomerPerTimeSlots", 1);
+  }
+
   formData.append("description", normalizeTextValue(details.description));
   formData.append("subDescription", String(details.longDescription || "").trim());
   formData.append("governorateId", details.governorate);
@@ -685,7 +689,10 @@ const buildServiceFormData = (
   });
 
   if (items !== undefined) {
-    formData.append("itemsJson", JSON.stringify(buildItemsPayload(items).items));
+    formData.append(
+      "itemsJson",
+      JSON.stringify(buildItemsPayload(items, { includeIds: isUpdate }).items)
+    );
   }
 
   if (serviceAvailability !== undefined) {
@@ -693,10 +700,6 @@ const buildServiceFormData = (
       "agendasJson",
       JSON.stringify(buildAgendasPayload(serviceAvailability).agendas)
     );
-  }
-
-  if (isUpdate) {
-    formData.append("isAvailable", true);
   }
 
   (details.deletedImages || []).forEach((imageName) => {
@@ -850,19 +853,36 @@ const buildAgendasPayload = (availability) => ({
   }, []),
 });
 
-const normalizeServiceItemsForApi = (items) =>
+const API_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const getApiItemId = (item) => {
+  const id = String(
+    item.id || item.itemId || item.serviceItemId || item.Id || item.ItemId || ""
+  ).trim();
+
+  return API_ID_PATTERN.test(id) ? id : "";
+};
+
+const normalizeServiceItemsForApi = (items, { includeIds = false } = {}) =>
   (items || [])
-    .map((item) => ({
-      Name: normalizeTextValue(item.itemName || item.name || item.serviceItemName),
-      Price: Number(item.price ?? item.itemPrice ?? item.serviceItemPrice ?? 0) || 0,
-      Description: String(
-        item.description || item.itemDescription || item.serviceItemDescription || ""
-      ).trim(),
-    }))
+    .map((item) => {
+      const payload = {
+        Name: normalizeTextValue(item.itemName || item.name || item.serviceItemName),
+        Price:
+          Number(item.price ?? item.itemPrice ?? item.serviceItemPrice ?? 0) || 0,
+        Description: String(
+          item.description || item.itemDescription || item.serviceItemDescription || ""
+        ).trim(),
+      };
+      const id = includeIds ? getApiItemId(item) : "";
+
+      return id ? { Id: id, ...payload } : payload;
+    })
     .filter((item) => item.Name);
 
-const buildItemsPayload = (items) => ({
-  items: normalizeServiceItemsForApi(items),
+const buildItemsPayload = (items, options) => ({
+  items: normalizeServiceItemsForApi(items, options),
 });
 
 const normalizeAgendaScheduleRows = (agendaList, availability = {}) =>
