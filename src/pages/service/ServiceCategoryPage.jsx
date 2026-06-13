@@ -39,6 +39,14 @@ const PROVIDER_TYPE_OPTIONS = [
   { id: "alaa-eldien", label: "AlaaEldin" },
 ];
 
+const getPriceFilterParam = (value) => {
+  if (value === "") return undefined;
+
+  const numericValue = Number(value);
+
+  return Number.isFinite(numericValue) ? numericValue : undefined;
+};
+
 function NoServicesState() {
   return (
     <section className="rounded-[28px] border border-dashed border-[#CCD2DF] bg-white px-6 py-12 text-center shadow-[0px_14px_34px_rgba(204,210,223,0.28)]">
@@ -56,6 +64,30 @@ function NoServicesState() {
   );
 }
 
+function PriceFilterInput({ label, value, onChange, placeholder }) {
+  return (
+    <label className="flex h-12 w-full items-center gap-3 rounded-[14px] border border-[#D8DDEB] bg-white px-4 shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)] transition hover:-translate-y-0.5 hover:border-[#EECE42] hover:shadow-[0px_12px_28px_rgba(204,210,223,0.45)] focus-within:border-[#EECE42]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F8F9FC] font-['Roboto'] text-[15px] font-bold text-[#011C60] shadow-[0px_6px_16px_rgba(204,210,223,0.35)]">
+        E
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-['Roboto'] text-[11px] font-medium uppercase tracking-[0.08em] text-[#808DAF]">
+          {label}
+        </span>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="w-full bg-transparent font-['Roboto'] text-[14px] font-semibold text-[#011C60] outline-none placeholder:text-[#9AA6C7]"
+        />
+      </span>
+    </label>
+  );
+}
+
 export default function ServiceCategoryPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,6 +96,8 @@ export default function ServiceCategoryPage() {
   const [selectedGovernorateId, setSelectedGovernorateId] = useState("");
   const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [services, setServices] = useState([]);
@@ -86,7 +120,11 @@ export default function ServiceCategoryPage() {
   );
   const detailSearch = flowMode === "one-time" ? "?mode=one-time" : "";
   const hasActiveFilters = Boolean(
-    searchQuery.trim() || selectedGovernorateId || selectedNeighborhoodId
+    searchQuery.trim() ||
+      selectedGovernorateId ||
+      selectedNeighborhoodId ||
+      minPrice ||
+      maxPrice
   );
 
   const governorateOptions = useMemo(
@@ -191,6 +229,8 @@ export default function ServiceCategoryPage() {
         activeProviderType,
         categorySlug,
         debouncedSearchQuery,
+        minPrice,
+        maxPrice,
         selectedGovernorateId,
         selectedNeighborhoodId,
       ].join("|");
@@ -214,6 +254,8 @@ export default function ServiceCategoryPage() {
         language: SERVICE_LANGUAGE,
         search: debouncedSearchQuery,
         role: getRoleQueryValue(activeProviderType),
+        minPrice: getPriceFilterParam(minPrice),
+        maxPrice: getPriceFilterParam(maxPrice),
         governorateId: selectedGovernorateId || undefined,
         neighborhoodId: selectedNeighborhoodId || undefined,
       };
@@ -262,12 +304,16 @@ export default function ServiceCategoryPage() {
     categorySlug,
     currentPage,
     debouncedSearchQuery,
+    maxPrice,
+    minPrice,
     selectedGovernorateId,
     selectedNeighborhoodId,
   ]);
 
   const handleResetFilters = () => {
     setSearchQuery("");
+    setMinPrice("");
+    setMaxPrice("");
     setSelectedGovernorateId("");
     setSelectedNeighborhoodId("");
   };
@@ -317,7 +363,7 @@ export default function ServiceCategoryPage() {
         <div className="mt-8 rounded-2xl border border-[#E6E8EF] bg-[#E6E8EF40] px-4 py-5 shadow-[0px_4px_16px_0px_rgba(230,232,239,0.35)]">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-1 flex-col gap-4">
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
                 <CreativeDropdown
                   label="Governorate"
                   value={selectedGovernorateId}
@@ -346,6 +392,20 @@ export default function ServiceCategoryPage() {
                       {option.label}
                     </span>
                   )}
+                />
+
+                <PriceFilterInput
+                  label="Min price"
+                  value={minPrice}
+                  onChange={setMinPrice}
+                  placeholder="No minimum"
+                />
+
+                <PriceFilterInput
+                  label="Max price"
+                  value={maxPrice}
+                  onChange={setMaxPrice}
+                  placeholder="No maximum"
                 />
               </div>
             </div>

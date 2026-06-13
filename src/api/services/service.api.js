@@ -161,9 +161,8 @@ const normalizeServiceQueryParams = (params = {}) =>
       page: 1,
       pageSize: 12,
       language: "en",
-      search: "",
       ...params,
-    }).filter(([, value]) => value !== undefined && value !== null)
+    }).filter(([, value]) => value !== undefined && value !== null && value !== "")
   );
 
 const normalizeAppointmentBookingPayload = (data = {}) => {
@@ -214,14 +213,15 @@ export const addService = async (data) => {
 
 export const getServices = async (params = {}) => {
   const queryParams = normalizeServiceQueryParams(params);
+  const client = hasStoredAuthToken() ? api : publicApi;
 
   try {
-    const res = await publicApi.get(SERVICE_ENDPOINTS.GET_SERVICES, {
+    const res = await client.get(SERVICE_ENDPOINTS.GET_SERVICES, {
       params: queryParams,
     });
     return res.data;
   } catch (error) {
-    if (!isUnauthorizedError(error) || !hasStoredAuthToken()) {
+    if (client === api || !isUnauthorizedError(error) || !hasStoredAuthToken()) {
       throw error;
     }
 
