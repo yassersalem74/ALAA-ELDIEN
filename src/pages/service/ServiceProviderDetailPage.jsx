@@ -111,6 +111,28 @@ const getBookingItemIds = (selectedItems = []) => [
   ),
 ];
 
+const getServiceNeighborhoodOptions = (service) => {
+  const neighborhoods = Array.isArray(service?.neighborhoods)
+    ? service.neighborhoods
+    : [];
+
+  if (neighborhoods.length > 0) return neighborhoods;
+
+  return service?.neighborhoodId
+    ? [
+        {
+          id: service.neighborhoodId,
+          name: service.neighborhoodName || service.location || "Coverage area",
+        },
+      ]
+    : [];
+};
+
+const getNeighborhoodLabel = (service, neighborhoodId) =>
+  getServiceNeighborhoodOptions(service).find(
+    (neighborhood) => neighborhood.id === neighborhoodId
+  )?.name || "";
+
 const buildAppointmentBody = ({
   date,
   timeSlot,
@@ -118,6 +140,7 @@ const buildAppointmentBody = ({
   concurrencyStamp,
   service,
   packageItem,
+  neighborhoodId,
 }) => ({
   date,
   from: formatTimeForApi(timeSlot?.from),
@@ -133,6 +156,7 @@ const buildAppointmentBody = ({
     extractAppointmentConcurrencyStamp(packageItem?.raw) ||
     null,
   itemIds: getBookingItemIds(selectedItems),
+  neighborhoodId: neighborhoodId || service?.neighborhoodId || null,
 });
 
 const getAppointmentId = (mode, serviceId, packageId, body) =>
@@ -921,15 +945,27 @@ function PackageCalendar({
 
 function BookingPanel({ service, onConfirmBooking }) {
   const agendas = useMemo(() => service.agendas || [], [service.agendas]);
+  const neighborhoodOptions = useMemo(
+    () => getServiceNeighborhoodOptions(service),
+    [service]
+  );
   const durationInMin = service.timeslotDurationInMin || 60;
   const [selectedDateKey, setSelectedDateKey] = useState("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState(
+    () => neighborhoodOptions[0]?.id || ""
+  );
   const [apiTimeSlots, setApiTimeSlots] = useState([]);
   const [availabilityResponse, setAvailabilityResponse] = useState(null);
   const [hasLoadedAvailability, setHasLoadedAvailability] = useState(false);
   const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState("");
   const [quantities, setQuantities] = useState({});
+  const effectiveSelectedNeighborhoodId = neighborhoodOptions.some(
+    (neighborhood) => neighborhood.id === selectedNeighborhoodId
+  )
+    ? selectedNeighborhoodId
+    : neighborhoodOptions[0]?.id || "";
 
   const selectedDayIndex = useMemo(() => {
     if (!selectedDateKey) return -1;
@@ -1047,13 +1083,20 @@ function BookingPanel({ service, onConfirmBooking }) {
   };
 
   const handleBookNow = () => {
-    if (!selectedDateKey || !selectedTimeSlot) return;
+    if (!selectedDateKey || !selectedTimeSlot || !effectiveSelectedNeighborhoodId) {
+      return;
+    }
 
     onConfirmBooking({
       service,
       selectedDateKey,
       selectedTimeSlot,
       selectedItems,
+      selectedNeighborhoodId: effectiveSelectedNeighborhoodId,
+      selectedNeighborhoodName: getNeighborhoodLabel(
+        service,
+        effectiveSelectedNeighborhoodId
+      ),
       total,
       availabilityResponse,
     });
@@ -1101,6 +1144,43 @@ function BookingPanel({ service, onConfirmBooking }) {
           <span>{formatServicePrice(total, service.currency)}</span>
         </div>
       </div>
+
+      <SectionPanel title="Coverage Area">
+        <div className="space-y-2">
+          {neighborhoodOptions.length > 0 ? (
+            neighborhoodOptions.map((neighborhood) => {
+              const isSelected =
+                effectiveSelectedNeighborhoodId === neighborhood.id;
+
+              return (
+                <label
+                  key={neighborhood.id}
+                  className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 transition ${
+                    isSelected
+                      ? "border-[#011C60] bg-[#F8F9FC]"
+                      : "border-[#E6E8EF] bg-white hover:border-[#EECE42]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name={`booking-neighborhood-${service.id}`}
+                    checked={isSelected}
+                    onChange={() => setSelectedNeighborhoodId(neighborhood.id)}
+                    className="h-4 w-4 accent-[#011C60]"
+                  />
+                  <span className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+                    {neighborhood.name}
+                  </span>
+                </label>
+              );
+            })
+          ) : (
+            <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
+              No coverage areas available for this service.
+            </p>
+          )}
+        </div>
+      </SectionPanel>
 
       <SectionPanel title="Select Date">
         {agendas.length ? (
@@ -1168,6 +1248,7 @@ function BookingPanel({ service, onConfirmBooking }) {
           !agendas.length ||
           !selectedDateKey ||
           !selectedTimeSlot ||
+          !effectiveSelectedNeighborhoodId ||
           isAvailabilityLoading
         }
         className="flex h-14 w-full items-center justify-center rounded-[12px] bg-[#011C60] font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF]"
@@ -1181,6 +1262,10 @@ function BookingPanel({ service, onConfirmBooking }) {
 function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   const recurrence = getPackageRecurrence(packageItem);
   const limit = getPackageSelectionLimit(packageItem);
+  const neighborhoodOptions = useMemo(
+    () => getServiceNeighborhoodOptions(service),
+    [service]
+  );
   const [selectedWeekdays, setSelectedWeekdays] = useState(() =>
     recurrence === "daily" ? [0, 1, 2, 3, 4, 5, 6] : []
   );
@@ -1192,6 +1277,14 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   const [hasLoadedAvailability, setHasLoadedAvailability] = useState(false);
   const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState("");
+  const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState(
+    () => neighborhoodOptions[0]?.id || ""
+  );
+  const effectiveSelectedNeighborhoodId = neighborhoodOptions.some(
+    (neighborhood) => neighborhood.id === selectedNeighborhoodId
+  )
+    ? selectedNeighborhoodId
+    : neighborhoodOptions[0]?.id || "";
   const durationInMin = service.timeslotDurationInMin || 60;
 
   const selectedDayIndex = useMemo(() => {
@@ -1322,7 +1415,14 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
         : selectedWeekdays.map((dayIndex) => WEEKDAY_NAMES[dayIndex]);
 
   const handleBookNow = () => {
-    if (!hasScheduleSelection || !selectedDateKey || !selectedTimeSlot) return;
+    if (
+      !hasScheduleSelection ||
+      !selectedDateKey ||
+      !selectedTimeSlot ||
+      !effectiveSelectedNeighborhoodId
+    ) {
+      return;
+    }
 
     onConfirmBooking({
       mode: "package",
@@ -1330,6 +1430,11 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
       packageItem,
       selectedDateKey,
       selectedTimeSlot,
+      selectedNeighborhoodId: effectiveSelectedNeighborhoodId,
+      selectedNeighborhoodName: getNeighborhoodLabel(
+        service,
+        effectiveSelectedNeighborhoodId
+      ),
       selectedSchedule: selectedScheduleLabel,
       selectedItems: [],
       total: packageItem.price,
@@ -1405,6 +1510,43 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
         )}
       </SectionPanel>
 
+      <SectionPanel title="Coverage Area">
+        <div className="space-y-2">
+          {neighborhoodOptions.length > 0 ? (
+            neighborhoodOptions.map((neighborhood) => {
+              const isSelected =
+                effectiveSelectedNeighborhoodId === neighborhood.id;
+
+              return (
+                <label
+                  key={neighborhood.id}
+                  className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 transition ${
+                    isSelected
+                      ? "border-[#011C60] bg-[#F8F9FC]"
+                      : "border-[#E6E8EF] bg-white hover:border-[#EECE42]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name={`package-booking-neighborhood-${service.id}`}
+                    checked={isSelected}
+                    onChange={() => setSelectedNeighborhoodId(neighborhood.id)}
+                    className="h-4 w-4 accent-[#011C60]"
+                  />
+                  <span className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+                    {neighborhood.name}
+                  </span>
+                </label>
+              );
+            })
+          ) : (
+            <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
+              No coverage areas available for this service.
+            </p>
+          )}
+        </div>
+      </SectionPanel>
+
       <button
         type="button"
         onClick={handleBookNow}
@@ -1412,6 +1554,7 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
           !hasScheduleSelection ||
           !selectedDateKey ||
           !selectedTimeSlot ||
+          !effectiveSelectedNeighborhoodId ||
           isAvailabilityLoading
         }
         className="flex h-14 w-full items-center justify-center rounded-[12px] bg-[#011C60] font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF]"
@@ -1553,6 +1696,7 @@ function ConfirmBookingModal({
     selectedDateKey,
     selectedTimeSlot,
     selectedItems,
+    selectedNeighborhoodName,
     selectedSchedule = [],
     total,
   } = booking;
@@ -1653,7 +1797,7 @@ function ConfirmBookingModal({
                 Home
               </p>
               <p className="font-['Roboto'] text-[13px] leading-5 text-[#011C60]">
-                {service.location || "Not specified"}
+                {selectedNeighborhoodName || service.location || "Not specified"}
               </p>
             </div>
           </div>
@@ -1963,6 +2107,7 @@ export default function ServiceProviderDetailPage() {
         selectedItems: bookingDraft.selectedItems,
         service: bookingDraft.service,
         packageItem: bookingDraft.packageItem,
+        neighborhoodId: bookingDraft.selectedNeighborhoodId,
       });
       const appointment = await getBookableAppointment(
         baseAppointmentBody,
@@ -1990,6 +2135,8 @@ export default function ServiceProviderDetailPage() {
         date: appointmentBody.date,
         from: appointmentBody.from,
         to: appointmentBody.to,
+        neighborhoodId: appointmentBody.neighborhoodId,
+        neighborhoodName: bookingDraft.selectedNeighborhoodName,
         items: bookingDraft.selectedItems,
         schedule: bookingDraft.selectedSchedule || [],
         total: bookingDraft.total,

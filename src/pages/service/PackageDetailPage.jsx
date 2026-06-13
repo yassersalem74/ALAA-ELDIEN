@@ -185,7 +185,35 @@ const formatRangeLabel = (range) =>
 
 const getTimeButtonLabel = (range) => formatTimeLabel(range.from);
 
-const buildAppointmentBody = ({ date, timeSlot, service, packageItem }) => ({
+const getServiceNeighborhoodOptions = (service) => {
+  const neighborhoods = Array.isArray(service?.neighborhoods)
+    ? service.neighborhoods
+    : [];
+
+  if (neighborhoods.length > 0) return neighborhoods;
+
+  return service?.neighborhoodId
+    ? [
+        {
+          id: service.neighborhoodId,
+          name: service.neighborhoodName || service.location || "Coverage area",
+        },
+      ]
+    : [];
+};
+
+const getNeighborhoodLabel = (service, neighborhoodId) =>
+  getServiceNeighborhoodOptions(service).find(
+    (neighborhood) => neighborhood.id === neighborhoodId
+  )?.name || "";
+
+const buildAppointmentBody = ({
+  date,
+  timeSlot,
+  service,
+  packageItem,
+  neighborhoodId,
+}) => ({
   date,
   from: formatTimeForApi(timeSlot?.from),
   to: formatTimeForApi(timeSlot?.to),
@@ -199,6 +227,7 @@ const buildAppointmentBody = ({ date, timeSlot, service, packageItem }) => ({
     extractAppointmentConcurrencyStamp(packageItem?.raw) ||
     null,
   itemIds: [],
+  neighborhoodId: neighborhoodId || service?.neighborhoodId || null,
 });
 
 const getAppointmentId = (packageId, serviceId, body) =>
@@ -630,11 +659,23 @@ function ScheduleTimeSelections({
 function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   const recurrence = getPackageRecurrence(packageItem);
   const limit = getPackageSelectionLimit(packageItem);
+  const neighborhoodOptions = useMemo(
+    () => getServiceNeighborhoodOptions(service),
+    [service]
+  );
   const [selectedWeekdays, setSelectedWeekdays] = useState(() =>
     recurrence === "daily" ? DAILY_WEEKDAY_INDEXES : []
   );
   const [selectedMonthDays, setSelectedMonthDays] = useState([]);
   const [selectedTimes, setSelectedTimes] = useState({});
+  const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState(
+    () => neighborhoodOptions[0]?.id || ""
+  );
+  const effectiveSelectedNeighborhoodId = neighborhoodOptions.some(
+    (neighborhood) => neighborhood.id === selectedNeighborhoodId
+  )
+    ? selectedNeighborhoodId
+    : neighborhoodOptions[0]?.id || "";
   const durationInMin = service.timeslotDurationInMin || 60;
 
   const scheduleSelections = useMemo(
@@ -699,7 +740,13 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   };
 
   const handleBookNow = () => {
-    if (!hasScheduleSelection || !hasTimeSelection) return;
+    if (
+      !hasScheduleSelection ||
+      !hasTimeSelection ||
+      !effectiveSelectedNeighborhoodId
+    ) {
+      return;
+    }
 
     const bookedScheduleSelections = scheduleSelections.map((selection) => ({
       ...selection,
@@ -714,6 +761,11 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
       selectedSchedule: bookedScheduleSelections.map(
         (selection) =>
           `${selection.label} ${formatRangeLabel(selection.timeSlot)}`
+      ),
+      selectedNeighborhoodId: effectiveSelectedNeighborhoodId,
+      selectedNeighborhoodName: getNeighborhoodLabel(
+        service,
+        effectiveSelectedNeighborhoodId
       ),
       selectedItems: [],
       total: packageItem.price,
@@ -749,10 +801,51 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
         </div>
       </SectionPanel>
 
+      <SectionPanel title="Coverage Area">
+        <div className="space-y-2">
+          {neighborhoodOptions.length > 0 ? (
+            neighborhoodOptions.map((neighborhood) => {
+              const isSelected =
+                effectiveSelectedNeighborhoodId === neighborhood.id;
+
+              return (
+                <label
+                  key={neighborhood.id}
+                  className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 transition ${
+                    isSelected
+                      ? "border-[#011C60] bg-[#F8F9FC]"
+                      : "border-[#E6E8EF] bg-white hover:border-[#EECE42]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name={`package-detail-neighborhood-${service.id}`}
+                    checked={isSelected}
+                    onChange={() => setSelectedNeighborhoodId(neighborhood.id)}
+                    className="h-4 w-4 accent-[#011C60]"
+                  />
+                  <span className="font-['Roboto'] text-[14px] font-semibold text-[#011C60]">
+                    {neighborhood.name}
+                  </span>
+                </label>
+              );
+            })
+          ) : (
+            <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
+              No coverage areas available for this service.
+            </p>
+          )}
+        </div>
+      </SectionPanel>
+
       <button
         type="button"
         onClick={handleBookNow}
-        disabled={!hasScheduleSelection || !hasTimeSelection}
+        disabled={
+          !hasScheduleSelection ||
+          !hasTimeSelection ||
+          !effectiveSelectedNeighborhoodId
+        }
         className="flex h-14 w-full items-center justify-center rounded-[12px] bg-[#011C60] font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a] disabled:cursor-not-allowed disabled:bg-[#B3BBCF]"
       >
         Book Now
@@ -891,6 +984,7 @@ function ConfirmBookingModal({
     packageItem,
     selectedDateKey,
     selectedTimeSlot,
+    selectedNeighborhoodName,
     scheduleSelections = [],
     selectedSchedule = [],
     total,
@@ -1000,7 +1094,7 @@ function ConfirmBookingModal({
                 Home
               </p>
               <p className="font-['Roboto'] text-[13px] leading-5 text-[#011C60]">
-                {service.location || "Not specified"}
+                {selectedNeighborhoodName || service.location || "Not specified"}
               </p>
             </div>
           </div>
@@ -1288,6 +1382,7 @@ export default function PackageDetailPage() {
             timeSlot: selection.timeSlot,
             service: bookingDraft.service,
             packageItem: bookingDraft.packageItem,
+            neighborhoodId: bookingDraft.selectedNeighborhoodId,
           })
         );
         const appointmentBody = appointment.body;
@@ -1321,6 +1416,8 @@ export default function PackageDetailPage() {
         date: firstResult.request.date,
         from: firstResult.request.from,
         to: firstResult.request.to,
+        neighborhoodId: firstResult.request.neighborhoodId,
+        neighborhoodName: bookingDraft.selectedNeighborhoodName,
         items: [],
         schedule: appointmentResults.map(({ selection, request }) => ({
           key: selection.key,

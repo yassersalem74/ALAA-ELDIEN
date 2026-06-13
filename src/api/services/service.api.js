@@ -177,6 +177,7 @@ const normalizeAppointmentBookingPayload = (data = {}) => {
         ? securityStamp ?? null
         : source.concurrencyStamp,
     itemIds: Array.isArray(source.itemIds) ? source.itemIds.map(String) : [],
+    neighborhoodId: source.neighborhoodId ? String(source.neighborhoodId) : null,
   };
 };
 

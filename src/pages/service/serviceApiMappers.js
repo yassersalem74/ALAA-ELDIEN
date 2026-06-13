@@ -402,6 +402,70 @@ export const isAlaaEldienProvider = (service) => {
   return normalizeText(searchableText).includes("alaa");
 };
 
+const normalizeIdList = (value) => [
+  ...new Set(
+    (Array.isArray(value) ? value : [value])
+      .flatMap((item) => {
+        if (Array.isArray(item)) return normalizeIdList(item);
+        if (item && typeof item === "object") {
+          return item.id || item.neighborhoodId || item.value || "";
+        }
+
+        return item;
+      })
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  ),
+];
+
+const normalizeServiceNeighborhoods = (service) => {
+  const neighborhoodObjects = [
+    ...(Array.isArray(service.neighborhoods) ? service.neighborhoods : []),
+    ...(Array.isArray(service.Neighborhoods) ? service.Neighborhoods : []),
+    ...(Array.isArray(service.neighborhoodDtos) ? service.neighborhoodDtos : []),
+    ...(Array.isArray(service.NeighborhoodDtos) ? service.NeighborhoodDtos : []),
+    service.neighborhood,
+    service.Neighborhood,
+    service.neighborhoodDto,
+    service.NeighborhoodDto,
+  ].filter((item) => item && typeof item === "object");
+  const ids = normalizeIdList([
+    service.neighborhoodIds,
+    service.NeighborhoodIds,
+    service.neighborhoods,
+    service.Neighborhoods,
+    service.neighborhoodDtos,
+    service.NeighborhoodDtos,
+    service.neighborhoodId,
+    service.NeighborhoodId,
+    neighborhoodObjects,
+  ]);
+  const options = ids.map((id) => {
+    const neighborhood = neighborhoodObjects.find(
+      (item) =>
+        String(item.id || item.neighborhoodId || item.value || "") === String(id)
+    );
+
+    return {
+      id,
+      name:
+        neighborhood?.name ||
+        neighborhood?.Name ||
+        neighborhood?.label ||
+        neighborhood?.Label ||
+        id,
+    };
+  });
+
+  if (options.length > 0) return options;
+
+  const fallbackId = service.neighborhoodId || service.neighborhood?.id || "";
+  const fallbackName =
+    service.neighborhoodName || service.neighborhood?.name || fallbackId;
+
+  return fallbackId ? [{ id: String(fallbackId), name: fallbackName }] : [];
+};
+
 export const normalizeService = (service, fallbackImage = "") => {
   const id =
     service.serviceId ||
@@ -416,8 +480,12 @@ export const normalizeService = (service, fallbackImage = "") => {
     service.itemsPrice ??
     0;
   const currency = service.serviceCurrency || service.currency || "EGP";
+  const neighborhoods = normalizeServiceNeighborhoods(service);
   const neighborhoodName =
-    service.neighborhoodName || service.neighborhood?.name || "";
+    neighborhoods.map((neighborhood) => neighborhood.name).join(", ") ||
+    service.neighborhoodName ||
+    service.neighborhood?.name ||
+    "";
   const governorateName =
     service.governorateName || service.governorate?.name || "";
   const providerName =
@@ -458,8 +526,10 @@ export const normalizeService = (service, fallbackImage = "") => {
     providerRole,
     providerImage:
       service.partnerImage || service.signatoryImage || service.provider?.image || "",
-    neighborhoodId: service.neighborhoodId || service.neighborhood?.id || "",
+    neighborhoodId:
+      neighborhoods[0]?.id || service.neighborhoodId || service.neighborhood?.id || "",
     neighborhoodName,
+    neighborhoods,
     governorateId: service.governorateId || service.governorate?.id || "",
     governorateName,
     location: [neighborhoodName, governorateName].filter(Boolean).join(", "),

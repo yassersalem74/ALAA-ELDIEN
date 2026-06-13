@@ -126,6 +126,24 @@ const normalizeAppointment = (appointment, index) => {
   const service = appointment.service || appointment.Service || {};
   const packageItem = appointment.package || appointment.Package || {};
   const provider = appointment.provider || appointment.Provider || {};
+  const neighborhood =
+    appointment.neighborhood ||
+    appointment.Neighborhood ||
+    appointment.neighborhoodDto ||
+    appointment.NeighborhoodDto ||
+    service.neighborhood ||
+    service.Neighborhood ||
+    {};
+  const governorate =
+    appointment.governorate ||
+    appointment.Governorate ||
+    appointment.governorateDto ||
+    appointment.GovernorateDto ||
+    service.governorate ||
+    service.Governorate ||
+    neighborhood.governorate ||
+    neighborhood.Governorate ||
+    {};
   const date = firstPresentValue(
     getValueByKeys(appointment, ["date", "appointmentDate", "day"]),
     getValueByKeys(service, ["date", "appointmentDate"]),
@@ -172,6 +190,20 @@ const normalizeAppointment = (appointment, index) => {
     getValueByKeys(packageItem, ["currency"]),
     "EGP"
   );
+  const neighborhoodName = firstPresentValue(
+    getValueByKeys(appointment, ["neighborhoodName", "coverageArea"]),
+    getValueByKeys(neighborhood, ["name", "label"]),
+    getValueByKeys(service, ["neighborhoodName"])
+  );
+  const governorateName = firstPresentValue(
+    getValueByKeys(appointment, ["governorateName"]),
+    getValueByKeys(governorate, ["name", "label"]),
+    getValueByKeys(service, ["governorateName"])
+  );
+  const location = firstPresentValue(
+    getValueByKeys(appointment, ["location", "address"]),
+    [neighborhoodName, governorateName].filter(Boolean).join(", ")
+  );
 
   return {
     id:
@@ -188,6 +220,7 @@ const normalizeAppointment = (appointment, index) => {
     total,
     currency,
     createdAt,
+    location,
     items: normalizeAppointmentItems(appointment),
   };
 };
@@ -380,6 +413,17 @@ export default function ProfileOrdersSection() {
                   </p>
                 </div>
               </div>
+
+              {appointment.location && (
+                <div className="mt-5 rounded-[10px] border border-[#E6E8EF] px-4 py-3">
+                  <p className="font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
+                    Coverage Area
+                  </p>
+                  <p className="mt-1 font-['Roboto'] text-[13px] leading-5 text-[#4D6090]">
+                    {appointment.location}
+                  </p>
+                </div>
+              )}
 
               {appointment.items.length > 0 && (
                 <div className="mt-5 rounded-[10px] border border-[#E6E8EF] px-4 py-3">
