@@ -112,7 +112,7 @@ export const createEmptyServiceDetails = () => ({
   serviceName: "",
   category: "",
   governorate: "",
-  coverageArea: "",
+  coverageArea: [],
   description: "",
   longDescription: "",
   price: "",

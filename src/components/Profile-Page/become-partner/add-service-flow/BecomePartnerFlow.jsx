@@ -49,12 +49,12 @@ const isServiceDetailsComplete = (details) =>
     details.serviceName,
     details.category,
     details.governorate,
-    details.coverageArea,
     details.description,
     details.longDescription,
     details.price,
     details.serviceTimeHours,
   ].every((value) => String(value || "").trim()) &&
+  getSelectedNeighborhoodIds(details).length > 0 &&
   (details.photos || []).some((photo) => photo instanceof File);
 
 const createEmptyDraft = () => ({
@@ -184,6 +184,24 @@ const normalizeTextValue = (value) => String(value || "").trim().replace(/\s+/g,
 
 const firstPresentValue = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== "");
+
+const normalizeIdList = (value) => [
+  ...new Set(
+    (Array.isArray(value) ? value : [value])
+      .flatMap((item) => {
+        if (Array.isArray(item)) return normalizeIdList(item);
+        if (item && typeof item === "object") {
+          return item.id || item.neighborhoodId || item.value || "";
+        }
+        return item;
+      })
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  ),
+];
+
+const getSelectedNeighborhoodIds = (details) =>
+  normalizeIdList(details?.coverageArea);
 
 const normalizeCategoryValue = (value) => {
   const rawValue = String(value || "").trim();
@@ -661,7 +679,10 @@ const buildServiceFormData = (
   formData.append("numberOfCustomerPerTimeSlots", 1);
   formData.append("description", normalizeTextValue(details.description));
   formData.append("subDescription", String(details.longDescription || "").trim());
-  formData.append("neighborhoodId", details.coverageArea);
+  formData.append("governorateId", details.governorate);
+  getSelectedNeighborhoodIds(details).forEach((neighborhoodId) => {
+    formData.append("neighborhoodIds", neighborhoodId);
+  });
 
   if (items !== undefined) {
     formData.append("itemsJson", JSON.stringify(buildItemsPayload(items).items));
@@ -709,8 +730,8 @@ const validateServiceDetailsForApi = (details) => {
     return "Please choose a valid service category.";
   }
 
-  if (!String(details.coverageArea || "").trim()) {
-    return "Please choose a coverage area.";
+  if (getSelectedNeighborhoodIds(details).length === 0) {
+    return "Please choose at least one coverage area.";
   }
 
   if (!normalizeTextValue(details.description)) {
@@ -926,11 +947,24 @@ const getServiceScheduleRows = (service) => {
     );
 };
 
+const normalizeNeighborhoodObjects = (service) =>
+  [
+    ...(Array.isArray(service.neighborhoods) ? service.neighborhoods : []),
+    ...(Array.isArray(service.Neighborhoods) ? service.Neighborhoods : []),
+    ...(Array.isArray(service.neighborhoodDtos) ? service.neighborhoodDtos : []),
+    ...(Array.isArray(service.NeighborhoodDtos) ? service.NeighborhoodDtos : []),
+    service.neighborhood,
+    service.Neighborhood,
+    service.neighborhoodDto,
+    service.NeighborhoodDto,
+  ].filter((item) => item && typeof item === "object");
+
 const normalizeService = (servicePayload) => {
   const service = normalizeServicePayload(servicePayload);
   const categorySource = getCategorySource(service);
   const category = normalizeCategoryValue(categorySource);
-  const neighborhood = service.neighborhood || service.neighborhoodDto || {};
+  const neighborhoods = normalizeNeighborhoodObjects(service);
+  const neighborhood = neighborhoods[0] || {};
   const governorate =
     service.governorate ||
     service.governorateDto ||
@@ -991,6 +1025,25 @@ const normalizeService = (servicePayload) => {
     service.providerServiceId ||
     service.service?.id ||
     "";
+  const neighborhoodIds = normalizeIdList([
+    service.neighborhoodIds,
+    service.NeighborhoodIds,
+    service.neighborhoods,
+    service.Neighborhoods,
+    service.neighborhoodDtos,
+    service.NeighborhoodDtos,
+    service.neighborhoodId,
+    service.NeighborhoodId,
+    neighborhoods,
+  ]);
+  const neighborhoodNames = [
+    ...new Set(
+      neighborhoods
+        .map((item) => item.name || item.Name || item.label || item.Label)
+        .map((name) => String(name || "").trim())
+        .filter(Boolean)
+    ),
+  ];
 
   return {
     id,
@@ -1010,9 +1063,9 @@ const normalizeService = (servicePayload) => {
     categoryLabel: service.categoryLabel || getCategoryLabel(category),
     location:
       service.location ||
-      [neighborhood.name, governorate.name].filter(Boolean).join(", "),
+      [neighborhoodNames.join(", "), governorate.name].filter(Boolean).join(", "),
     governorate: service.governorateId || governorate.id || "",
-    coverageArea: service.neighborhoodId || neighborhood.id || "",
+    coverageArea: neighborhoodIds,
     description: service.description || "",
     longDescription: service.subDescription || service.longDescription || "",
     price: String(
@@ -1060,6 +1113,8 @@ const normalizeService = (servicePayload) => {
 const mergeServiceForEdit = (baseService, detailsService) => {
   const baseAvailability = baseService.availability || {};
   const detailsAvailability = detailsService.availability || {};
+  const detailsNeighborhoodIds = getSelectedNeighborhoodIds(detailsService);
+  const baseNeighborhoodIds = getSelectedNeighborhoodIds(baseService);
   const detailsHasAvailability =
     (detailsAvailability.days || []).length > 0 ||
     Object.keys(detailsAvailability.dayWindows || {}).length > 0 ||
@@ -1082,7 +1137,10 @@ const mergeServiceForEdit = (baseService, detailsService) => {
         : baseService.categoryLabel,
     location: detailsService.location || baseService.location,
     governorate: detailsService.governorate || baseService.governorate,
-    coverageArea: detailsService.coverageArea || baseService.coverageArea,
+    coverageArea:
+      detailsNeighborhoodIds.length > 0
+        ? detailsNeighborhoodIds
+        : baseNeighborhoodIds,
     description: detailsService.description || baseService.description,
     longDescription: detailsService.longDescription || baseService.longDescription,
     price: detailsService.price || baseService.price,
@@ -1989,7 +2047,7 @@ export default function BecomePartnerFlow() {
         return {
           ...currentDetails,
           governorate: value,
-          coverageArea: "",
+          coverageArea: [],
         };
       }
 

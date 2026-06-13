@@ -382,6 +382,21 @@ const toOption = (item) => ({
   label: item.name,
 });
 
+const normalizeIdList = (value) => [
+  ...new Set(
+    (Array.isArray(value) ? value : [value])
+      .flatMap((item) => {
+        if (Array.isArray(item)) return normalizeIdList(item);
+        if (item && typeof item === "object") {
+          return item.id || item.neighborhoodId || item.value || "";
+        }
+        return item;
+      })
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  ),
+];
+
 export default function ServiceEditModal({
   service,
   governorateOptions = [],
@@ -395,6 +410,7 @@ export default function ServiceEditModal({
     photoNames: service.photoNames || [],
     photos: service.photos || [],
     deletedImages: service.deletedImages || [],
+    coverageArea: normalizeIdList(service.coverageArea),
   });
   const [draftItem, setDraftItem] = useState(createEmptyItem);
   const [editingItemId, setEditingItemId] = useState(null);
@@ -407,9 +423,15 @@ export default function ServiceEditModal({
   const hasSelectedGovernorateOption = governorateOptions.some(
     (option) => option.value === draft.governorate
   );
-  const hasSelectedNeighborhoodOption = neighborhoodOptions.some(
-    (option) => option.value === draft.coverageArea
-  );
+  const selectedCoverageAreaIds = normalizeIdList(draft.coverageArea);
+  const coverageAreaOptions = [
+    ...neighborhoodOptions,
+    ...selectedCoverageAreaIds
+      .filter(
+        (areaId) => !neighborhoodOptions.some((option) => option.value === areaId)
+      )
+      .map((areaId) => ({ value: areaId, label: areaId })),
+  ];
   const selectedAvailabilityRows = (draft.availability.days || []).map((day) => {
     const window = getAvailabilityDayWindow(draft.availability, day);
     const totalHours = calculateTotalHours(window.startHour, window.endHour);
@@ -449,13 +471,26 @@ export default function ServiceEditModal({
         return {
           ...currentDraft,
           governorate: value,
-          coverageArea: "",
+          coverageArea: [],
         };
       }
 
       return {
         ...currentDraft,
         [fieldName]: value,
+      };
+    });
+  };
+
+  const handleCoverageAreaToggle = (areaId) => {
+    setDraft((currentDraft) => {
+      const currentAreaIds = normalizeIdList(currentDraft.coverageArea);
+
+      return {
+        ...currentDraft,
+        coverageArea: currentAreaIds.includes(areaId)
+          ? currentAreaIds.filter((currentAreaId) => currentAreaId !== areaId)
+          : [...currentAreaIds, areaId],
       };
     });
   };
@@ -638,13 +673,23 @@ export default function ServiceEditModal({
   };
 
   const handleSave = () => {
+    const selectedCoverageLabels = selectedCoverageAreaIds.map(
+      (areaId) =>
+        coverageAreaOptions.find((option) => option.value === areaId)?.label ||
+        areaId
+    );
+    const governorateLabel =
+      governorateOptions.find((option) => option.value === draft.governorate)
+        ?.label || draft.governorate;
+
     const nextService = {
       ...draft,
       serviceName: draft.serviceName.trim(),
       categoryLabel: getCategoryLabel(draft.category),
-      location: `${neighborhoodOptions.find((option) => option.value === draft.coverageArea)?.label || draft.coverageArea}, ${
-        governorateOptions.find((option) => option.value === draft.governorate)?.label || draft.governorate
-      }`,
+      coverageArea: selectedCoverageAreaIds,
+      location: [selectedCoverageLabels.join(", "), governorateLabel]
+        .filter(Boolean)
+        .join(", "),
       description: draft.description.trim(),
       longDescription: draft.longDescription.trim(),
       items: draft.items || [],
@@ -718,24 +763,56 @@ export default function ServiceEditModal({
               <SelectArrow />
             </label>
 
-            <label className="relative">
+            <div>
               <FieldLabel>Coverage Area</FieldLabel>
-              <select
-                value={draft.coverageArea}
-                onChange={(event) => handleFieldChange("coverageArea", event.target.value)}
-                className={SELECT_CLASS_NAME}
-              >
-                {!hasSelectedNeighborhoodOption && draft.coverageArea && (
-                  <option value={draft.coverageArea}>{draft.coverageArea}</option>
-                )}
-                {neighborhoodOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <SelectArrow />
-            </label>
+              <div className="rounded-[14px] border border-[#D8DDEB] bg-white p-3 shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)]">
+                <div className="max-h-44 overflow-y-auto pr-1">
+                  {!draft.governorate && (
+                    <p className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#9AA6C7]">
+                      Select governorate first
+                    </p>
+                  )}
+
+                  {draft.governorate && coverageAreaOptions.length === 0 && (
+                    <p className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#9AA6C7]">
+                      No coverage areas available
+                    </p>
+                  )}
+
+                  {draft.governorate &&
+                    coverageAreaOptions.map((option) => {
+                      const isSelected = selectedCoverageAreaIds.includes(
+                        option.value
+                      );
+
+                      return (
+                        <label
+                          key={option.value}
+                          className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-[#F5F7FC]"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleCoverageAreaToggle(option.value)}
+                            className="h-4 w-4 accent-[#011C60]"
+                          />
+                          <span className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#011C60]">
+                            {option.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {selectedCoverageAreaIds.length > 0 && (
+                <p className="mt-2 font-['Roboto'] text-[13px] leading-5 text-[#6777A0]">
+                  {selectedCoverageAreaIds.length} coverage{" "}
+                  {selectedCoverageAreaIds.length === 1 ? "area" : "areas"}{" "}
+                  selected
+                </p>
+              )}
+            </div>
 
             <label>
               <FieldLabel>Price</FieldLabel>

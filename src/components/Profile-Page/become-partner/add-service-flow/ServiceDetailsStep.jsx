@@ -31,6 +31,20 @@ export default function ServiceDetailsStep({
   isLoadingGovernorates = false,
   isLoadingNeighborhoods = false,
 }) {
+  const selectedCoverageAreaIds = Array.isArray(details.coverageArea)
+    ? details.coverageArea
+    : details.coverageArea
+      ? [details.coverageArea]
+      : [];
+
+  const handleCoverageAreaToggle = (areaId) => {
+    const nextCoverageAreas = selectedCoverageAreaIds.includes(areaId)
+      ? selectedCoverageAreaIds.filter((currentAreaId) => currentAreaId !== areaId)
+      : [...selectedCoverageAreaIds, areaId];
+
+    onChange("coverageArea", nextCoverageAreas);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <ProgressStepper currentStep={2} onStepClick={onStepClick} />
@@ -167,28 +181,64 @@ export default function ServiceDetailsStep({
                 <SelectArrow />
               </label>
 
-              <label className="relative">
-                <select
-                  value={details.coverageArea}
-                  onChange={(event) =>
-                    onChange("coverageArea", event.target.value)
-                  }
-                  className={SELECT_CLASS_NAME}
-                  disabled={!details.governorate}
-                >
-                  <option value="">
-                    {isLoadingNeighborhoods
-                      ? "Loading neighborhoods..."
-                      : "Coverage area"}
-                  </option>
-                  {neighborhoodOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <SelectArrow />
-              </label>
+              <div>
+                <div className="rounded-[14px] border border-[#D8DDEB] bg-white p-3 shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)]">
+                  <div className="max-h-44 overflow-y-auto pr-1">
+                    {!details.governorate && (
+                      <p className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#9AA6C7]">
+                        Select governorate first
+                      </p>
+                    )}
+
+                    {details.governorate && isLoadingNeighborhoods && (
+                      <p className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#9AA6C7]">
+                        Loading neighborhoods...
+                      </p>
+                    )}
+
+                    {details.governorate &&
+                      !isLoadingNeighborhoods &&
+                      neighborhoodOptions.length === 0 && (
+                        <p className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#9AA6C7]">
+                          No coverage areas available
+                        </p>
+                      )}
+
+                    {details.governorate &&
+                      !isLoadingNeighborhoods &&
+                      neighborhoodOptions.map((option) => {
+                        const isSelected = selectedCoverageAreaIds.includes(
+                          option.value
+                        );
+
+                        return (
+                          <label
+                            key={option.value}
+                            className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-[#F5F7FC]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleCoverageAreaToggle(option.value)}
+                              className="h-4 w-4 accent-[#011C60]"
+                            />
+                            <span className="font-['Roboto'] text-[14px] font-semibold leading-6 text-[#011C60]">
+                              {option.label}
+                            </span>
+                          </label>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {selectedCoverageAreaIds.length > 0 && (
+                  <p className="mt-2 font-['Roboto'] text-[13px] leading-5 text-[#6777A0]">
+                    {selectedCoverageAreaIds.length} coverage{" "}
+                    {selectedCoverageAreaIds.length === 1 ? "area" : "areas"}{" "}
+                    selected
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
