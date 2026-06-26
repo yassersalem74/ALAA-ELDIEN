@@ -54,6 +54,23 @@ const normalizeWeekdayValue = (value) => {
 const firstPresentValue = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== "");
 
+const API_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const getApiAgendaId = (agenda) => {
+  const id = String(
+    agenda?.id ||
+      agenda?.agendaId ||
+      agenda?.serviceAgendaId ||
+      agenda?.Id ||
+      agenda?.AgendaId ||
+      agenda?.ServiceAgendaId ||
+      ""
+  ).trim();
+
+  return API_ID_PATTERN.test(id) ? id : "";
+};
+
 const getAgendaTime = (agenda, fieldNames) =>
   fieldNames
     .map((fieldName) => agenda?.[fieldName])
@@ -347,6 +364,7 @@ const normalizeAvailability = (service) => {
     return {
       ...windows,
       [day]: {
+        agendaId: getApiAgendaId(agenda),
         startHour: getHourValue(agendaFrom, existingWindow.startHour || "9"),
         endHour: getHourValue(agendaTo, existingWindow.endHour || "17"),
         dailyWindow:
@@ -356,12 +374,20 @@ const normalizeAvailability = (service) => {
     };
   }, { ...(availability.dayWindows || {}) });
 
+  const agendaIdsByDay = agendaList.reduce((idsByDay, agenda) => {
+    const day = normalizeWeekdayValue(getAgendaDayValue(agenda));
+    const agendaId = getApiAgendaId(agenda);
+
+    return day && agendaId ? { ...idsByDay, [day]: agendaId } : idsByDay;
+  }, {});
+
   return {
     days,
     startHour: getHourValue(fromTime, "9"),
     endHour: getHourValue(toTime, "17"),
     dailyWindow: Boolean(availability.dailyWindow) || isFullDayAgendaWindow(fromTime, toTime),
     dayWindows,
+    agendaIdsByDay,
   };
 };
 
@@ -382,6 +408,24 @@ const toOption = (item) => ({
   label: item.name,
 });
 
+const normalizeComparableLabel = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const getServiceNameOptionByLabel = (serviceNameOptions, serviceName) => {
+  const normalizedServiceName = normalizeComparableLabel(serviceName);
+
+  if (!normalizedServiceName) return null;
+
+  return (
+    serviceNameOptions.find(
+      (option) => normalizeComparableLabel(option.label) === normalizedServiceName
+    ) || null
+  );
+};
+
 const normalizeIdList = (value) => [
   ...new Set(
     (Array.isArray(value) ? value : [value])
@@ -399,13 +443,21 @@ const normalizeIdList = (value) => [
 
 export default function ServiceEditModal({
   service,
+  serviceNameOptions = [],
   governorateOptions = [],
   onClose,
   onSave,
 }) {
+  const initialServiceNameOption = getServiceNameOptionByLabel(
+    serviceNameOptions,
+    service.serviceName
+  );
+  const initialAvailability = normalizeAvailability(service);
   const [draft, setDraft] = useState({
     ...service,
-    availability: normalizeAvailability(service),
+    serviceNameId: service.serviceNameId || initialServiceNameOption?.value || "",
+    serviceName: service.serviceName || initialServiceNameOption?.label || "",
+    availability: initialAvailability,
     items: normalizeItems(service.items),
     photoNames: service.photoNames || [],
     photos: service.photos || [],
@@ -415,10 +467,14 @@ export default function ServiceEditModal({
   const [draftItem, setDraftItem] = useState(createEmptyItem);
   const [editingItemId, setEditingItemId] = useState(null);
   const [itemFormError, setItemFormError] = useState("");
+  const [formError, setFormError] = useState("");
   const [neighborhoodOptions, setNeighborhoodOptions] = useState([]);
   const [uploadError, setUploadError] = useState("");
   const hasSelectedCategoryOption = SERVICE_CATEGORY_OPTIONS.some(
     (option) => option.value === draft.category
+  );
+  const hasSelectedServiceNameOption = serviceNameOptions.some(
+    (option) => option.value === draft.serviceNameId
   );
   const hasSelectedGovernorateOption = governorateOptions.some(
     (option) => option.value === draft.governorate
@@ -462,6 +518,8 @@ export default function ServiceEditModal({
   }, [draft.governorate]);
 
   const handleFieldChange = (fieldName, value) => {
+    setFormError("");
+
     if (fieldName === "governorate" && !value) {
       setNeighborhoodOptions([]);
     }
@@ -482,7 +540,23 @@ export default function ServiceEditModal({
     });
   };
 
+  const handleServiceNameChange = (serviceNameId) => {
+    setFormError("");
+
+    const selectedServiceName = serviceNameOptions.find(
+      (option) => option.value === serviceNameId
+    );
+
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      serviceNameId,
+      serviceName: selectedServiceName?.label || "",
+    }));
+  };
+
   const handleCoverageAreaToggle = (areaId) => {
+    setFormError("");
+
     setDraft((currentDraft) => {
       const currentAreaIds = normalizeIdList(currentDraft.coverageArea);
 
@@ -496,6 +570,8 @@ export default function ServiceEditModal({
   };
 
   const handleAvailabilityDayChange = (day, fieldName, value) => {
+    setFormError("");
+
     setDraft((currentDraft) => {
       const currentWindow = getAvailabilityDayWindow(currentDraft.availability, day);
 
@@ -528,6 +604,8 @@ export default function ServiceEditModal({
   };
 
   const handleToggleDay = (day) => {
+    setFormError("");
+
     setDraft((currentDraft) => {
       const days = currentDraft.availability.days || [];
       const nextDays = days.includes(day)
@@ -539,6 +617,7 @@ export default function ServiceEditModal({
         delete nextDayWindows[day];
       } else if (!nextDayWindows[day]) {
         nextDayWindows[day] = {
+          agendaId: currentDraft.availability.agendaIdsByDay?.[day] || "",
           startHour: currentDraft.availability.startHour || "9",
           endHour: currentDraft.availability.endHour || "17",
           dailyWindow: Boolean(currentDraft.availability.dailyWindow),
@@ -681,10 +760,25 @@ export default function ServiceEditModal({
     const governorateLabel =
       governorateOptions.find((option) => option.value === draft.governorate)
         ?.label || draft.governorate;
+    const selectedServiceName =
+      serviceNameOptions.find((option) => option.value === draft.serviceNameId) ||
+      getServiceNameOptionByLabel(serviceNameOptions, draft.serviceName);
+    const initialAvailabilityDaySet = new Set(initialAvailability.days || []);
+    const hasAddedAvailabilityDays = (draft.availability.days || []).some(
+      (day) => !initialAvailabilityDaySet.has(normalizeWeekdayValue(day))
+    );
+
+    if (hasAddedAvailabilityDays) {
+      setFormError(
+        "The API currently rejects adding new availability days while editing a service. You can edit existing days or remove days."
+      );
+      return;
+    }
 
     const nextService = {
       ...draft,
-      serviceName: draft.serviceName.trim(),
+      serviceNameId: draft.serviceNameId || selectedServiceName?.value || "",
+      serviceName: (selectedServiceName?.label || draft.serviceName).trim(),
       categoryLabel: getCategoryLabel(draft.category),
       coverageArea: selectedCoverageAreaIds,
       location: [selectedCoverageLabels.join(", "), governorateLabel]
@@ -715,14 +809,26 @@ export default function ServiceEditModal({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label>
+            <label className="relative">
               <FieldLabel>Service Name</FieldLabel>
-              <input
-                type="text"
-                value={draft.serviceName}
-                onChange={(event) => handleFieldChange("serviceName", event.target.value)}
-                className={INPUT_CLASS_NAME}
-              />
+              <select
+                value={draft.serviceNameId || ""}
+                onChange={(event) => handleServiceNameChange(event.target.value)}
+                className={SELECT_CLASS_NAME}
+              >
+                <option value="">Service name</option>
+                {!hasSelectedServiceNameOption &&
+                  draft.serviceNameId &&
+                  draft.serviceName && (
+                    <option value={draft.serviceNameId}>{draft.serviceName}</option>
+                  )}
+                {serviceNameOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <SelectArrow />
             </label>
 
             <label className="relative">
@@ -1138,6 +1244,12 @@ export default function ServiceEditModal({
               </div>
             )}
           </div>
+
+          {formError && (
+            <div className="rounded-2xl border border-[#F5C2C7] bg-[#FFF5F5] px-4 py-3 font-['Roboto'] text-[14px] leading-5 text-[#842029]">
+              {formError}
+            </div>
+          )}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
             <button

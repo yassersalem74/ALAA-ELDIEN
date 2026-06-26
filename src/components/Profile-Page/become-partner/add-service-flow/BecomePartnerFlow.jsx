@@ -691,11 +691,12 @@ const buildServiceFormData = (
 ) => {
   const formData = new FormData();
 
-  if (isUpdate) {
-    formData.append("name", normalizeTextValue(details.serviceName));
-  } else {
-    formData.append("serviceNameId", normalizeTextValue(details.serviceNameId));
+  formData.append("serviceNameId", normalizeTextValue(details.serviceNameId));
+
+  if (isUpdate && normalizeTextValue(details.concurrencyStamp)) {
+    formData.append("concurrencyStamp", normalizeTextValue(details.concurrencyStamp));
   }
+
   formData.append("price", Number(details.price) || 0);
   formData.append("currency", SERVICE_API_CURRENCY);
   formData.append(
@@ -703,10 +704,6 @@ const buildServiceFormData = (
     CATEGORY_API_VALUES[details.category] || details.category
   );
   formData.append("timeslotDurationInMin", getTimeslotDurationInMin(details.serviceTimeHours));
-
-  if (!isUpdate) {
-    formData.append("numberOfCustomerPerTimeSlots", 1);
-  }
 
   formData.append("description", normalizeTextValue(details.description));
   formData.append("subDescription", String(details.longDescription || "").trim());
@@ -863,25 +860,44 @@ const toAgendaDay = (day) => {
   return WEEKDAY_OPTIONS.includes(normalizedDay) ? normalizedDay : "";
 };
 
-const buildAgendasPayload = (availability) => ({
+const API_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const getApiAgendaId = (agenda) => {
+  const id = String(
+    agenda?.id ||
+      agenda?.agendaId ||
+      agenda?.serviceAgendaId ||
+      agenda?.Id ||
+      agenda?.AgendaId ||
+      agenda?.ServiceAgendaId ||
+      ""
+  ).trim();
+
+  return API_ID_PATTERN.test(id) ? id : "";
+};
+
+const buildAgendasPayload = (availability, { includeIds = false } = {}) => ({
   agendas: (availability.days || []).reduce((agendas, day) => {
     const normalizedDay = toAgendaDay(day);
     if (!normalizedDay) return agendas;
 
     const dayWindow = getAvailabilityDayWindow(availability, normalizedDay);
-
-    agendas.push({
+    const agendaId =
+      includeIds && dayWindow
+        ? getApiAgendaId(dayWindow) || availability.agendaIdsByDay?.[normalizedDay]
+        : "";
+    const agendaPayload = {
       Day: normalizedDay,
       From: dayWindow.dailyWindow ? "00:01" : toAgendaFromTime(dayWindow.startHour),
       To: dayWindow.dailyWindow ? "23:59" : toAgendaTime(dayWindow.endHour),
-    });
+    };
+
+    agendas.push(agendaId ? { Id: agendaId, ...agendaPayload } : agendaPayload);
 
     return agendas;
   }, []),
 });
-
-const API_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const getApiItemId = (item) => {
   const id = String(
@@ -923,6 +939,7 @@ const normalizeAgendaScheduleRows = (agendaList, availability = {}) =>
     const existingWindow = getAvailabilityDayWindow(availability, day);
 
     rows.push({
+      agendaId: getApiAgendaId(agenda),
       day,
       from: fromTime || toAgendaTime(existingWindow.startHour || "9"),
       to: toTime || toAgendaTime(existingWindow.endHour || "17"),
@@ -1052,6 +1069,7 @@ const normalizeService = (servicePayload) => {
     return {
       ...windows,
       [day]: {
+        agendaId: getApiAgendaId(agenda),
         startHour: getAgendaHour(fromTime, existingWindow.startHour || "9"),
         endHour: getAgendaHour(toTime, existingWindow.endHour || "17"),
         dailyWindow:
@@ -1104,12 +1122,19 @@ const normalizeService = (servicePayload) => {
       neighborhoods
         .map((item) => item.name || item.Name || item.label || item.Label)
         .map((name) => String(name || "").trim())
-        .filter(Boolean)
+      .filter(Boolean)
     ),
   ];
+  const agendaIdsByDay = agendaList.reduce((idsByDay, agenda) => {
+    const day = normalizeWeekdayValue(getAgendaDayValue(agenda));
+    const agendaId = getApiAgendaId(agenda);
+
+    return day && agendaId ? { ...idsByDay, [day]: agendaId } : idsByDay;
+  }, {});
 
   return {
     id,
+    concurrencyStamp: service.concurrencyStamp || service.ConcurrencyStamp || "",
     serviceNameId,
     serviceName: serviceDisplayName || "",
     category,
@@ -1169,6 +1194,7 @@ const normalizeService = (servicePayload) => {
         Boolean(availabilitySource.dailyWindow) ||
         isFullDayAgendaWindow(agendaFrom, agendaTo),
       dayWindows,
+      agendaIdsByDay,
       scheduleRows: normalizeAgendaScheduleRows(agendaList, availabilitySource),
     },
   };
@@ -1190,6 +1216,8 @@ const mergeServiceForEdit = (baseService, detailsService) => {
     ...baseService,
     ...detailsService,
     id: detailsService.id || baseService.id,
+    concurrencyStamp:
+      detailsService.concurrencyStamp || baseService.concurrencyStamp,
     serviceName: detailsService.serviceName || baseService.serviceName,
     serviceNameId: detailsService.serviceNameId || baseService.serviceNameId,
     category: detailsService.category || baseService.category,
@@ -2441,6 +2469,10 @@ export default function BecomePartnerFlow() {
   };
 
   const handleEditService = async (service) => {
+    if (serviceNameOptions.length === 0 && !(await loadServiceNameOptions())) {
+      return;
+    }
+
     if (!getAuthToken()) {
       setEditingService(service);
       return;
@@ -2550,7 +2582,8 @@ export default function BecomePartnerFlow() {
           nextService.id,
           buildServiceFormData(nextService, true, {
             items: nextService.items || [],
-            availability: hasAvailabilityDays(nextService.availability)
+            availability:
+              hasAvailabilityDays(nextService.availability)
               ? nextService.availability
               : undefined,
           })
@@ -3191,6 +3224,7 @@ export default function BecomePartnerFlow() {
       {editingService && (
         <ServiceEditModal
           service={editingService}
+          serviceNameOptions={serviceNameOptions}
           governorateOptions={governorateOptions}
           onClose={() => setEditingService(null)}
           onSave={handleSaveServiceEdit}
