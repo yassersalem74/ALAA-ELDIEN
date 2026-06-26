@@ -1265,7 +1265,10 @@ const getPackageServiceIds = (packageItem) =>
 
 const getPackageServiceNames = (packageItem) =>
   [
-    packageItem.serviceName,
+    typeof packageItem.serviceName === "string" ? packageItem.serviceName : "",
+    packageItem.serviceName?.name,
+    packageItem.serviceNameDto?.name,
+    packageItem.serviceNameDTO?.name,
     ...(Array.isArray(packageItem.services)
       ? packageItem.services.map((service) => service?.name || service?.serviceName)
       : []),
@@ -1277,10 +1280,17 @@ const getPackageServiceNames = (packageItem) =>
 const normalizePackage = (packageItem) => {
   const serviceIds = getPackageServiceIds(packageItem);
   const serviceNames = getPackageServiceNames(packageItem);
+  const packageDisplayName =
+    packageItem.name ||
+    packageItem.packageName ||
+    packageItem.serviceName?.name ||
+    packageItem.serviceNameDto?.name ||
+    serviceNames[0] ||
+    "";
 
   return {
     id: packageItem.id,
-    packageName: packageItem.name || packageItem.packageName || "",
+    packageName: packageDisplayName,
     serviceIds,
     serviceId: serviceIds[0] || "",
     serviceName: serviceNames.join(", "),
@@ -1288,7 +1298,7 @@ const normalizePackage = (packageItem) => {
       (packageItem.recurrence || packageItem.pricingType || "").charAt(0).toUpperCase() +
       (packageItem.recurrence || packageItem.pricingType || "").slice(1).toLowerCase(),
     times: String(packageItem.daysPerInterval ?? packageItem.times ?? ""),
-    price: String(packageItem.price ?? ""),
+    price: String(packageItem.price ?? packageItem.servicePrice ?? ""),
   };
 };
 
@@ -3147,7 +3157,8 @@ export default function BecomePartnerFlow() {
         <AddPackageFlow
           onBack={() => setView("packages")}
           onToast={setToast}
-          savedServices={savedServices}
+          serviceNameOptions={serviceNameOptions}
+          governorateOptions={governorateOptions}
           onSaved={handlePackageSaved}
           hasProviderAccess={hasProviderAccess}
         />
