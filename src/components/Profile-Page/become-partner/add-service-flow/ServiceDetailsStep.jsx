@@ -26,8 +26,10 @@ export default function ServiceDetailsStep({
   canContinue,
   uploadError,
   onStepClick,
+  serviceNameOptions = [],
   governorateOptions = [],
   neighborhoodOptions = [],
+  isLoadingServiceNames = false,
   isLoadingGovernorates = false,
   isLoadingNeighborhoods = false,
 }) {
@@ -45,6 +47,15 @@ export default function ServiceDetailsStep({
     onChange("coverageArea", nextCoverageAreas);
   };
 
+  const handleServiceNameChange = (serviceNameId) => {
+    const selectedServiceName = serviceNameOptions.find(
+      (option) => option.value === serviceNameId
+    );
+
+    onChange("serviceNameId", serviceNameId);
+    onChange("serviceName", selectedServiceName?.label || "");
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <ProgressStepper currentStep={2} onStepClick={onStepClick} />
@@ -59,16 +70,25 @@ export default function ServiceDetailsStep({
           <div>
             <FieldLabel>Service</FieldLabel>
             <div className="grid gap-4 md:grid-cols-2">
-              <label>
-                <input
-                  type="text"
-                  value={details.serviceName}
-                  onChange={(event) =>
-                    onChange("serviceName", event.target.value)
-                  }
-                  placeholder="Service Name"
-                  className={INPUT_CLASS_NAME}
-                />
+              <label className="relative">
+                <select
+                  value={details.serviceNameId || ""}
+                  onChange={(event) => handleServiceNameChange(event.target.value)}
+                  className={SELECT_CLASS_NAME}
+                  disabled={isLoadingServiceNames}
+                >
+                  <option value="">
+                    {isLoadingServiceNames
+                      ? "Loading service names..."
+                      : "Service name"}
+                  </option>
+                  {serviceNameOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <SelectArrow />
               </label>
 
               <label className="relative">

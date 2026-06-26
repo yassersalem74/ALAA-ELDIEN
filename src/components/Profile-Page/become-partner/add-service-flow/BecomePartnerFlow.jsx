@@ -14,6 +14,7 @@ import {
   getMyServices,
   getPackageDetails,
   getServiceDetails,
+  getServiceNames,
   updatePackage,
   updateService,
 } from "../../../../api/services/service.api";
@@ -46,7 +47,7 @@ import {
 
 const isServiceDetailsComplete = (details) =>
   [
-    details.serviceName,
+    details.serviceNameId,
     details.category,
     details.governorate,
     details.description,
@@ -179,6 +180,28 @@ const toOption = (item) => ({
   value: item.id,
   label: item.name,
 });
+
+const normalizeServiceNameOption = (item) => {
+  const value = firstPresentValue(
+    item?.id,
+    item?.serviceNameId,
+    item?.serviceNameID,
+    item?.value
+  );
+  const label = firstPresentValue(
+    item?.name,
+    item?.serviceName,
+    item?.title,
+    item?.label,
+    item?.nameEn,
+    item?.Name
+  );
+
+  return {
+    value: String(value || "").trim(),
+    label: String(label || "").trim(),
+  };
+};
 
 const normalizeTextValue = (value) => String(value || "").trim().replace(/\s+/g, " ");
 
@@ -668,7 +691,11 @@ const buildServiceFormData = (
 ) => {
   const formData = new FormData();
 
-  formData.append("name", normalizeTextValue(details.serviceName));
+  if (isUpdate) {
+    formData.append("name", normalizeTextValue(details.serviceName));
+  } else {
+    formData.append("serviceNameId", normalizeTextValue(details.serviceNameId));
+  }
   formData.append("price", Number(details.price) || 0);
   formData.append("currency", SERVICE_API_CURRENCY);
   formData.append(
@@ -725,8 +752,8 @@ const validateServiceDetailsForApi = (details) => {
     String(photoName || "").trim()
   );
 
-  if (!normalizeTextValue(details.serviceName)) {
-    return "Please enter a service name.";
+  if (!normalizeTextValue(details.serviceNameId)) {
+    return "Please choose a service name.";
   }
 
   if (!CATEGORY_API_VALUES[details.category]) {
@@ -1045,6 +1072,22 @@ const normalizeService = (servicePayload) => {
     service.providerServiceId ||
     service.service?.id ||
     "";
+  const serviceNameId =
+    service.serviceNameId ||
+    service.ServiceNameId ||
+    service.serviceName?.id ||
+    service.serviceNameDto?.id ||
+    service.serviceNameDTO?.id ||
+    "";
+  const serviceDisplayName = firstPresentValue(
+    typeof service.name === "string" ? service.name : "",
+    typeof service.serviceName === "string" ? service.serviceName : "",
+    service.serviceName?.name,
+    service.serviceName?.Name,
+    service.serviceNameDto?.name,
+    service.serviceNameDTO?.name,
+    service.title
+  );
   const neighborhoodIds = normalizeIdList([
     service.neighborhoodIds,
     service.NeighborhoodIds,
@@ -1067,7 +1110,8 @@ const normalizeService = (servicePayload) => {
 
   return {
     id,
-    serviceName: service.name || service.serviceName || "",
+    serviceNameId,
+    serviceName: serviceDisplayName || "",
     category,
     categoryName:
       service.serviceCategory ||
@@ -1147,6 +1191,7 @@ const mergeServiceForEdit = (baseService, detailsService) => {
     ...detailsService,
     id: detailsService.id || baseService.id,
     serviceName: detailsService.serviceName || baseService.serviceName,
+    serviceNameId: detailsService.serviceNameId || baseService.serviceNameId,
     category: detailsService.category || baseService.category,
     categoryName: detailsService.categoryName || baseService.categoryName,
     categoryDisplayName:
@@ -1721,8 +1766,10 @@ export default function BecomePartnerFlow() {
   const [editingService, setEditingService] = useState(null);
   const [editingPackage, setEditingPackage] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [serviceNameOptions, setServiceNameOptions] = useState([]);
   const [governorateOptions, setGovernorateOptions] = useState([]);
   const [neighborhoodOptions, setNeighborhoodOptions] = useState([]);
+  const [isLoadingServiceNames, setIsLoadingServiceNames] = useState(false);
   const [isLoadingGovernorates, setIsLoadingGovernorates] = useState(false);
   const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
   const [hasProviderAccess, setHasProviderAccess] = useState(false);
@@ -1730,6 +1777,61 @@ export default function BecomePartnerFlow() {
   const [isSavingService, setIsSavingService] = useState(false);
   const [toast, setToast] = useState(null);
   const hasFetchedInitialData = useRef(false);
+
+  const loadServiceNameOptions = async ({ showError = true } = {}) => {
+    setIsLoadingServiceNames(true);
+
+    try {
+      const response = await getServiceNames({ language: LANGUAGE });
+
+      setServiceNameOptions(
+        extractList(response)
+          .map(normalizeServiceNameOption)
+          .filter((option) => option.value && option.label)
+      );
+
+      return true;
+    } catch {
+      setServiceNameOptions([]);
+
+      if (showError) {
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Failed to load service names. Please try again.",
+        });
+      }
+
+      return false;
+    } finally {
+      setIsLoadingServiceNames(false);
+    }
+  };
+
+  const loadGovernorateOptions = async ({ showError = true } = {}) => {
+    setIsLoadingGovernorates(true);
+
+    try {
+      const response = await getGovernorates(LANGUAGE);
+
+      setGovernorateOptions(extractList(response).map(toOption));
+      return true;
+    } catch {
+      setGovernorateOptions([]);
+
+      if (showError) {
+        setToast({
+          id: Date.now(),
+          type: "error",
+          message: "Failed to load governorates. Please try again.",
+        });
+      }
+
+      return false;
+    } finally {
+      setIsLoadingGovernorates(false);
+    }
+  };
 
   const loadProviderData = async ({ showPartialError = true } = {}) => {
     const [servicesResult, packagesResult] = await Promise.allSettled([
@@ -1797,20 +1899,10 @@ export default function BecomePartnerFlow() {
     hasFetchedInitialData.current = true;
 
     const fetchInitialData = async () => {
-      setIsLoadingGovernorates(true);
-
-      try {
-        const governoratesResponse = await getGovernorates(LANGUAGE);
-        setGovernorateOptions(extractList(governoratesResponse).map(toOption));
-      } catch {
-        setToast({
-          id: Date.now(),
-          type: "error",
-          message: "Failed to load governorates. Please try again.",
-        });
-      } finally {
-        setIsLoadingGovernorates(false);
-      }
+      await Promise.all([
+        loadServiceNameOptions(),
+        loadGovernorateOptions(),
+      ]);
 
       if (!getAuthToken()) {
         setToast({
@@ -2011,6 +2103,9 @@ export default function BecomePartnerFlow() {
 
   const openServiceFlow = async () => {
     if (!(await activateProviderForFlow())) return;
+    if (serviceNameOptions.length === 0 && !(await loadServiceNameOptions())) {
+      return;
+    }
 
     resetDraft();
     setActiveTab("services");
@@ -3047,8 +3142,10 @@ export default function BecomePartnerFlow() {
               canContinue={isServiceDetailsComplete(serviceDetails)}
               uploadError={uploadError}
               onStepClick={handleWizardStepClick}
+              serviceNameOptions={serviceNameOptions}
               governorateOptions={governorateOptions}
               neighborhoodOptions={neighborhoodOptions}
+              isLoadingServiceNames={isLoadingServiceNames}
               isLoadingGovernorates={isLoadingGovernorates}
               isLoadingNeighborhoods={isLoadingNeighborhoods}
             />

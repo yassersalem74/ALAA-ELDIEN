@@ -232,6 +232,32 @@ export const getServices = async (params = {}) => {
   }
 };
 
+export const getServiceNames = async (params = {}) => {
+  const queryParams = Object.fromEntries(
+    Object.entries({
+      language: "en",
+      ...params,
+    }).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
+  const client = hasStoredAuthToken() ? api : publicApi;
+
+  try {
+    const res = await client.get(SERVICE_ENDPOINTS.GET_SERVICE_NAMES, {
+      params: queryParams,
+    });
+    return res.data;
+  } catch (error) {
+    if (client === api || !isUnauthorizedError(error) || !hasStoredAuthToken()) {
+      throw error;
+    }
+
+    const res = await api.get(SERVICE_ENDPOINTS.GET_SERVICE_NAMES, {
+      params: queryParams,
+    });
+    return res.data;
+  }
+};
+
 export const updateService = async (id, data) => {
   logApiPayload(`PUT /api/v1/services/${id} request`, data);
 

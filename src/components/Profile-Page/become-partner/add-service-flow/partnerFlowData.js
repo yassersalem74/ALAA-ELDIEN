@@ -109,6 +109,7 @@ export const FLOW_ASSETS = {
 };
 
 export const createEmptyServiceDetails = () => ({
+  serviceNameId: "",
   serviceName: "",
   category: "",
   governorate: "",

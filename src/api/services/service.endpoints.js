@@ -1,6 +1,7 @@
 export const SERVICE_ENDPOINTS = {
   ADD_SERVICE: "/api/v1/services",
   GET_SERVICES: "/api/v1/services",
+  GET_SERVICE_NAMES: "/api/v1/service-names",
   UPDATE_SERVICE: "/api/v1/services",
   DELETE_SERVICE: "/api/v1/services",
   GET_SERVICE_DETAILS: "/api/v1/services",
