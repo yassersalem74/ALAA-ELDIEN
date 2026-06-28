@@ -9,11 +9,11 @@ const navItemClassName = ({ isActive }) =>
       : "text-[#6777A0] hover:bg-white/80 hover:text-[#011C60]"
   }`;
 
-export default function ProfileSidebar({ onLogout }) {
+export default function ProfileSidebar({ onLogout, navItems = PROFILE_NAV_ITEMS }) {
   return (
     <aside className="rounded-l-2xl bg-[#F3F4F7] px-4 py-6 sm:px-6 lg:sticky lg:top-24 lg:h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto lg:px-6 lg:py-12">
       <nav className="flex flex-col gap-2">
-        {PROFILE_NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.slug}
             to={`/profile/${item.slug}`}

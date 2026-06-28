@@ -165,6 +165,27 @@ const normalizeServiceQueryParams = (params = {}) =>
     }).filter(([, value]) => value !== undefined && value !== null && value !== "")
   );
 
+const normalizePackageQueryParams = (params = {}) => {
+  const {
+    minPrice,
+    maxPrice,
+    minServicePrice = minPrice,
+    maxServicePrice = maxPrice,
+    ...rest
+  } = params;
+
+  return Object.fromEntries(
+    Object.entries({
+      page: 1,
+      pageSize: 12,
+      language: "en",
+      ...rest,
+      minServicePrice,
+      maxServicePrice,
+    }).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
+};
+
 const normalizeAppointmentBookingPayload = (data = {}) => {
   const source = data || {};
   const { securityStamp, ...payload } = source;
@@ -360,8 +381,18 @@ export const addPackage = async (data) => {
 };
 
 export const updatePackage = async (id, data) => {
-  const res = await api.put(`${SERVICE_ENDPOINTS.UPDATE_PACKAGE}/${id}`, data);
-  return res.data;
+  logApiPayload(`PUT /api/v1/packages/${id} request`, data);
+
+  try {
+    const res = await api.put(`${SERVICE_ENDPOINTS.UPDATE_PACKAGE}/${id}`, data);
+
+    logApiResponse(`PUT /api/v1/packages/${id} response`, res.data);
+
+    return res.data;
+  } catch (error) {
+    logApiResponse(`PUT /api/v1/packages/${id} error`, error?.response?.data);
+    throw error;
+  }
 };
 
 export const deletePackage = async (id) => {
@@ -485,10 +516,14 @@ export const bookServiceAppointment = async (id, data, { didRetry = false } = {}
 };
 
 export const getMyPackages = async (params) => {
-  logApiResponse("GET /api/v1/packages request params", params);
+  const queryParams = normalizePackageQueryParams(params);
+
+  logApiResponse("GET /api/v1/packages request params", queryParams);
 
   try {
-    const res = await api.get(SERVICE_ENDPOINTS.GET_MY_PACKAGES, { params });
+    const res = await api.get(SERVICE_ENDPOINTS.GET_MY_PACKAGES, {
+      params: queryParams,
+    });
 
     logApiResponse("GET /api/v1/packages response", res.data);
 

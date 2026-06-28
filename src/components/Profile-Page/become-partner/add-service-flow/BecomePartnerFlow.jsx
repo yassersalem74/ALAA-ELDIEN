@@ -1263,6 +1263,17 @@ const getPackageServiceIds = (packageItem) =>
     packageItem.service?.id,
   ]);
 
+const getPackageServiceNameId = (packageItem) =>
+  firstPresentValue(
+    packageItem.serviceNameId,
+    packageItem.ServiceNameId,
+    packageItem.serviceName?.id,
+    packageItem.serviceNameDto?.id,
+    packageItem.serviceNameDTO?.id,
+    packageItem.service?.serviceNameId,
+    packageItem.service?.serviceName?.id
+  ) || "";
+
 const getPackageServiceNames = (packageItem) =>
   [
     typeof packageItem.serviceName === "string" ? packageItem.serviceName : "",
@@ -1277,8 +1288,202 @@ const getPackageServiceNames = (packageItem) =>
     .map((serviceName) => String(serviceName || "").trim())
     .filter(Boolean);
 
+const normalizePackagePayload = (packagePayload) => {
+  const firstNonEmptyArray = (...values) =>
+    values.find((value) => Array.isArray(value) && value.length > 0);
+  const nestedPackage =
+    packagePayload.package ||
+    packagePayload.Package ||
+    packagePayload.packageDto ||
+    packagePayload.PackageDto ||
+    packagePayload.packageDTO ||
+    packagePayload.PackageDTO ||
+    packagePayload.packageDetails ||
+    packagePayload.PackageDetails ||
+    packagePayload.details ||
+    packagePayload.Details ||
+    packagePayload.model ||
+    packagePayload.Model ||
+    packagePayload.result ||
+    packagePayload.Result ||
+    {};
+
+  if (!nestedPackage || typeof nestedPackage !== "object") {
+    return packagePayload;
+  }
+
+  return {
+    ...nestedPackage,
+    ...packagePayload,
+    serviceNameId: firstPresentValue(
+      packagePayload.serviceNameId,
+      packagePayload.ServiceNameId,
+      nestedPackage.serviceNameId,
+      nestedPackage.ServiceNameId
+    ),
+    items: firstNonEmptyArray(
+      packagePayload.extraItems,
+      packagePayload.ExtraItems,
+      packagePayload.items,
+      packagePayload.Items,
+      packagePayload.itemsList,
+      packagePayload.ItemsList,
+      packagePayload.packageItems,
+      packagePayload.PackageItems,
+      packagePayload.includedItems,
+      packagePayload.IncludedItems,
+      nestedPackage.extraItems,
+      nestedPackage.ExtraItems,
+      nestedPackage.items,
+      nestedPackage.Items,
+      nestedPackage.itemsList,
+      nestedPackage.ItemsList,
+      nestedPackage.packageItems,
+      nestedPackage.PackageItems,
+      nestedPackage.includedItems,
+      nestedPackage.IncludedItems
+    ),
+    images: firstNonEmptyArray(
+      packagePayload.images,
+      packagePayload.imageUrls,
+      packagePayload.packageImages,
+      packagePayload.imageFiles,
+      packagePayload.files,
+      nestedPackage.images,
+      nestedPackage.imageUrls,
+      nestedPackage.packageImages,
+      nestedPackage.imageFiles,
+      nestedPackage.files
+    ),
+    neighborhoods: firstNonEmptyArray(
+      packagePayload.neighborhoods,
+      packagePayload.Neighborhoods,
+      packagePayload.neighborhoodDtos,
+      packagePayload.NeighborhoodDtos,
+      nestedPackage.neighborhoods,
+      nestedPackage.Neighborhoods,
+      nestedPackage.neighborhoodDtos,
+      nestedPackage.NeighborhoodDtos
+    ),
+    governorate: firstPresentValue(
+      packagePayload.governorate,
+      packagePayload.governorateDto,
+      nestedPackage.governorate,
+      nestedPackage.governorateDto
+    ),
+  };
+};
+
+const pickPackageImageValue = (image) => {
+  if (!image) return "";
+  if (typeof image === "string") return image;
+
+  return (
+    image.url ||
+    image.imageUrl ||
+    image.image ||
+    image.path ||
+    image.fileUrl ||
+    image.name ||
+    image.fileName ||
+    ""
+  );
+};
+
+const normalizePackageImages = (packageItem) => [
+  ...new Set(
+    [
+      packageItem.image,
+      packageItem.imageUrl,
+      packageItem.coverImage,
+      packageItem.mainImage,
+      ...(Array.isArray(packageItem.images) ? packageItem.images : []),
+      ...(Array.isArray(packageItem.imageUrls) ? packageItem.imageUrls : []),
+      ...(Array.isArray(packageItem.packageImages) ? packageItem.packageImages : []),
+      ...(Array.isArray(packageItem.serviceImages) ? packageItem.serviceImages : []),
+      ...(Array.isArray(packageItem.imageFiles) ? packageItem.imageFiles : []),
+      ...(Array.isArray(packageItem.files) ? packageItem.files : []),
+    ]
+      .map(pickPackageImageValue)
+      .map((image) => String(image || "").trim())
+      .filter(Boolean)
+  ),
+];
+
+const normalizePackageItems = (packageItem) => {
+  const itemCollections = [
+    packageItem.extraItems,
+    packageItem.ExtraItems,
+    packageItem.items,
+    packageItem.Items,
+    packageItem.itemsList,
+    packageItem.ItemsList,
+    packageItem.packageItems,
+    packageItem.PackageItems,
+    packageItem.packageItemsList,
+    packageItem.PackageItemsList,
+    packageItem.itemDtos,
+    packageItem.ItemDtos,
+    packageItem.serviceItems,
+    packageItem.ServiceItems,
+    packageItem.includedItems,
+    packageItem.IncludedItems,
+    packageItem.features,
+    packageItem.Features,
+  ];
+  const itemMap = new Map();
+
+  itemCollections
+    .filter(Array.isArray)
+    .flat()
+    .forEach((item) => {
+      const name =
+        typeof item === "string"
+          ? item
+          : item?.name ||
+            item?.Name ||
+            item?.itemName ||
+            item?.ItemName ||
+            item?.serviceItemName ||
+            item?.ServiceItemName ||
+            item?.title ||
+            item?.Title ||
+            item?.description ||
+            item?.Description ||
+            "";
+      const normalizedName = String(name || "").trim();
+
+      if (!normalizedName) return;
+
+      const price =
+        typeof item === "string"
+          ? ""
+          : item?.price ??
+            item?.Price ??
+            item?.itemPrice ??
+            item?.ItemPrice ??
+            item?.servicePrice ??
+            item?.ServicePrice ??
+            "";
+
+      itemMap.set(normalizedName.toLowerCase(), {
+        id: typeof item === "object" ? item?.id || item?.Id || "" : "",
+        name: normalizedName,
+        price: String(price).trim(),
+        description:
+          typeof item === "object"
+            ? item?.description || item?.Description || normalizedName
+            : normalizedName,
+      });
+    });
+
+  return [...itemMap.values()];
+};
+
 const normalizePackage = (packageItem) => {
+  packageItem = normalizePackagePayload(packageItem || {});
   const serviceIds = getPackageServiceIds(packageItem);
+  const serviceNameId = getPackageServiceNameId(packageItem);
   const serviceNames = getPackageServiceNames(packageItem);
   const packageDisplayName =
     packageItem.name ||
@@ -1287,18 +1492,54 @@ const normalizePackage = (packageItem) => {
     packageItem.serviceNameDto?.name ||
     serviceNames[0] ||
     "";
+  const neighborhoods = normalizeNeighborhoodObjects(packageItem);
+  const governorate =
+    packageItem.governorate ||
+    packageItem.governorateDto ||
+    neighborhoods[0]?.governorate ||
+    neighborhoods[0]?.governorateDto ||
+    {};
+  const neighborhoodIds = normalizeIdList([
+    packageItem.neighborhoodIds,
+    packageItem.NeighborhoodIds,
+    packageItem.neighborhoods,
+    packageItem.Neighborhoods,
+    packageItem.neighborhoodDtos,
+    packageItem.NeighborhoodDtos,
+    packageItem.neighborhoodId,
+    packageItem.NeighborhoodId,
+    neighborhoods,
+  ]);
+  const images = normalizePackageImages(packageItem);
+  const items = normalizePackageItems(packageItem);
 
   return {
     id: packageItem.id,
+    concurrencyStamp: packageItem.concurrencyStamp || packageItem.ConcurrencyStamp || "",
+    serviceNameId,
     packageName: packageDisplayName,
     serviceIds,
     serviceId: serviceIds[0] || "",
     serviceName: serviceNames.join(", "),
+    categoryName:
+      normalizeCategoryValue(
+        packageItem.categoryName ||
+          packageItem.category ||
+          packageItem.serviceCategory ||
+          packageItem.service?.categoryName
+      ) || "",
+    description: packageItem.description || "",
+    governorateId: packageItem.governorateId || governorate.id || "",
+    neighborhoodIds,
     pricingType:
       (packageItem.recurrence || packageItem.pricingType || "").charAt(0).toUpperCase() +
       (packageItem.recurrence || packageItem.pricingType || "").slice(1).toLowerCase(),
     times: String(packageItem.daysPerInterval ?? packageItem.times ?? ""),
     price: String(packageItem.price ?? packageItem.servicePrice ?? ""),
+    photoNames: images,
+    photos: [],
+    deletedImages: [],
+    extraItems: items,
   };
 };
 
@@ -1313,9 +1554,29 @@ const mergePackageForEdit = (basePackage, detailsPackage) => ({
       : basePackage.serviceIds,
   serviceId: detailsPackage.serviceId || basePackage.serviceId,
   serviceName: detailsPackage.serviceName || basePackage.serviceName,
+  serviceNameId: detailsPackage.serviceNameId || basePackage.serviceNameId,
+  concurrencyStamp:
+    detailsPackage.concurrencyStamp || basePackage.concurrencyStamp,
+  categoryName: detailsPackage.categoryName || basePackage.categoryName,
+  description: detailsPackage.description || basePackage.description,
+  governorateId: detailsPackage.governorateId || basePackage.governorateId,
+  neighborhoodIds:
+    detailsPackage.neighborhoodIds?.length > 0
+      ? detailsPackage.neighborhoodIds
+      : basePackage.neighborhoodIds,
   pricingType: detailsPackage.pricingType || basePackage.pricingType,
   times: detailsPackage.times || basePackage.times,
   price: detailsPackage.price || basePackage.price,
+  photoNames:
+    detailsPackage.photoNames?.length > 0
+      ? detailsPackage.photoNames
+      : basePackage.photoNames,
+  photos: detailsPackage.photos || basePackage.photos || [],
+  deletedImages: detailsPackage.deletedImages || basePackage.deletedImages || [],
+  extraItems:
+    detailsPackage.extraItems?.length > 0
+      ? detailsPackage.extraItems
+      : basePackage.extraItems,
 });
 
 const enrichServicesWithDetails = async (services) => {
@@ -1416,26 +1677,61 @@ const fetchMyPackages = async () => {
   return rawPackages.map(normalizePackage);
 };
 
-const buildPackagePayload = (packageItem) => ({
-  name: packageItem.packageName.trim(),
-  recurrence:
+const buildPackagePayload = (packageItem) => {
+  const formData = new FormData();
+  const recurrence =
     packageItem.pricingType?.charAt(0).toUpperCase() +
-    packageItem.pricingType?.slice(1).toLowerCase(),
-  daysPerInterval:
-    packageItem.pricingType === DAILY_PACKAGE_RECURRENCE
-      ? 1
-      : Number(packageItem.times) || 1,
-  price: Number(packageItem.price) || 0,
-  serviceIds: normalizePackageServiceIds(
-    packageItem.serviceIds?.length > 0
-      ? packageItem.serviceIds
-      : [packageItem.serviceId]
-  ),
-});
+    packageItem.pricingType?.slice(1).toLowerCase();
 
-const arePackagePayloadsEqual = (firstPackage, secondPackage) =>
-  JSON.stringify(buildPackagePayload(firstPackage)) ===
-  JSON.stringify(buildPackagePayload(secondPackage));
+  if (normalizeTextValue(packageItem.concurrencyStamp)) {
+    formData.append("concurrencyStamp", normalizeTextValue(packageItem.concurrencyStamp));
+  }
+
+  formData.append("serviceNameId", normalizeTextValue(packageItem.serviceNameId));
+  formData.append("recurrence", recurrence);
+  formData.append(
+    "daysPerInterval",
+    recurrence === DAILY_PACKAGE_RECURRENCE ? 1 : Number(packageItem.times) || 1
+  );
+  formData.append("servicePrice", Number(packageItem.price) || 0);
+  formData.append("currency", SERVICE_API_CURRENCY);
+  formData.append(
+    "categoryName",
+    CATEGORY_API_VALUES[packageItem.categoryName] || packageItem.categoryName
+  );
+  formData.append("description", String(packageItem.description || "").trim());
+  formData.append("governorateId", normalizeTextValue(packageItem.governorateId));
+
+  normalizeIdList(packageItem.neighborhoodIds).forEach((neighborhoodId) => {
+    formData.append("neighborhoodIds", neighborhoodId);
+  });
+
+  formData.append(
+    "itemsJson",
+    JSON.stringify(
+      (packageItem.extraItems || []).map((item) => ({
+        ...(normalizeTextValue(item.id) ? { Id: normalizeTextValue(item.id) } : {}),
+        Name: normalizeTextValue(item.name),
+        Price: Number(item.price) || 0,
+        Description: normalizeTextValue(item.description || item.name),
+      }))
+    )
+  );
+
+  (packageItem.photos || []).forEach((photo) => {
+    if (photo instanceof File) {
+      formData.append("imageFiles", photo);
+    }
+  });
+
+  (packageItem.deletedImages || []).forEach((imageName) => {
+    formData.append("deletedImages", imageName);
+  });
+
+  return formData;
+};
+
+const arePackagePayloadsEqual = () => false;
 
 const getCookie = (name) => {
   if (typeof document === "undefined") return "";
@@ -1979,6 +2275,7 @@ export default function BecomePartnerFlow() {
       try {
         await ensureProviderRole();
         setHasProviderAccess(true);
+        await loadProviderData({ showPartialError: false });
       } catch (error) {
         if (isUnauthorizedError(error)) {
           setToast({
@@ -2137,6 +2434,23 @@ export default function BecomePartnerFlow() {
     if (!(await loadProviderData({ showPartialError: false }))) return;
 
     setView("packages");
+  };
+
+  const openPackageFlow = async () => {
+    if (!(await activateProviderForFlow())) return;
+
+    const [didLoadServiceNames, didLoadGovernorates] = await Promise.all([
+      serviceNameOptions.length === 0
+        ? loadServiceNameOptions({ showError: true })
+        : Promise.resolve(true),
+      governorateOptions.length === 0
+        ? loadGovernorateOptions({ showError: true })
+        : Promise.resolve(true),
+    ]);
+
+    if (!didLoadServiceNames || !didLoadGovernorates) return;
+
+    setView("package-form");
   };
 
   const openServiceFlow = async () => {
@@ -2924,14 +3238,18 @@ export default function BecomePartnerFlow() {
               />
             </div>
             <h2 className="mt-5 font-['Roboto'] text-[24px] font-semibold leading-9 text-[#011C60]">
-              Offer a Service
+              {savedServices.length > 0 ? "Manage Your Services" : "Offer a Service"}
             </h2>
             <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
               Provide services directly and interact with clients for tailored
               care.
             </p>
             <span className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#011C60] px-5 font-['Roboto'] text-[16px] font-semibold text-white transition group-hover:bg-[#02267F]">
-              {isActivatingProvider ? "Activating..." : "Start as Service Provider"}
+              {isActivatingProvider
+                ? "Activating..."
+                : savedServices.length > 0
+                  ? "Open Services Dashboard"
+                  : "Start as Service Provider"}
             </span>
           </button>
 
@@ -2949,14 +3267,18 @@ export default function BecomePartnerFlow() {
               />
             </div>
             <h2 className="mt-5 font-['Roboto'] text-[24px] font-semibold leading-9 text-[#011C60]">
-              Create a Package
+              {savedPackages.length > 0 ? "Manage Your Packages" : "Create a Package"}
             </h2>
             <p className="mt-2 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
               Create predefined service packages with fixed pricing and included
               services.
             </p>
             <span className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[#011C60] px-5 font-['Roboto'] text-[16px] font-semibold text-white transition group-hover:bg-[#02267F]">
-              {isActivatingProvider ? "Activating..." : "Start Creating Package"}
+              {isActivatingProvider
+                ? "Activating..."
+                : savedPackages.length > 0
+                  ? "Open Packages Dashboard"
+                  : "Start Creating Package"}
             </span>
           </button>
         </div>
@@ -3012,13 +3334,22 @@ export default function BecomePartnerFlow() {
         <p className="mt-3 max-w-[540px] font-['Roboto'] text-center text-[16px] leading-6 text-[#6777A0]">
           Add your first service and publish it through the provider API.
         </p>
-        <button
-          type="button"
-          onClick={openServiceFlow}
-          className="mt-8 min-h-12 w-full cursor-pointer rounded-2xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition hover:bg-[#02267F]"
-        >
-          Add New Service
-        </button>
+        <div className="mt-8 grid w-full gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={openServiceFlow}
+            className="min-h-12 cursor-pointer rounded-2xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition hover:bg-[#02267F]"
+          >
+            Add New Service
+          </button>
+          <button
+            type="button"
+            onClick={openPackageFlow}
+            className="min-h-12 cursor-pointer rounded-2xl border border-[#011C60] bg-white px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60] transition hover:bg-[#EFF3FF]"
+          >
+            Add New Package
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -3039,7 +3370,7 @@ export default function BecomePartnerFlow() {
         </p>
         <button
           type="button"
-          onClick={() => setView("package-form")}
+          onClick={openPackageFlow}
           className="mt-8 min-h-12 w-full cursor-pointer rounded-2xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition hover:bg-[#02267F]"
         >
           Add New Package
@@ -3100,6 +3431,9 @@ export default function BecomePartnerFlow() {
       getPrice={(service) => service.price}
       renderSchedule={renderServiceSchedule}
       onAdd={openServiceFlow}
+      addLabel="Add New Service"
+      onSecondaryAdd={openPackageFlow}
+      secondaryAddLabel="Add New Package"
       onEdit={handleEditService}
       onDelete={handleRequestDeleteService}
     />
@@ -3115,7 +3449,8 @@ export default function BecomePartnerFlow() {
       priceHeader="Price"
       getName={(packageItem) => packageItem.packageName}
       getPrice={(packageItem) => packageItem.price}
-      onAdd={() => setView("package-form")}
+      onAdd={openPackageFlow}
+      addLabel="Add New Package"
       onEdit={handleEditPackage}
       onDelete={handleRequestDeletePackage}
     />
@@ -3245,7 +3580,8 @@ export default function BecomePartnerFlow() {
       {editingPackage && (
         <PackageEditModal
           packageItem={editingPackage}
-          savedServices={savedServices}
+          serviceNameOptions={serviceNameOptions}
+          governorateOptions={governorateOptions}
           onClose={() => setEditingPackage(null)}
           onSave={handleSavePackageEdit}
         />

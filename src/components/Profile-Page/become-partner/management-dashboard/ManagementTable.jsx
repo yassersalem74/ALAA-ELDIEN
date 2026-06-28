@@ -42,6 +42,9 @@ export default function ManagementTable({
   getPrice,
   renderSchedule,
   onAdd,
+  addLabel,
+  onSecondaryAdd,
+  secondaryAddLabel,
   onEdit,
   onDelete,
 }) {
@@ -67,13 +70,24 @@ export default function ManagementTable({
               {description}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onAdd}
-            className="min-h-12 min-w-[170px] cursor-pointer rounded-2xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition hover:bg-[#02267F]"
-          >
-            Add New {itemType === "package" ? "Package" : "Service"}
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {onSecondaryAdd && (
+              <button
+                type="button"
+                onClick={onSecondaryAdd}
+                className="min-h-12 min-w-[170px] cursor-pointer rounded-2xl border border-[#011C60] bg-white px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60] transition hover:bg-[#EFF3FF]"
+              >
+                {secondaryAddLabel}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onAdd}
+              className="min-h-12 min-w-[170px] cursor-pointer rounded-2xl bg-[#011C60] px-6 py-3 font-['Roboto'] text-[16px] font-semibold leading-6 text-white transition hover:bg-[#02267F]"
+            >
+              {addLabel || `Add New ${itemType === "package" ? "Package" : "Service"}`}
+            </button>
+          </div>
         </div>
 
         <div className="rounded-2xl border border-[#E6E8EF] bg-white">

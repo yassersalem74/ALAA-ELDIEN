@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Navigate,
   NavLink,
@@ -24,6 +24,7 @@ import ProfileBecomeProviderSection from "./sections/ProfileBecomeProviderSectio
 import ProfileSettingsSection from "./sections/ProfileSettingsSection";
 import LogoutConfirmModal from "../common/LogoutConfirmModal";
 import ProfileNavIcon from "./ProfileNavIcon";
+import { getMyPackages, getMyServices } from "../../api/services/service.api";
 
 const mobileNavItemClassName = ({ isActive }) =>
   `flex items-center gap-3 rounded-2xl px-4 py-3 text-left font-['Roboto'] text-[18px] font-semibold leading-6 transition ${
@@ -32,28 +33,117 @@ const mobileNavItemClassName = ({ isActive }) =>
       : "text-[#6777A0] hover:bg-white/80 hover:text-[#011C60]"
   }`;
 
+const extractPayloadData = (response) => response?.data ?? response;
+
+const extractList = (response) => {
+  const data = extractPayloadData(response);
+
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.result)) return data.result;
+  if (Array.isArray(data?.results)) return data.results;
+
+  return [];
+};
+
+const normalizeRoleName = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/[\s_-]+/g, "")
+    .toLowerCase();
+
+const isProviderRole = (value) =>
+  ["provider", "partner"].includes(normalizeRoleName(value));
+
+const isProviderAccountType = (value) =>
+  ["provider", "partner", "company"].includes(normalizeRoleName(value));
+
+const getStoredAuthValue = (key) =>
+  typeof window === "undefined" ? "" : localStorage.getItem(key) || "";
+
 export default function ProfileLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { accountType, logout, user, userRole } = useAuth();
   const isPartnerRoute = location.pathname.includes("/profile/become-provider");
+  const hasProviderRole =
+    isProviderRole(userRole) ||
+    isProviderRole(user?.role) ||
+    isProviderRole(getStoredAuthValue("userRole")) ||
+    isProviderAccountType(accountType) ||
+    isProviderAccountType(getStoredAuthValue("accountType")) ||
+    isProviderAccountType(getStoredAuthValue("loggedInAs"));
   const [savedProfile, setSavedProfile] = useState(() =>
     createProfileDetails(user)
   );
   const [draftProfile, setDraftProfile] = useState(() =>
     createProfileDetails(user)
   );
+  const [providerSummary, setProviderSummary] = useState({
+    hasServices: false,
+    hasPackages: false,
+  });
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadProviderSummary = async () => {
+      try {
+        const [servicesResult, packagesResult] = await Promise.allSettled([
+          getMyServices({ page: 1, pageSize: 1, isMine: true }),
+          getMyPackages({ page: 1, pageSize: 1, isMine: true }),
+        ]);
+
+        if (!isMounted) return;
+
+        setProviderSummary({
+          hasServices:
+            servicesResult.status === "fulfilled" &&
+            extractList(servicesResult.value).length > 0,
+          hasPackages:
+            packagesResult.status === "fulfilled" &&
+            extractList(packagesResult.value).length > 0,
+        });
+      } catch {
+        if (isMounted) {
+          setProviderSummary({ hasServices: false, hasPackages: false });
+        }
+      }
+    };
+
+    loadProviderSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
+  const profileNavItems = useMemo(
+    () =>
+      PROFILE_NAV_ITEMS.map((item) =>
+        item.slug === "become-provider" &&
+        (hasProviderRole ||
+          providerSummary.hasServices ||
+          providerSummary.hasPackages)
+          ? { ...item, label: "Manage Your Dashboard" }
+          : item
+      ),
+    [hasProviderRole, providerSummary.hasPackages, providerSummary.hasServices]
+  );
+
+  useEffect(() => {
     const nextProfile = createProfileDetails(user);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSavedProfile(nextProfile);
     setDraftProfile(nextProfile);
   }, [user]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMobileSidebarOpen(false);
   }, [location.pathname]);
 
@@ -62,7 +152,12 @@ export default function ProfileLayout() {
   );
 
   const stripDerivedProfileFields = (profile) => {
-    const { avatarInitial, fullName, welcomeName, ...editableProfile } =
+    const {
+      avatarInitial: _avatarInitial,
+      fullName: _fullName,
+      welcomeName: _welcomeName,
+      ...editableProfile
+    } =
       profile;
 
     return editableProfile;
@@ -117,7 +212,7 @@ export default function ProfileLayout() {
     <section className="min-h-screen bg-[#F8F9FC] px-4 py-8 sm:px-6 lg:px-8">
       <div className="grid w-full items-start lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="hidden lg:block">
-          <ProfileSidebar onLogout={requestLogout} />
+          <ProfileSidebar onLogout={requestLogout} navItems={profileNavItems} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-6 rounded-2xl bg-white p-6 lg:rounded-l-none">
@@ -253,7 +348,7 @@ export default function ProfileLayout() {
 
           <div className="flex-1 overflow-y-auto px-4 py-5">
             <nav className="flex flex-col gap-2">
-              {PROFILE_NAV_ITEMS.map((item) => (
+              {profileNavItems.map((item) => (
                 <NavLink
                   key={item.slug}
                   to={`/profile/${item.slug}`}
