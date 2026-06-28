@@ -1,5 +1,5 @@
 import "./App.css";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Navigate, Routes, Route, useLocation } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import ScrollToTop from "./components/ScrollToTop";
@@ -10,11 +10,11 @@ import ContactUsPage from "./pages/ContactUsPage";
 import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
 import ProfilePage from "./pages/ProfilePage";
-import ServicesPage from "./pages/service/ServicePage";
 import OneTimeServicePage from "./pages/service/OneTimeServicePage";
 import PackagePage from "./pages/service/PackagePage";
 import PackageDetailPage from "./pages/service/PackageDetailPage";
 import ServiceCategoryPage from "./pages/service/ServiceCategoryPage";
+import ServiceProvidersPage from "./pages/service/ServiceProvidersPage";
 import ServiceProviderDetailPage from "./pages/service/ServiceProviderDetailPage";
 import Footer from "./components/Footer";
 import SocialSidebar from "./components/SocialLinks";
@@ -49,15 +49,26 @@ export default function App() {
           </Route>
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<HomePage />} />
-            <Route path="/services" element={<ServicesPage />} />
+            <Route
+              path="/services"
+              element={<Navigate to="/services/service-categories" replace />}
+            />
             <Route
               path="/services/one-time-service"
+              element={<Navigate to="/services/service-categories" replace />}
+            />
+            <Route
+              path="/services/service-categories"
               element={<OneTimeServicePage />}
             />
             <Route path="/services/package" element={<PackagePage />} />
             <Route
               path="/services/package/:packageId"
               element={<PackageDetailPage />}
+            />
+            <Route
+              path="/services/:categorySlug/service/:serviceNameId"
+              element={<ServiceProvidersPage />}
             />
             <Route
               path="/services/:categorySlug"

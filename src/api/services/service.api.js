@@ -533,3 +533,5 @@ export const getMyPackages = async (params) => {
     throw error;
   }
 };
+
+export const getPackages = getMyPackages;

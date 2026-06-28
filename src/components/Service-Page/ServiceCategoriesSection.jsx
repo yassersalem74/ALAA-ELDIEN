@@ -401,7 +401,7 @@ export default function ServiceCategoriesSection({ mode = "" }) {
         </div>
 
         <div className="mx-auto mt-10 grid max-w-[860px] gap-8 md:grid-cols-2">
-          <Link to="/services/one-time-service">
+          <Link to="/services/service-categories">
             <BookingModeCard
               title="One-Time Service"
               description="Book this service once for a specific task without any long-term commitment."
@@ -471,7 +471,7 @@ export default function ServiceCategoriesSection({ mode = "" }) {
                   </p>
 
                   <Link
-                    to={`/services/${category.slug}?mode=one-time`}
+                    to={`/services/${category.slug}`}
                     className="mt-6 flex h-14 w-full cursor-pointer items-center justify-center rounded-2xl bg-[#011C60] px-8 py-2.5 font-['Roboto'] font-semibold text-white transition duration-300 group-hover:bg-white group-hover:text-[#023AC6]"
                   >
                     View Services

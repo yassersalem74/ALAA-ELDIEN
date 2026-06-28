@@ -1,220 +1,42 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Link,
-  Navigate,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router-dom";
-import { getGovernorates, getNeighborhoods } from "../../api/auth/auth.api";
-import { getServices } from "../../api/services/service.api";
+import { useEffect, useMemo, useState } from "react";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { getServiceNames } from "../../api/services/service.api";
 import noServicesImage from "../../assets/images/service/choose-service.png";
 import { serviceCategories } from "../../components/Service-Page/servicePageData";
 import {
   BackCircleButton,
-  CreativeDropdown,
-  LocationIcon,
-  Pagination,
   SearchInput,
   ServicePageIntro,
 } from "../../components/Service-Flow/ServiceFlowShared";
 import {
   SERVICE_LANGUAGE,
   extractApiArray,
-  extractTotalPages,
-  formatServicePrice,
-  getApiCategoryName,
   getApiErrorMessage,
-  getRoleQueryValue,
   isSupportedServiceCategory,
-  normalizeLocationOptions,
-  normalizeService,
 } from "./serviceApiMappers";
-
-const PAGE_SIZE = 10;
-
-const PROVIDER_TYPE_OPTIONS = [
-  { id: "individual", label: "Provider" },
-  { id: "company", label: "Company" },
-  { id: "alaa-eldien", label: "AlaaEldin" },
-];
-
-const getPriceFilterParam = (value) => {
-  if (value === "") return undefined;
-
-  const numericValue = Number(value);
-
-  return Number.isFinite(numericValue) ? numericValue : undefined;
-};
-
-function NoServicesState() {
-  return (
-    <section className="rounded-[28px] border border-dashed border-[#CCD2DF] bg-white px-6 py-12 text-center shadow-[0px_14px_34px_rgba(204,210,223,0.28)]">
-      <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-full bg-[#F8F9FC] p-5 shadow-[0px_10px_26px_rgba(190,198,222,0.24)] sm:h-40 sm:w-40">
-        <img src={noServicesImage} alt="" className="h-full w-full object-contain" />
-      </div>
-      <h3 className="mt-6 font-['Roboto'] text-[28px] font-semibold leading-10 text-[#011C60]">
-        mmmmm no service yet
-      </h3>
-      <p className="mx-auto mt-3 max-w-[520px] font-['Roboto'] text-[16px] leading-7 text-[#808DAF]">
-        Try another search word or change the governorate and neighborhood
-        filters.
-      </p>
-    </section>
-  );
-}
-
-function PriceFilterInput({ label, value, onChange, placeholder }) {
-  return (
-    <label className="flex h-12 w-full items-center gap-3 rounded-[14px] border border-[#D8DDEB] bg-white px-4 shadow-[8px_4px_16px_0px_rgba(226,232,243,0.5)] transition hover:-translate-y-0.5 hover:border-[#EECE42] hover:shadow-[0px_12px_28px_rgba(204,210,223,0.45)] focus-within:border-[#EECE42]">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F8F9FC] font-['Roboto'] text-[15px] font-bold text-[#011C60] shadow-[0px_6px_16px_rgba(204,210,223,0.35)]">
-        E
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-['Roboto'] text-[11px] font-medium uppercase tracking-[0.08em] text-[#808DAF]">
-          {label}
-        </span>
-        <input
-          type="number"
-          min="0"
-          step="1"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          className="w-full bg-transparent font-['Roboto'] text-[14px] font-semibold text-[#011C60] outline-none placeholder:text-[#9AA6C7]"
-        />
-      </span>
-    </label>
-  );
-}
+import {
+  filterServiceNamesByCategory,
+  normalizeServiceNameList,
+} from "./serviceNameMappers";
 
 export default function ServiceCategoryPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { categorySlug } = useParams();
-  const [activeProviderType, setActiveProviderType] = useState("individual");
-  const [selectedGovernorateId, setSelectedGovernorateId] = useState("");
-  const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState("");
+  const [serviceNames, setServiceNames] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [services, setServices] = useState([]);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalServices, setTotalServices] = useState(0);
-  const [governorates, setGovernorates] = useState([]);
-  const [neighborhoods, setNeighborhoods] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const previousFilterKeyRef = useRef("");
 
   const category = useMemo(
     () => serviceCategories.find((item) => item.slug === categorySlug),
     [categorySlug]
   );
-  const flowMode = useMemo(
-    () => new URLSearchParams(location.search).get("mode"),
-    [location.search]
-  );
-  const detailSearch = flowMode === "one-time" ? "?mode=one-time" : "";
-  const hasActiveFilters = Boolean(
-    searchQuery.trim() ||
-      selectedGovernorateId ||
-      selectedNeighborhoodId ||
-      minPrice ||
-      maxPrice
-  );
-
-  const governorateOptions = useMemo(
-    () => [
-      { value: "", label: "All Governorates" },
-      ...governorates.map((governorate) => ({
-        value: governorate.id,
-        label: governorate.name,
-      })),
-    ],
-    [governorates]
-  );
-
-  const neighborhoodOptions = useMemo(
-    () => [
-      { value: "", label: "All Neighborhoods" },
-      ...neighborhoods.map((neighborhood) => ({
-        value: neighborhood.id,
-        label: neighborhood.name,
-      })),
-    ],
-    [neighborhoods]
-  );
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadGovernorates = async () => {
-      setIsLoadingLocations(true);
-
-      try {
-        const response = await getGovernorates(SERVICE_LANGUAGE);
-
-        if (!isMounted) return;
-
-        setGovernorates(normalizeLocationOptions(response));
-      } catch {
-        if (isMounted) setGovernorates([]);
-      } finally {
-        if (isMounted) setIsLoadingLocations(false);
-      }
-    };
-
-    loadGovernorates();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    setSelectedNeighborhoodId("");
-
-    if (!selectedGovernorateId) {
-      setNeighborhoods([]);
-      return undefined;
-    }
-
-    const loadNeighborhoods = async () => {
-      setIsLoadingLocations(true);
-
-      try {
-        const response = await getNeighborhoods(
-          selectedGovernorateId,
-          SERVICE_LANGUAGE
-        );
-
-        if (!isMounted) return;
-
-        setNeighborhoods(normalizeLocationOptions(response));
-      } catch {
-        if (isMounted) setNeighborhoods([]);
-      } finally {
-        if (isMounted) setIsLoadingLocations(false);
-      }
-    };
-
-    loadNeighborhoods();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedGovernorateId]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedSearchQuery(searchQuery.trim());
-    }, 350);
+    }, 250);
 
     return () => window.clearTimeout(timeoutId);
   }, [searchQuery]);
@@ -224,310 +46,157 @@ export default function ServiceCategoryPage() {
 
     let isMounted = true;
 
-    const loadServices = async () => {
-      const filterKey = [
-        activeProviderType,
-        categorySlug,
-        debouncedSearchQuery,
-        minPrice,
-        maxPrice,
-        selectedGovernorateId,
-        selectedNeighborhoodId,
-      ].join("|");
-
-      if (previousFilterKeyRef.current !== filterKey) {
-        previousFilterKeyRef.current = filterKey;
-
-        if (currentPage !== 1) {
-          setCurrentPage(1);
-          return;
-        }
-      }
-
+    const loadServiceNames = async () => {
       setIsLoading(true);
       setErrorMessage("");
 
-      const baseParams = {
-        category: getApiCategoryName(categorySlug),
-        page: currentPage,
-        pageSize: PAGE_SIZE,
-        language: SERVICE_LANGUAGE,
-        search: debouncedSearchQuery,
-        role: getRoleQueryValue(activeProviderType),
-        minPrice: getPriceFilterParam(minPrice),
-        maxPrice: getPriceFilterParam(maxPrice),
-        governorateId: selectedGovernorateId || undefined,
-        neighborhoodId: selectedNeighborhoodId || undefined,
-      };
-
       try {
-        const response = await getServices(baseParams);
-        const nextTotalPages = extractTotalPages(response);
-        const normalizedServices = extractApiArray(response)
-          .map((service) => normalizeService(service, category?.image))
-          .filter((service) => service.id);
-        const responseData = response?.data ?? response;
-        const responseMeta = responseData?.metaData || responseData?.metadata || {};
+        const response = await getServiceNames({
+          language: SERVICE_LANGUAGE,
+          search: debouncedSearchQuery || undefined,
+        });
+        const nextServiceNames = filterServiceNamesByCategory(
+          normalizeServiceNameList(extractApiArray(response)),
+          categorySlug
+        );
 
         if (!isMounted) return;
 
-        if (currentPage > nextTotalPages) {
-          setCurrentPage(nextTotalPages);
-          return;
-        }
-
-        setServices(normalizedServices);
-        setTotalPages(nextTotalPages);
-        setTotalServices(Number(responseMeta.total ?? normalizedServices.length) || 0);
+        setServiceNames(nextServiceNames);
       } catch (error) {
         if (!isMounted) return;
 
-        setServices([]);
-        setTotalPages(1);
-        setTotalServices(0);
+        setServiceNames([]);
         setErrorMessage(
-          getApiErrorMessage(error, "Unable to load services right now.")
+          getApiErrorMessage(error, "Unable to load service names right now.")
         );
       } finally {
         if (isMounted) setIsLoading(false);
       }
     };
 
-    loadServices();
+    loadServiceNames();
 
     return () => {
       isMounted = false;
     };
-  }, [
-    activeProviderType,
-    category?.image,
-    categorySlug,
-    currentPage,
-    debouncedSearchQuery,
-    maxPrice,
-    minPrice,
-    selectedGovernorateId,
-    selectedNeighborhoodId,
-  ]);
-
-  const handleResetFilters = () => {
-    setSearchQuery("");
-    setMinPrice("");
-    setMaxPrice("");
-    setSelectedGovernorateId("");
-    setSelectedNeighborhoodId("");
-  };
-
-  const handleGovernorateChange = (governorateId) => {
-    setSelectedGovernorateId(governorateId);
-    setSelectedNeighborhoodId("");
-  };
+  }, [categorySlug, debouncedSearchQuery]);
 
   if (!category || !isSupportedServiceCategory(categorySlug)) {
-    return <Navigate to="/services" replace />;
+    return <Navigate to="/services/service-categories" replace />;
   }
 
   return (
     <div className="bg-[#F8F9FC] px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1240px]">
-        <div className="flex items-center">
-          <BackCircleButton onClick={() => navigate("/services")} />
-        </div>
+      <div className="mx-auto max-w-[1180px]">
+        <BackCircleButton onClick={() => navigate("/services/service-categories")} />
 
         <div className="mt-8">
           <ServicePageIntro
             title={category.title}
-            description="Browse services by category, provider type, location, and search."
+            description="Choose the exact service you need, then compare available providers."
           />
         </div>
 
-        <div className="mt-10 overflow-x-auto border-b border-[#E6E8EF]">
-          <div className="flex min-w-max items-center gap-10 px-1">
-            {PROVIDER_TYPE_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setActiveProviderType(option.id)}
-                className={`border-b-2 px-2 pb-5 pt-2 font-['Roboto'] text-[18px] font-medium leading-8 transition sm:text-[24px] sm:leading-[40px] ${
-                  activeProviderType === option.id
-                    ? "border-[#011C60] text-[#011C60]"
-                    : "border-transparent text-[#808DAF] hover:text-[#011C60]"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-8 rounded-2xl border border-[#E6E8EF] bg-[#E6E8EF40] px-4 py-5 shadow-[0px_4px_16px_0px_rgba(230,232,239,0.35)]">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-1 flex-col gap-4">
-              <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                <CreativeDropdown
-                  label="Governorate"
-                  value={selectedGovernorateId}
-                  options={governorateOptions}
-                  onChange={handleGovernorateChange}
-                  placeholder="All Governorates"
-                  leading={<LocationIcon className="h-4 w-4" stroke="#011C60" />}
-                  renderValue={(option) => option.label}
-                  renderOption={(option) => (
-                    <span className="font-['Roboto'] text-[14px] font-medium">
-                      {option.label}
-                    </span>
-                  )}
-                />
-
-                <CreativeDropdown
-                  label="Neighborhood"
-                  value={selectedNeighborhoodId}
-                  options={neighborhoodOptions}
-                  onChange={setSelectedNeighborhoodId}
-                  placeholder="All Neighborhoods"
-                  leading={<LocationIcon className="h-4 w-4" stroke="#011C60" />}
-                  renderValue={(option) => option.label}
-                  renderOption={(option) => (
-                    <span className="font-['Roboto'] text-[14px] font-medium">
-                      {option.label}
-                    </span>
-                  )}
-                />
-
-                <PriceFilterInput
-                  label="Min price"
-                  value={minPrice}
-                  onChange={setMinPrice}
-                  placeholder="No minimum"
-                />
-
-                <PriceFilterInput
-                  label="Max price"
-                  value={maxPrice}
-                  onChange={setMaxPrice}
-                  placeholder="No maximum"
+        <section className="mt-8 grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="rounded-[18px] border border-[#D8DDEB] bg-white p-5 shadow-[0px_12px_32px_rgba(1,28,96,0.08)]">
+            <div className="flex items-center gap-4">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#E6E8EF] p-3">
+                <img
+                  src={category.image}
+                  alt=""
+                  className="h-14 w-14 object-contain"
                 />
               </div>
+              <div>
+                <p className="font-['Roboto'] text-[12px] font-semibold uppercase text-[#808DAF]">
+                  Main category
+                </p>
+                <h2 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60]">
+                  {category.title}
+                </h2>
+              </div>
+            </div>
+            <p className="mt-4 font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
+              {category.description}
+            </p>
+          </aside>
+
+          <section className="rounded-[18px] border border-[#D8DDEB] bg-white p-5 shadow-[0px_12px_32px_rgba(1,28,96,0.08)]">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="font-['Roboto'] text-[24px] font-semibold leading-8 text-[#011C60]">
+                  Service Name
+                </h2>
+                <p className="mt-1 font-['Roboto'] text-[14px] leading-6 text-[#6777A0]">
+                  {isLoading
+                    ? "Loading services..."
+                    : `${serviceNames.length} available option${
+                        serviceNames.length === 1 ? "" : "s"
+                      }`}
+                </p>
+              </div>
+
+              <SearchInput
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search service name"
+                size="compact"
+                className="md:max-w-[360px]"
+              />
             </div>
 
-            <SearchInput
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              size="compact"
-              className="w-full xl:max-w-[400px]"
-            />
-          </div>
+            {errorMessage && (
+              <div className="mt-5 rounded-2xl border border-[#F5C2C7] bg-[#FFF5F5] px-5 py-4 font-['Roboto'] text-[15px] text-[#842029]">
+                {errorMessage}
+              </div>
+            )}
 
-          {isLoadingLocations && (
-            <p className="mt-3 font-['Roboto'] text-[13px] text-[#808DAF]">
-              Loading location filters...
-            </p>
-          )}
-
-          <div className="mt-4 flex flex-col gap-3 border-t border-[#E6E8EF] pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-['Roboto'] text-[14px] font-medium text-[#6777A0]">
-              {isLoading
-                ? "Loading services..."
-                : `${totalServices} ${totalServices === 1 ? "service" : "services"} found`}
-            </p>
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              disabled={!hasActiveFilters}
-              className="min-h-10 rounded-xl border border-[#CCD2DF] bg-white px-4 font-['Roboto'] text-[14px] font-semibold text-[#011C60] transition hover:border-[#011C60] hover:bg-[#F8F9FC] disabled:cursor-not-allowed disabled:text-[#9AA6C7]"
-            >
-              Reset filters
-            </button>
-          </div>
-        </div>
-
-        {errorMessage && (
-          <div className="mt-8 rounded-2xl border border-[#F5C2C7] bg-[#FFF5F5] px-5 py-4 font-['Roboto'] text-[15px] text-[#842029]">
-            {errorMessage}
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 6 }, (_, index) => (
-              <div
-                key={`service-loading-${index + 1}`}
-                className="h-[348px] animate-pulse rounded-2xl border border-[#E6E8EF] bg-white shadow-[0px_8px_24px_rgba(190,198,222,0.18)]"
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {services.map((service) => (
-              <article
-                key={service.id}
-                className="flex min-h-[360px] flex-col rounded-2xl border border-[#E6E8EF] bg-white p-6 shadow-[0px_8px_24px_rgba(190,198,222,0.22)]"
-              >
-                <img
-                  src={service.image}
-                  alt={service.name}
-                  className="h-[136px] w-full rounded-[18px] bg-[#E6E8EF] object-cover"
-                />
-
-                <div className="mt-4 flex flex-1 flex-col">
-                  <div className="flex items-start justify-between gap-3">
-                    <h2 className="font-['Roboto'] text-[22px] font-semibold leading-8 text-[#011C60]">
-                      {service.name}
-                    </h2>
-
-                    <span className="shrink-0 rounded-full bg-[#FFF4C4] px-3 py-1 font-['Roboto'] text-[12px] font-semibold text-[#011C60]">
-                      {formatServicePrice(service.price, service.currency)}
+            {isLoading ? (
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 9 }, (_, index) => (
+                  <div
+                    key={`service-name-loader-${index + 1}`}
+                    className="h-16 animate-pulse rounded-2xl bg-[#F3F5FA]"
+                  />
+                ))}
+              </div>
+            ) : serviceNames.length > 0 ? (
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {serviceNames.map((serviceName) => (
+                  <Link
+                    key={serviceName.id}
+                    to={`/services/${category.slug}/service/${encodeURIComponent(
+                      serviceName.id
+                    )}`}
+                    className="group flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-[#D8DDEB] bg-[#F8F9FC] px-4 py-3 transition hover:-translate-y-0.5 hover:border-[#011C60] hover:bg-white hover:shadow-[0px_12px_26px_rgba(1,28,96,0.1)]"
+                  >
+                    <span className="font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60]">
+                      {serviceName.label}
                     </span>
-                  </div>
-
-                  <p className="mt-2 line-clamp-2 font-['Roboto'] text-[15px] leading-6 text-[#808DAF]">
-                    {service.subDescription ||
-                      service.description ||
-                      "Service details are available on the next screen."}
-                  </p>
-
-                  <div className="mt-4 space-y-2 font-['Roboto'] text-[14px] leading-5 text-[#6777A0]">
-                    <p>
-                      <span className="font-semibold text-[#011C60]">
-                        Provider:
-                      </span>{" "}
-                      {service.providerName}
-                    </p>
-                    <p>
-                      <span className="font-semibold text-[#011C60]">
-                        Location:
-                      </span>{" "}
-                      {service.location || "Not specified"}
-                    </p>
-                  </div>
-
-                  <div className="mt-auto pt-6">
-                    <Link
-                      to={`/services/${categorySlug}/${service.id}${detailSearch}`}
-                      className="flex h-11 w-full items-center justify-center rounded-xl bg-[#011C60] px-4 font-['Roboto'] text-[15px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#02237a] hover:shadow-[0px_14px_26px_rgba(1,28,96,0.24)]"
-                    >
-                      View Details
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-
-        {!isLoading && !services.length && (
-          <div className="mt-8">
-            <NoServicesState />
-          </div>
-        )}
-
-        {!isLoading && (
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
-        )}
+                    <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-[#EECE42] text-[#011C60] transition group-hover:bg-[#011C60] group-hover:text-white">
+                      →
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-8 rounded-[28px] border border-dashed border-[#CCD2DF] bg-white px-6 py-12 text-center">
+                <img
+                  src={noServicesImage}
+                  alt=""
+                  className="mx-auto h-32 w-32 object-contain"
+                />
+                <h3 className="mt-5 font-['Roboto'] text-[24px] font-semibold text-[#011C60]">
+                  No service names found
+                </h3>
+                <p className="mx-auto mt-2 max-w-[420px] font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
+                  Try another search word or choose another main category.
+                </p>
+              </div>
+            )}
+          </section>
+        </section>
       </div>
     </div>
   );
