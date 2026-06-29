@@ -13,6 +13,7 @@ import {
   createProfileDetails,
   PROFILE_NAV_ITEMS,
   PROFILE_PERSONAL_INFO_FIELDS,
+  PROFILE_PROVIDER_INCOME_NAV_ITEM,
 } from "./profileData";
 import ProfileDashboardSection from "./sections/ProfileDashboardSection";
 import ProfilePersonalInfoSection from "./sections/ProfilePersonalInfoSection";
@@ -20,6 +21,7 @@ import ProfileNotificationsSection from "./sections/ProfileNotificationsSection"
 import ProfileChatsSection from "./sections/ProfileChatsSection";
 import ProfileCartSection from "./sections/ProfileCartSection";
 import ProfileOrdersSection from "./sections/ProfileOrdersSection";
+import ProfileTotalIncomeSection from "./sections/ProfileTotalIncomeSection";
 import ProfileBecomeProviderSection from "./sections/ProfileBecomeProviderSection";
 import ProfileSettingsSection from "./sections/ProfileSettingsSection";
 import LogoutConfirmModal from "../common/LogoutConfirmModal";
@@ -86,6 +88,10 @@ export default function ProfileLayout() {
   });
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const canViewProviderPages =
+    hasProviderRole ||
+    providerSummary.hasServices ||
+    providerSummary.hasPackages;
 
   useEffect(() => {
     let isMounted = true;
@@ -122,16 +128,27 @@ export default function ProfileLayout() {
   }, [user]);
 
   const profileNavItems = useMemo(
-    () =>
-      PROFILE_NAV_ITEMS.map((item) =>
-        item.slug === "become-provider" &&
-        (hasProviderRole ||
-          providerSummary.hasServices ||
-          providerSummary.hasPackages)
-          ? { ...item, label: "Manage Your Dashboard" }
+    () => {
+      const baseItems = PROFILE_NAV_ITEMS.map((item) =>
+        item.slug === "become-provider" && canViewProviderPages
+          ? { ...item, label: "My Dashboard" }
           : item
-      ),
-    [hasProviderRole, providerSummary.hasPackages, providerSummary.hasServices]
+      );
+
+      if (!canViewProviderPages) return baseItems;
+
+      const settingsIndex = baseItems.findIndex(
+        (item) => item.slug === "settings"
+      );
+      const insertIndex =
+        settingsIndex >= 0 ? settingsIndex : baseItems.length;
+      const nextItems = [...baseItems];
+
+      nextItems.splice(insertIndex, 0, PROFILE_PROVIDER_INCOME_NAV_ITEM);
+
+      return nextItems;
+    },
+    [canViewProviderPages]
   );
 
   useEffect(() => {
@@ -285,6 +302,16 @@ export default function ProfileLayout() {
             <Route path="chats" element={<ProfileChatsSection />} />
             <Route path="cart" element={<ProfileCartSection />} />
             <Route path="orders" element={<ProfileOrdersSection />} />
+            <Route
+              path="total-income"
+              element={
+                canViewProviderPages ? (
+                  <ProfileTotalIncomeSection />
+                ) : (
+                  <Navigate to="personal-info" replace />
+                )
+              }
+            />
             <Route
               path="become-provider"
               element={<ProfileBecomeProviderSection />}

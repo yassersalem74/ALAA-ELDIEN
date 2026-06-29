@@ -14,6 +14,12 @@ export const PROFILE_NAV_ITEMS = [
   { slug: "settings", label: "Setting", icon: "settings" },
 ];
 
+export const PROFILE_PROVIDER_INCOME_NAV_ITEM = {
+  slug: "total-income",
+  label: "Total Income",
+  icon: "income",
+};
+
 export const PROFILE_PERSONAL_INFO_FIELDS = [
   {
     name: "firstName",

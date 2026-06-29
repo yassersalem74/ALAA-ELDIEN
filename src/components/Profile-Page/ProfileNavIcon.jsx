@@ -56,6 +56,17 @@ export default function ProfileNavIcon({ name, className = "h-5 w-5" }) {
           <path d="M10 12.75h4" />
         </svg>
       );
+    case "income":
+      return (
+        <svg {...sharedProps}>
+          <path d="M4.5 19.5h15" />
+          <path d="M7 16.5v-4" />
+          <path d="M12 16.5v-8" />
+          <path d="M17 16.5v-6" />
+          <path d="M6.5 7.75 10 5l3.5 2.5L18 4.5" />
+          <path d="M18 4.5v3.25h-3.25" />
+        </svg>
+      );
     case "provider":
       return (
         <svg {...sharedProps}>
