@@ -11,7 +11,6 @@ import AboutPage from "./pages/AboutUsPage";
 import OverviewPage from "./pages/OverviewPage";
 import ProfilePage from "./pages/ProfilePage";
 import OneTimeServicePage from "./pages/service/OneTimeServicePage";
-import PackagePage from "./pages/service/PackagePage";
 import PackageDetailPage from "./pages/service/PackageDetailPage";
 import ServiceCategoryPage from "./pages/service/ServiceCategoryPage";
 import ServiceProvidersPage from "./pages/service/ServiceProvidersPage";
@@ -61,7 +60,6 @@ export default function App() {
               path="/services/service-categories"
               element={<OneTimeServicePage />}
             />
-            <Route path="/services/package" element={<PackagePage />} />
             <Route
               path="/services/package/:packageId"
               element={<PackageDetailPage />}

@@ -25,6 +25,7 @@ export const publicApi = axios.create({
 
 const refreshApi = axios.create({
   baseURL: API_BASE_URL,
+  // withCredentials: true,
 });
 
 const api = axios.create({
@@ -99,10 +100,21 @@ const findTokenValue = (data, keyNames, seen = new Set()) => {
   return "";
 };
 
+const extractTokenString = (data) => {
+  if (typeof data === "string" && data.trim()) return data.trim();
+
+  if (typeof data?.data === "string" && data.data.trim()) {
+    return data.data.trim();
+  }
+
+  return "";
+};
+
 export const extractAccessToken = (data) =>
   (typeof data === "string" && isJwtLike(data) ? data : "") ||
   (typeof data?.data === "string" && isJwtLike(data.data) ? data.data : "") ||
-  findTokenValue(data, ["accesstoken", "token", "jwt"]);
+  findTokenValue(data, ["accesstoken", "token", "jwt"]) ||
+  extractTokenString(data);
 
 export const extractRefreshToken = (data) =>
   findTokenValue(data, ["refreshtoken"]);
@@ -168,13 +180,12 @@ const redirectToLogin = () => {
 
 const refreshAuthTokens = async () => {
   const refreshToken = getRefreshToken();
+  const currentAccessToken = getAccessToken();
+  const authToken = refreshToken || currentAccessToken;
+  const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
 
-  if (!refreshToken) {
-    throw new Error("Missing refresh token");
-  }
-
-  const response = await refreshApi.post(REFRESH_TOKEN_ENDPOINT, {
-    refreshToken,
+  const response = await refreshApi.post(REFRESH_TOKEN_ENDPOINT, null, {
+    headers,
   });
   const accessToken = extractAccessToken(response.data);
   const nextRefreshToken = extractRefreshToken(response.data) || refreshToken;
@@ -244,7 +255,7 @@ api.interceptors.response.use(
 
       const refreshStatus = refreshError?.response?.status;
 
-      if (!refreshStatus || refreshStatus >= 400) {
+      if (refreshStatus === 401 || refreshStatus === 403) {
         redirectToLogin();
       }
 

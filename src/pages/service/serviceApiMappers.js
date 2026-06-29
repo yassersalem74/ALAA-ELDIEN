@@ -91,13 +91,26 @@ export const extractApiArray = (payload) => {
 
   const candidates = [
     data?.items,
+    data?.Items,
     data?.services,
+    data?.Services,
+    data?.packages,
+    data?.Packages,
     data?.results,
+    data?.Results,
     data?.result,
+    data?.Result,
     data?.data,
     payload?.items,
+    payload?.Items,
     payload?.services,
+    payload?.Services,
+    payload?.packages,
+    payload?.Packages,
     payload?.results,
+    payload?.Results,
+    payload?.result,
+    payload?.Result,
   ];
 
   return candidates.find(Array.isArray) || [];
@@ -131,10 +144,15 @@ const pickImageUrl = (value) => {
   if (typeof value === "object") {
     return (
       value.url ||
+      value.Url ||
       value.imageUrl ||
+      value.ImageUrl ||
       value.image ||
+      value.Image ||
       value.path ||
+      value.Path ||
       value.fileUrl ||
+      value.FileUrl ||
       ""
     );
   }
@@ -178,10 +196,15 @@ const pickRealImageUrl = (value) => {
 const getFirstImage = (service) => {
   const directImages = [
     service.image,
+    service.Image,
     service.imageUrl,
+    service.ImageUrl,
     service.serviceImage,
+    service.ServiceImage,
     service.coverImage,
+    service.CoverImage,
     service.mainImage,
+    service.MainImage,
   ];
 
   for (const directImage of directImages) {
@@ -192,10 +215,15 @@ const getFirstImage = (service) => {
 
   const imageCollections = [
     service.images,
+    service.Images,
     service.imageUrls,
+    service.ImageUrls,
     service.serviceImages,
+    service.ServiceImages,
     service.imageFiles,
+    service.ImageFiles,
     service.files,
+    service.Files,
   ];
 
   for (const collection of imageCollections) {
@@ -214,15 +242,25 @@ const getFirstImage = (service) => {
 const getServiceImages = (service, fallbackImage = "") => {
   const images = [
     service.image,
+    service.Image,
     service.imageUrl,
+    service.ImageUrl,
     service.serviceImage,
+    service.ServiceImage,
     service.coverImage,
+    service.CoverImage,
     service.mainImage,
+    service.MainImage,
     ...(Array.isArray(service.images) ? service.images : []),
+    ...(Array.isArray(service.Images) ? service.Images : []),
     ...(Array.isArray(service.imageUrls) ? service.imageUrls : []),
+    ...(Array.isArray(service.ImageUrls) ? service.ImageUrls : []),
     ...(Array.isArray(service.serviceImages) ? service.serviceImages : []),
+    ...(Array.isArray(service.ServiceImages) ? service.ServiceImages : []),
     ...(Array.isArray(service.imageFiles) ? service.imageFiles : []),
+    ...(Array.isArray(service.ImageFiles) ? service.ImageFiles : []),
     ...(Array.isArray(service.files) ? service.files : []),
+    ...(Array.isArray(service.Files) ? service.Files : []),
   ]
     .map(pickRealImageUrl)
     .filter(Boolean);

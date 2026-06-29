@@ -410,7 +410,7 @@ export default function ServiceCategoriesSection({ mode = "" }) {
               features={["Quick booking", "Pay per service", "Flexible"]}
             />
           </Link>
-          <Link to="/services/package">
+          <Link to="/services/service-categories">
             <BookingModeCard
               title="Service Package"
               description="Choose a package with multiple sessions and enjoy straightforward recurring models."

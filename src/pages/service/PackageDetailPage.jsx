@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 import {
   bookServiceAppointment,
   getServiceAppointmentAvailabilities,
-  getPackageDetails,
+  getPackages,
   getServiceDetails,
 } from "../../api/services/service.api";
 import { serviceCategories } from "../../components/Service-Page/servicePageData";
@@ -19,7 +19,9 @@ import {
 import {
   SERVICE_LANGUAGE,
   WEEKDAY_NAMES,
+  extractApiArray,
   extractPayloadData,
+  extractTotalPages,
   formatServicePrice,
   formatTimeLabel,
   getApiErrorMessage,
@@ -192,8 +194,18 @@ const getServiceNeighborhoodOptions = (service) => {
     : [];
 };
 
-const getNeighborhoodLabel = (service, neighborhoodId) =>
-  getServiceNeighborhoodOptions(service).find(
+const getPackageNeighborhoodOptions = (packageItem, service) => {
+  const neighborhoods = Array.isArray(packageItem?.neighborhoods)
+    ? packageItem.neighborhoods
+    : [];
+
+  if (neighborhoods.length > 0) return neighborhoods;
+
+  return getServiceNeighborhoodOptions(service);
+};
+
+const getNeighborhoodLabel = (neighborhoods, neighborhoodId) =>
+  neighborhoods.find(
     (neighborhood) => neighborhood.id === neighborhoodId
   )?.name || "";
 
@@ -295,6 +307,9 @@ const getScheduleSelectionDate = (selection, fallbackDate = "") => {
 };
 
 const DAILY_WEEKDAY_INDEXES = [0, 1, 2, 3, 4, 5, 6];
+const PACKAGE_LOOKUP_PAGE_SIZE = 50;
+const DEFAULT_PACKAGE_SLOT_DURATION_IN_MIN = 60;
+const DAY_END_MINUTES = 24 * 60;
 
 const getScheduleKey = (type, value) => `${type}-${value}`;
 
@@ -326,41 +341,100 @@ const getScheduleSelections = (
   return selectedWeekdays.map(createWeekdayScheduleSelection);
 };
 
-const getScheduleTimeOptions = (selection, service, durationInMin) => {
-  const selectionDate = getScheduleSelectionDate(selection);
-  const selectionDayIndex =
-    typeof selection.dayIndex === "number"
-      ? selection.dayIndex
-      : selectionDate
-        ? new Date(`${selectionDate}T00:00:00`).getDay()
-        : -1;
-  const matchingAgendas =
-    selectionDayIndex >= 0
-      ? (service.agendas || []).filter(
-          (agenda) => agenda.dayIndex === selectionDayIndex
-        )
-      : [];
+const getPackageSlotDurationInMin = (packageItem) => {
+  const duration = Number(
+    packageItem?.timeslotDurationInMin ||
+      packageItem?.timeSlotDurationInMin ||
+      packageItem?.durationInMin ||
+      packageItem?.slotDurationInMin
+  );
 
-  if (matchingAgendas.length) {
-    return matchingAgendas.flatMap((agenda) =>
-      getAgendaRanges(agenda, durationInMin).map((range) => ({
-        ...range,
-        id: `${selection.key}-${agenda.id}-${range.id}`,
-      }))
-      );
+  return Number.isFinite(duration) && duration > 0
+    ? duration
+    : DEFAULT_PACKAGE_SLOT_DURATION_IN_MIN;
+};
+
+const getScheduleTimeOptions = (selection, durationInMin) => {
+  const duration = Math.min(
+    DAY_END_MINUTES,
+    Math.max(15, Number(durationInMin) || DEFAULT_PACKAGE_SLOT_DURATION_IN_MIN)
+  );
+  const slots = [];
+
+  for (let start = 0; start < DAY_END_MINUTES; start += duration) {
+    const end = Math.min(start + duration, DAY_END_MINUTES);
+
+    slots.push({
+      id: `${selection.key}-hour-${start}`,
+      from: minutesToTimeValue(start),
+      to: end >= DAY_END_MINUTES ? "23:59" : minutesToTimeValue(end),
+    });
   }
 
-  return [];
+  return slots;
 };
+
+const normalizePackagePayload = (packageItem = {}) => {
+  const nestedPackage =
+    packageItem.package ||
+    packageItem.Package ||
+    packageItem.packageDto ||
+    packageItem.PackageDto ||
+    packageItem.packageDTO ||
+    packageItem.PackageDTO ||
+    packageItem.packageDetails ||
+    packageItem.PackageDetails ||
+    {};
+
+  if (!nestedPackage || typeof nestedPackage !== "object") return packageItem;
+
+  return {
+    ...nestedPackage,
+    ...packageItem,
+  };
+};
+
+const getPackageId = (packageItem) => {
+  packageItem = normalizePackagePayload(packageItem || {});
+
+  return String(
+    packageItem?.id ||
+      packageItem?.Id ||
+      packageItem?.packageId ||
+      packageItem?.PackageId ||
+      packageItem?.packageID ||
+      packageItem?.PackageID ||
+      ""
+  ).trim();
+};
+
+const isMatchingPackageId = (packageItem, packageId) =>
+  getPackageId(packageItem).toLowerCase() ===
+  String(packageId || "").trim().toLowerCase();
+
+const getPackageServices = (packageItem) => [
+  ...(Array.isArray(packageItem.services) ? packageItem.services : []),
+  ...(Array.isArray(packageItem.Services) ? packageItem.Services : []),
+];
 
 const getPackageServiceIds = (packageItem) => [
   ...(Array.isArray(packageItem.serviceIds) ? packageItem.serviceIds : []),
-  ...(Array.isArray(packageItem.services)
-    ? packageItem.services.map((service) => service?.id || service?.serviceId)
-    : []),
+  ...(Array.isArray(packageItem.ServiceIds) ? packageItem.ServiceIds : []),
+  ...getPackageServices(packageItem).map(
+    (service) => service?.id || service?.Id || service?.serviceId || service?.ServiceId
+  ),
   packageItem.serviceId,
+  packageItem.ServiceId,
+  packageItem.serviceID,
+  packageItem.ServiceID,
   packageItem.service?.id,
+  packageItem.service?.Id,
   packageItem.service?.serviceId,
+  packageItem.service?.ServiceId,
+  packageItem.Service?.id,
+  packageItem.Service?.Id,
+  packageItem.Service?.serviceId,
+  packageItem.Service?.ServiceId,
 ].filter(Boolean);
 
 const normalizePackageFeature = (item) => {
@@ -368,39 +442,216 @@ const normalizePackageFeature = (item) => {
 
   return (
     item?.name ||
+    item?.Name ||
     item?.itemName ||
+    item?.ItemName ||
     item?.serviceItemName ||
+    item?.ServiceItemName ||
     item?.title ||
+    item?.Title ||
     item?.description ||
+    item?.Description ||
     ""
   );
 };
 
+const normalizePackageNeighborhoodOption = (item, index) => {
+  if (!item) return null;
+
+  if (typeof item === "string" || typeof item === "number") {
+    const value = String(item).trim();
+
+    return value ? { id: value, name: value } : null;
+  }
+
+  if (typeof item !== "object") return null;
+
+  const id = String(
+    item.id ||
+      item.Id ||
+      item.neighborhoodId ||
+      item.NeighborhoodId ||
+      item.value ||
+      item.Value ||
+      item.name ||
+      item.Name ||
+      `package-area-${index + 1}`
+  ).trim();
+  const name = String(
+    item.name ||
+      item.Name ||
+      item.neighborhoodName ||
+      item.NeighborhoodName ||
+      item.label ||
+      item.Label ||
+      id
+  ).trim();
+  const governorateName = String(
+    item.governorateName ||
+      item.GovernorateName ||
+      item.governorate?.name ||
+      item.governorate?.Name ||
+      item.Governorate?.name ||
+      item.Governorate?.Name ||
+      ""
+  ).trim();
+
+  return id && name
+    ? {
+        id,
+        name,
+        governorateName,
+      }
+    : null;
+};
+
+const normalizePackageNeighborhoods = (packageItem) => {
+  const directNeighborhoods = [
+    ...(Array.isArray(packageItem.neighborhoods) ? packageItem.neighborhoods : []),
+    ...(Array.isArray(packageItem.Neighborhoods) ? packageItem.Neighborhoods : []),
+    ...(Array.isArray(packageItem.neighborhoodDtos)
+      ? packageItem.neighborhoodDtos
+      : []),
+    ...(Array.isArray(packageItem.NeighborhoodDtos)
+      ? packageItem.NeighborhoodDtos
+      : []),
+    ...(Array.isArray(packageItem.coverageAreas) ? packageItem.coverageAreas : []),
+    ...(Array.isArray(packageItem.CoverageAreas) ? packageItem.CoverageAreas : []),
+    packageItem.neighborhood,
+    packageItem.Neighborhood,
+    packageItem.neighborhoodDto,
+    packageItem.NeighborhoodDto,
+  ].filter(Boolean);
+  const idOnlyNeighborhoods = [
+    ...(Array.isArray(packageItem.neighborhoodIds)
+      ? packageItem.neighborhoodIds
+      : []),
+    ...(Array.isArray(packageItem.NeighborhoodIds)
+      ? packageItem.NeighborhoodIds
+      : []),
+    packageItem.neighborhoodId,
+    packageItem.NeighborhoodId,
+  ].filter(Boolean);
+  const optionMap = new Map();
+
+  [...directNeighborhoods, ...idOnlyNeighborhoods]
+    .map(normalizePackageNeighborhoodOption)
+    .filter(Boolean)
+    .forEach((option) => {
+      if (!optionMap.has(option.id)) {
+        optionMap.set(option.id, option);
+      }
+    });
+
+  return [...optionMap.values()];
+};
+
+const getPackageGovernorateName = (packageItem, neighborhoods) =>
+  String(
+    packageItem.governorateName ||
+      packageItem.GovernorateName ||
+      packageItem.governorate?.name ||
+      packageItem.governorate?.Name ||
+      packageItem.Governorate?.name ||
+      packageItem.Governorate?.Name ||
+      packageItem.governorateDto?.name ||
+      packageItem.GovernorateDto?.Name ||
+      neighborhoods.find((neighborhood) => neighborhood.governorateName)
+        ?.governorateName ||
+      ""
+  ).trim();
+
 const normalizePackage = (packageItem) => {
+  packageItem = normalizePackagePayload(packageItem || {});
   const serviceIds = getPackageServiceIds(packageItem);
+  const neighborhoods = normalizePackageNeighborhoods(packageItem);
+  const governorateName = getPackageGovernorateName(packageItem, neighborhoods);
+  const neighborhoodName = neighborhoods
+    .map((neighborhood) => neighborhood.name)
+    .filter(Boolean)
+    .join(", ");
   const includedItems =
     packageItem.includedItems ||
+    packageItem.IncludedItems ||
     packageItem.items ||
+    packageItem.Items ||
     packageItem.serviceItems ||
+    packageItem.ServiceItems ||
     packageItem.features ||
+    packageItem.Features ||
     packageItem.packageItems ||
+    packageItem.PackageItems ||
     [];
 
   return {
-    id: String(packageItem.id || packageItem.packageId || ""),
-    name: packageItem.name || packageItem.packageName || "Service Package",
-    recurrence: packageItem.recurrence || packageItem.pricingType || "Weekly",
+    id: getPackageId(packageItem),
+    name:
+      packageItem.name ||
+      packageItem.Name ||
+      packageItem.packageName ||
+      packageItem.PackageName ||
+      "Service Package",
+    description:
+      packageItem.description ||
+      packageItem.Description ||
+      packageItem.packageDescription ||
+      packageItem.PackageDescription ||
+      packageItem.subDescription ||
+      packageItem.SubDescription ||
+      packageItem.details ||
+      packageItem.Details ||
+      "",
+    recurrence:
+      packageItem.recurrence ||
+      packageItem.Recurrence ||
+      packageItem.pricingType ||
+      packageItem.PricingType ||
+      "Weekly",
     daysPerInterval: Math.max(
       1,
-      Number(packageItem.daysPerInterval ?? packageItem.times ?? 1) || 1
+      Number(
+        packageItem.daysPerInterval ??
+          packageItem.DaysPerInterval ??
+          packageItem.times ??
+          packageItem.Times ??
+          1
+      ) || 1
     ),
-    price: Number(packageItem.price ?? packageItem.packagePrice ?? 0) || 0,
-    currency: packageItem.currency || packageItem.packageCurrency || "EGP",
+    price:
+      Number(
+        packageItem.servicePrice ??
+          packageItem.ServicePrice ??
+          packageItem.price ??
+          packageItem.Price ??
+          packageItem.packagePrice ??
+          packageItem.PackagePrice ??
+          0
+      ) || 0,
+    currency:
+      packageItem.currency ||
+      packageItem.Currency ||
+      packageItem.packageCurrency ||
+      packageItem.PackageCurrency ||
+      "EGP",
     serviceIds: serviceIds.map(String),
+    neighborhoodId: neighborhoods[0]?.id || "",
+    neighborhoodName,
+    neighborhoods,
+    governorateName,
+    location: [neighborhoodName, governorateName].filter(Boolean).join(", "),
     serviceName:
       packageItem.serviceName ||
+      packageItem.ServiceName ||
+      packageItem.serviceName?.name ||
+      packageItem.serviceName?.Name ||
+      packageItem.serviceNameDto?.name ||
+      packageItem.ServiceNameDto?.Name ||
       packageItem.services?.[0]?.name ||
+      packageItem.Services?.[0]?.Name ||
       packageItem.service?.name ||
+      packageItem.service?.Name ||
+      packageItem.Service?.name ||
+      packageItem.Service?.Name ||
       "",
     concurrencyStamp:
       packageItem.concurrencyStamp ||
@@ -412,6 +663,33 @@ const normalizePackage = (packageItem) => {
     includedItems: includedItems.map(normalizePackageFeature).filter(Boolean),
     raw: packageItem,
   };
+};
+
+const getPackageFromListResponse = (response, packageId) =>
+  extractApiArray(response).find((item) => isMatchingPackageId(item, packageId));
+
+const fetchPackageFromPackagesList = async (packageId) => {
+  const getPackagesPage = (page) =>
+    getPackages({
+      page,
+      pageSize: PACKAGE_LOOKUP_PAGE_SIZE,
+      language: SERVICE_LANGUAGE,
+    });
+  const firstResponse = await getPackagesPage(1);
+  const firstMatch = getPackageFromListResponse(firstResponse, packageId);
+
+  if (firstMatch) return firstMatch;
+
+  const totalPages = extractTotalPages(firstResponse);
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const response = await getPackagesPage(page);
+    const match = getPackageFromListResponse(response, packageId);
+
+    if (match) return match;
+  }
+
+  return null;
 };
 
 const getPackageIntervalLabel = (packageItem) => {
@@ -628,7 +906,6 @@ function PackageCalendar({
 }
 
 function ScheduleTimeSelections({
-  service,
   durationInMin,
   selectionLimit,
   scheduleSelections,
@@ -643,11 +920,7 @@ function ScheduleTimeSelections({
   return (
     <div className="space-y-4">
       {scheduleSelections.map((selection) => {
-        const timeSlots = getScheduleTimeOptions(
-          selection,
-          service,
-          durationInMin
-        );
+        const timeSlots = getScheduleTimeOptions(selection, durationInMin);
         const selectedTime = selectedTimes[selection.key];
 
         return (
@@ -665,30 +938,24 @@ function ScheduleTimeSelections({
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {timeSlots.length > 0 ? (
-                timeSlots.map((slot) => {
-                  const isSelected = selectedTime?.id === slot.id;
+              {timeSlots.map((slot) => {
+                const isSelected = selectedTime?.id === slot.id;
 
-                  return (
-                    <button
-                      key={slot.id}
-                      type="button"
-                      onClick={() => onSelectTime(selection.key, slot)}
-                      className={`min-w-[82px] rounded-xl border px-3 py-2.5 font-['Roboto'] text-[12px] font-semibold transition ${
-                        isSelected
-                          ? "border-[#011C60] bg-[#011C60] text-white"
-                          : "border-[#CCD2DF] bg-white text-[#011C60] hover:border-[#EECE42]"
-                      }`}
-                    >
-                      {getTimeButtonLabel(slot)}
-                    </button>
-                  );
-                })
-              ) : (
-                <p className="rounded-xl bg-[#F8F9FC] px-3 py-2 font-['Roboto'] text-[12px] font-semibold text-[#DC2626]">
-                  No available service time for this package day.
-                </p>
-              )}
+                return (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    onClick={() => onSelectTime(selection.key, slot)}
+                    className={`min-w-[82px] rounded-xl border px-3 py-2.5 font-['Roboto'] text-[12px] font-semibold transition ${
+                      isSelected
+                        ? "border-[#011C60] bg-[#011C60] text-white"
+                        : "border-[#CCD2DF] bg-white text-[#011C60] hover:border-[#EECE42]"
+                    }`}
+                  >
+                    {getTimeButtonLabel(slot)}
+                  </button>
+                );
+              })}
             </div>
           </div>
         );
@@ -721,8 +988,8 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   const recurrence = getPackageRecurrence(packageItem);
   const limit = getPackageSelectionLimit(packageItem);
   const neighborhoodOptions = useMemo(
-    () => getServiceNeighborhoodOptions(service),
-    [service]
+    () => getPackageNeighborhoodOptions(packageItem, service),
+    [packageItem, service]
   );
   const [selectedWeekdays, setSelectedWeekdays] = useState(() =>
     recurrence === "daily" ? DAILY_WEEKDAY_INDEXES : []
@@ -737,7 +1004,7 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   )
     ? selectedNeighborhoodId
     : neighborhoodOptions[0]?.id || "";
-  const durationInMin = service.timeslotDurationInMin || 60;
+  const durationInMin = getPackageSlotDurationInMin(packageItem);
 
   const scheduleSelections = useMemo(
     () => getScheduleSelections(recurrence, selectedWeekdays, selectedMonthDays),
@@ -825,7 +1092,7 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
       ),
       selectedNeighborhoodId: effectiveSelectedNeighborhoodId,
       selectedNeighborhoodName: getNeighborhoodLabel(
-        service,
+        neighborhoodOptions,
         effectiveSelectedNeighborhoodId
       ),
       selectedItems: [],
@@ -852,7 +1119,6 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
           />
 
           <ScheduleTimeSelections
-            service={service}
             durationInMin={durationInMin}
             selectionLimit={limit}
             scheduleSelections={scheduleSelections}
@@ -880,7 +1146,7 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
                 >
                   <input
                     type="radio"
-                    name={`package-detail-neighborhood-${service.id}`}
+                    name={`package-detail-neighborhood-${packageItem.id}`}
                     checked={isSelected}
                     onChange={() => setSelectedNeighborhoodId(neighborhood.id)}
                     className="h-4 w-4 accent-[#011C60]"
@@ -893,7 +1159,7 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
             })
           ) : (
             <p className="rounded-xl bg-[#F8F9FC] px-4 py-3 font-['Roboto'] text-[14px] text-[#808DAF]">
-              No coverage areas available for this service.
+              No coverage areas available for this package.
             </p>
           )}
         </div>
@@ -919,10 +1185,9 @@ function PackageDetailsView({ service, packageItem, onConfirmBooking }) {
   const includedItems = packageItem.includedItems.length
     ? packageItem.includedItems
     : service.items.map((item) => item.name);
-  const detailsPrice = `$${new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(packageItem.price) || 0)}`;
+  const detailsPrice = formatServicePrice(packageItem.price, packageItem.currency);
+  const coverageAreas = getPackageNeighborhoodOptions(packageItem, service);
+  const packageLocation = packageItem.location || service.location || "";
 
   return (
     <div className="mt-12 grid gap-10 xl:grid-cols-[minmax(0,1fr)_416px] xl:items-start">
@@ -949,7 +1214,7 @@ function PackageDetailsView({ service, packageItem, onConfirmBooking }) {
               <LocationIcon className="h-4 w-4" stroke="white" />
             </span>
             <span className="font-['Roboto'] text-[15px] font-medium text-[#4D6090]">
-              {service.location || "Not specified"}
+              {packageLocation || "Not specified"}
             </span>
           </div>
         </div>
@@ -986,6 +1251,39 @@ function PackageDetailsView({ service, packageItem, onConfirmBooking }) {
             </div>
           </div>
         </div>
+
+        {packageItem.description && (
+          <section className="mt-12">
+            <h2 className="font-['Roboto'] text-[24px] font-semibold text-[#011C60]">
+              About this package
+            </h2>
+            <p className="mt-5 max-w-[620px] font-['Roboto'] text-[16px] leading-8 text-[#4D6090]">
+              {packageItem.description}
+            </p>
+          </section>
+        )}
+
+        <section className="mt-12">
+          <h2 className="font-['Roboto'] text-[24px] font-semibold text-[#011C60]">
+            Package coverage
+          </h2>
+          <div className="mt-6 flex max-w-[650px] flex-wrap gap-3">
+            {coverageAreas.length ? (
+              coverageAreas.map((area) => (
+                <span
+                  key={area.id}
+                  className="rounded-[12px] bg-[#F3F5FA] px-4 py-2.5 font-['Roboto'] text-[13px] font-medium text-[#6777A0]"
+                >
+                  {area.name}
+                </span>
+              ))
+            ) : (
+              <span className="rounded-[12px] bg-[#F3F5FA] px-4 py-2.5 font-['Roboto'] text-[13px] font-medium text-[#6777A0]">
+                Coverage areas are not specified.
+              </span>
+            )}
+          </div>
+        </section>
 
         <section className="mt-12">
           <h2 className="font-['Roboto'] text-[24px] font-semibold text-[#011C60]">
@@ -1312,6 +1610,7 @@ function BookingSuccessModal({ isOpen, onClose }) {
 
 export default function PackageDetailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { packageId } = useParams();
   const [packageItem, setPackageItem] = useState(null);
@@ -1322,6 +1621,18 @@ export default function PackageDetailPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
   const [bookingErrorMessage, setBookingErrorMessage] = useState("");
+  const returnTo =
+    typeof location.state?.returnTo === "string" &&
+    !location.state.returnTo.startsWith("/services/package")
+      ? location.state.returnTo
+      : "";
+  const statePackageItem = useMemo(
+    () =>
+      location.state?.packageItem && typeof location.state.packageItem === "object"
+        ? location.state.packageItem
+        : null,
+    [location.state]
+  );
 
   useEffect(() => {
     if (!packageId) return undefined;
@@ -1333,13 +1644,16 @@ export default function PackageDetailPage() {
       setErrorMessage("");
 
       try {
-        const packageResponse = await getPackageDetails(
-          packageId,
-          SERVICE_LANGUAGE
-        );
-        const normalizedPackage = normalizePackage(
-          extractPayloadData(packageResponse)
-        );
+        const packagePayload =
+          statePackageItem && isMatchingPackageId(statePackageItem, packageId)
+            ? statePackageItem
+            : await fetchPackageFromPackagesList(packageId);
+
+        if (!packagePayload) {
+          throw new Error("Package was not found in the packages list.");
+        }
+
+        const normalizedPackage = normalizePackage(packagePayload);
 
         if (!isMounted) return;
 
@@ -1389,11 +1703,15 @@ export default function PackageDetailPage() {
     return () => {
       isMounted = false;
     };
-  }, [packageId]);
+  }, [packageId, statePackageItem]);
 
   if (!packageId) {
-    return <Navigate to="/services/package" replace />;
+    return <Navigate to="/services/service-categories" replace />;
   }
+
+  const handleBack = () => {
+    navigate(returnTo || "/services/service-categories");
+  };
 
   const getBookableAppointment = async (body) => {
     const response = await getServiceAppointmentAvailabilities(
@@ -1524,7 +1842,7 @@ export default function PackageDetailPage() {
     <div className="bg-[#F8F9FC] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1240px]">
         <div className="flex items-center">
-          <BackCircleButton onClick={() => navigate("/services/package")} />
+          <BackCircleButton onClick={handleBack} />
         </div>
 
         {isLoading ? (

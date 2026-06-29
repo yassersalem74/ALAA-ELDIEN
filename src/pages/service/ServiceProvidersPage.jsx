@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getGovernorates, getNeighborhoods } from "../../api/auth/auth.api";
 import {
   getPackages,
@@ -49,47 +49,242 @@ const SERVICE_TYPE_OPTIONS = [
   { id: "packages", label: "Packages" },
 ];
 
+const getServiceTypeFromSearch = (search) => {
+  const params = new URLSearchParams(search || "");
+  const value = normalizeText(
+    params.get("serviceType") || params.get("type") || params.get("mode")
+  );
+
+  if (value === "package" || value === "packages") return "packages";
+  if (value === "one-time" || value === "service") return "one-time";
+
+  return "";
+};
+
 const normalizeText = (value) =>
   String(value || "")
     .trim()
     .toLowerCase();
 
+const normalizeComparableText = (value) =>
+  normalizeText(value).replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+
+const firstPresentValue = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
+
+const firstNonEmptyArray = (...values) =>
+  values.find((value) => Array.isArray(value) && value.length > 0) || [];
+
+const getNamedValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value).trim();
+  }
+  if (typeof value !== "object") return "";
+
+  return String(
+    firstPresentValue(
+      value.name,
+      value.Name,
+      value.serviceName,
+      value.ServiceName,
+      value.title,
+      value.Title,
+      value.label,
+      value.Label,
+      value.nameEn,
+      value.NameEn
+    ) || ""
+  ).trim();
+};
+
+const getCategoryValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value).trim();
+  }
+  if (typeof value !== "object") return "";
+
+  return String(
+    firstPresentValue(
+      value.name,
+      value.Name,
+      value.slug,
+      value.Slug,
+      value.apiName,
+      value.ApiName,
+      value.categoryName,
+      value.CategoryName,
+      value.serviceCategory,
+      value.ServiceCategory
+    ) || ""
+  ).trim();
+};
+
+const normalizeIdValues = (...values) => [
+  ...new Set(
+    values
+      .flatMap((value) => {
+        if (Array.isArray(value)) return normalizeIdValues(...value);
+        if (value && typeof value === "object") {
+          return [
+            value.id,
+            value.Id,
+            value.value,
+            value.Value,
+            value.serviceNameId,
+            value.ServiceNameId,
+            value.serviceNameID,
+            value.ServiceNameID,
+          ];
+        }
+
+        return value;
+      })
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  ),
+];
+
+const normalizePackagePayload = (packageItem = {}) => {
+  const nestedPackage =
+    packageItem.package ||
+    packageItem.Package ||
+    packageItem.packageDto ||
+    packageItem.PackageDto ||
+    packageItem.packageDTO ||
+    packageItem.PackageDTO ||
+    packageItem.packageDetails ||
+    packageItem.PackageDetails ||
+    packageItem.details ||
+    packageItem.Details ||
+    {};
+
+  if (!nestedPackage || typeof nestedPackage !== "object") return packageItem;
+
+  return {
+    ...nestedPackage,
+    ...packageItem,
+    images: firstNonEmptyArray(
+      packageItem.images,
+      packageItem.Images,
+      packageItem.imageUrls,
+      packageItem.ImageUrls,
+      packageItem.packageImages,
+      packageItem.PackageImages,
+      packageItem.imageFiles,
+      packageItem.ImageFiles,
+      packageItem.files,
+      packageItem.Files,
+      nestedPackage.images,
+      nestedPackage.Images,
+      nestedPackage.imageUrls,
+      nestedPackage.ImageUrls,
+      nestedPackage.packageImages,
+      nestedPackage.PackageImages,
+      nestedPackage.imageFiles,
+      nestedPackage.ImageFiles,
+      nestedPackage.files,
+      nestedPackage.Files
+    ),
+    neighborhoods: firstNonEmptyArray(
+      packageItem.neighborhoods,
+      packageItem.Neighborhoods,
+      packageItem.neighborhoodDtos,
+      packageItem.NeighborhoodDtos,
+      nestedPackage.neighborhoods,
+      nestedPackage.Neighborhoods,
+      nestedPackage.neighborhoodDtos,
+      nestedPackage.NeighborhoodDtos
+    ),
+  };
+};
+
 const getProviderName = (item) =>
-  item.partnerName ||
-  item.providerName ||
-  item.signatoryName ||
-  item.provider?.name ||
-  item.userName ||
+  getNamedValue(item.partnerName) ||
+  getNamedValue(item.PartnerName) ||
+  getNamedValue(item.providerName) ||
+  getNamedValue(item.ProviderName) ||
+  getNamedValue(item.signatoryName) ||
+  getNamedValue(item.SignatoryName) ||
+  getNamedValue(item.partner) ||
+  getNamedValue(item.Partner) ||
+  getNamedValue(item.provider) ||
+  getNamedValue(item.Provider) ||
+  getNamedValue(item.signatory) ||
+  getNamedValue(item.Signatory) ||
+  getNamedValue(item.userName) ||
+  getNamedValue(item.UserName) ||
+  getNamedValue(item.company) ||
+  getNamedValue(item.Company) ||
   "Provider";
 
-const getPackageServiceNames = (packageItem) =>
-  [
+const getPackageServices = (packageItem) => [
+  ...(Array.isArray(packageItem.services) ? packageItem.services : []),
+  ...(Array.isArray(packageItem.Services) ? packageItem.Services : []),
+];
+
+const getPackageServiceNames = (packageItem) => {
+  const services = getPackageServices(packageItem);
+
+  return [
     packageItem.serviceName,
-    packageItem.service?.name,
-    packageItem.service?.serviceName,
-    ...(Array.isArray(packageItem.services)
-      ? packageItem.services.map(
-          (service) => service?.name || service?.serviceName || service?.title
-        )
-      : []),
+    packageItem.ServiceName,
+    packageItem.serviceNameDto,
+    packageItem.ServiceNameDto,
+    packageItem.serviceNameDTO,
+    packageItem.ServiceNameDTO,
+    packageItem.service,
+    packageItem.Service,
+    ...services,
+    ...services.map((service) => service?.serviceName || service?.ServiceName),
+    ...services.map(
+      (service) =>
+        service?.serviceNameDto ||
+        service?.ServiceNameDto ||
+        service?.serviceNameDTO ||
+        service?.ServiceNameDTO
+    ),
   ]
-    .map((value) => String(value || "").trim())
+    .map(getNamedValue)
     .filter(Boolean);
+};
 
-const getPackageCategorySlug = (packageItem) => {
-  const categoryValue =
-    packageItem.serviceCategory ||
-    packageItem.categoryName ||
-    packageItem.category ||
-    packageItem.services?.[0]?.serviceCategory ||
-    packageItem.services?.[0]?.categoryName ||
-    packageItem.service?.serviceCategory ||
-    packageItem.service?.categoryName ||
-    "";
+const getPackageServiceNameIds = (packageItem) => {
+  const services = getPackageServices(packageItem);
 
-  if (!categoryValue) return "";
+  return normalizeIdValues(
+    packageItem.serviceNameId,
+    packageItem.ServiceNameId,
+    packageItem.serviceNameID,
+    packageItem.ServiceNameID,
+    packageItem.serviceName,
+    packageItem.ServiceName,
+    packageItem.serviceNameDto,
+    packageItem.ServiceNameDto,
+    packageItem.serviceNameDTO,
+    packageItem.ServiceNameDTO,
+    packageItem.service?.serviceNameId,
+    packageItem.service?.ServiceNameId,
+    packageItem.service?.serviceName,
+    packageItem.service?.ServiceName,
+    services.map((service) => [
+      service?.serviceNameId,
+      service?.ServiceNameId,
+      service?.serviceName,
+      service?.ServiceName,
+      service?.serviceNameDto,
+      service?.ServiceNameDto,
+      service?.serviceNameDTO,
+      service?.ServiceNameDTO,
+    ])
+  );
+};
 
-  const normalizedCategory = normalizeText(categoryValue).replace(/[_-]+/g, " ");
+const findCategorySlug = (categoryValue) => {
+  const normalizedCategory = normalizeComparableText(categoryValue);
+
+  if (!normalizedCategory) return "";
 
   return (
     serviceCategories.find((category) => {
@@ -98,7 +293,7 @@ const getPackageCategorySlug = (packageItem) => {
         category.apiName,
         category.title,
         category.title.replace(/&/g, "and"),
-      ].map((value) => normalizeText(value).replace(/[_-]+/g, " "));
+      ].map(normalizeComparableText);
 
       return aliases.some(
         (alias) =>
@@ -108,49 +303,307 @@ const getPackageCategorySlug = (packageItem) => {
   );
 };
 
-const normalizePackageCard = (packageItem, fallbackServiceName = "") => {
+const getPackageCategorySlug = (packageItem) => {
+  const services = getPackageServices(packageItem);
+  const categoryValues = [
+    packageItem.serviceCategory,
+    packageItem.ServiceCategory,
+    packageItem.categoryName,
+    packageItem.CategoryName,
+    packageItem.category,
+    packageItem.Category,
+    packageItem.serviceName?.categoryName,
+    packageItem.ServiceName?.CategoryName,
+    packageItem.serviceNameDto?.categoryName,
+    packageItem.ServiceNameDto?.CategoryName,
+    packageItem.service?.serviceCategory,
+    packageItem.service?.ServiceCategory,
+    packageItem.service?.categoryName,
+    packageItem.service?.CategoryName,
+    ...services.flatMap((service) => [
+      service?.serviceCategory,
+      service?.ServiceCategory,
+      service?.categoryName,
+      service?.CategoryName,
+      service?.category,
+      service?.Category,
+      service?.serviceName?.categoryName,
+      service?.ServiceName?.CategoryName,
+    ]),
+  ]
+    .map(getCategoryValue)
+    .filter(Boolean);
+
+  for (const categoryValue of categoryValues) {
+    const categorySlug = findCategorySlug(categoryValue);
+
+    if (categorySlug) return categorySlug;
+  }
+
+  return "";
+};
+
+const pickImageUrl = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value !== "object") return "";
+
+  return (
+    value.url ||
+    value.Url ||
+    value.imageUrl ||
+    value.ImageUrl ||
+    value.image ||
+    value.Image ||
+    value.path ||
+    value.Path ||
+    value.fileUrl ||
+    value.FileUrl ||
+    ""
+  );
+};
+
+const getPackageCardImage = (packageItem, fallbackImage = "") => {
+  const services = getPackageServices(packageItem);
+  const directImages = [
+    packageItem.image,
+    packageItem.Image,
+    packageItem.imageUrl,
+    packageItem.ImageUrl,
+    packageItem.coverImage,
+    packageItem.CoverImage,
+    packageItem.mainImage,
+    packageItem.MainImage,
+    packageItem.serviceImage,
+    packageItem.ServiceImage,
+    packageItem.service?.image,
+    packageItem.service?.Image,
+    packageItem.service?.imageUrl,
+    packageItem.service?.ImageUrl,
+    ...services.flatMap((service) => [
+      service?.image,
+      service?.Image,
+      service?.imageUrl,
+      service?.ImageUrl,
+      service?.coverImage,
+      service?.CoverImage,
+      service?.mainImage,
+      service?.MainImage,
+    ]),
+  ];
+  const imageCollections = [
+    packageItem.images,
+    packageItem.Images,
+    packageItem.imageUrls,
+    packageItem.ImageUrls,
+    packageItem.packageImages,
+    packageItem.PackageImages,
+    packageItem.serviceImages,
+    packageItem.ServiceImages,
+    packageItem.imageFiles,
+    packageItem.ImageFiles,
+    packageItem.files,
+    packageItem.Files,
+    packageItem.service?.images,
+    packageItem.service?.Images,
+    packageItem.service?.imageUrls,
+    packageItem.service?.ImageUrls,
+    ...services.flatMap((service) => [
+      service?.images,
+      service?.Images,
+      service?.imageUrls,
+      service?.ImageUrls,
+      service?.serviceImages,
+      service?.ServiceImages,
+      service?.imageFiles,
+      service?.ImageFiles,
+      service?.files,
+      service?.Files,
+    ]),
+  ];
+
+  for (const image of directImages) {
+    const imageUrl = pickImageUrl(image);
+
+    if (imageUrl) return imageUrl;
+  }
+
+  for (const collection of imageCollections) {
+    if (!Array.isArray(collection)) continue;
+
+    for (const image of collection) {
+      const imageUrl = pickImageUrl(image);
+
+      if (imageUrl) return imageUrl;
+    }
+  }
+
+  return fallbackImage;
+};
+
+const normalizePackageCard = (
+  packageItem,
+  fallbackServiceName = "",
+  fallbackImage = ""
+) => {
+  packageItem = normalizePackagePayload(packageItem || {});
   const serviceNames = getPackageServiceNames(packageItem);
+  const serviceNameIds = getPackageServiceNameIds(packageItem);
   const neighborhoods = [
     ...(Array.isArray(packageItem.neighborhoods) ? packageItem.neighborhoods : []),
+    ...(Array.isArray(packageItem.Neighborhoods) ? packageItem.Neighborhoods : []),
     ...(Array.isArray(packageItem.neighborhoodDtos)
       ? packageItem.neighborhoodDtos
+      : []),
+    ...(Array.isArray(packageItem.NeighborhoodDtos)
+      ? packageItem.NeighborhoodDtos
       : []),
   ];
   const neighborhoodName =
     neighborhoods
-      .map((item) => item?.name || item?.Name || item?.label || item?.Label)
+      .map(
+        (item) =>
+          getNamedValue(item) ||
+          item?.neighborhoodName ||
+          item?.NeighborhoodName ||
+          item?.label ||
+          item?.Label
+      )
       .filter(Boolean)
       .join(", ") ||
     packageItem.neighborhoodName ||
+    packageItem.NeighborhoodName ||
     packageItem.neighborhood?.name ||
+    packageItem.Neighborhood?.Name ||
     "";
   const governorateName =
-    packageItem.governorateName || packageItem.governorate?.name || "";
+    packageItem.governorateName ||
+    packageItem.GovernorateName ||
+    packageItem.governorate?.name ||
+    packageItem.governorate?.Name ||
+    packageItem.Governorate?.name ||
+    packageItem.Governorate?.Name ||
+    "";
+  const price =
+    Number(
+      firstPresentValue(
+        packageItem.servicePrice,
+        packageItem.ServicePrice,
+        packageItem.price,
+        packageItem.Price,
+        packageItem.packagePrice,
+        packageItem.PackagePrice
+      ) ?? 0
+    ) || 0;
 
   return {
-    id: String(packageItem.id || packageItem.packageId || ""),
+    id: String(
+      firstPresentValue(
+        packageItem.id,
+        packageItem.Id,
+        packageItem.packageId,
+        packageItem.PackageId,
+        packageItem.packageID,
+        packageItem.PackageID
+      ) || ""
+    ),
     type: "package",
     providerName: getProviderName(packageItem),
     providerRole:
       packageItem.partnerType ||
+      packageItem.PartnerType ||
       packageItem.providerRole ||
+      packageItem.ProviderRole ||
       packageItem.providerType ||
+      packageItem.ProviderType ||
       packageItem.accountType ||
+      packageItem.AccountType ||
       "",
-    name: packageItem.name || packageItem.packageName || fallbackServiceName,
+    name:
+      packageItem.name ||
+      packageItem.Name ||
+      packageItem.packageName ||
+      packageItem.PackageName ||
+      serviceNames[0] ||
+      fallbackServiceName,
     serviceName: serviceNames[0] || fallbackServiceName,
+    serviceNames,
+    serviceNameIds,
     description:
       packageItem.description ||
+      packageItem.Description ||
       packageItem.packageDescription ||
+      packageItem.PackageDescription ||
       packageItem.subDescription ||
+      packageItem.SubDescription ||
       packageItem.details ||
+      packageItem.Details ||
       "",
-    price: Number(packageItem.servicePrice ?? packageItem.price ?? 0) || 0,
-    currency: packageItem.currency || packageItem.packageCurrency || "EGP",
+    price,
+    currency:
+      packageItem.currency ||
+      packageItem.Currency ||
+      packageItem.packageCurrency ||
+      packageItem.PackageCurrency ||
+      "EGP",
+    recurrence:
+      packageItem.recurrence ||
+      packageItem.Recurrence ||
+      packageItem.pricingType ||
+      packageItem.PricingType ||
+      "",
+    daysPerInterval:
+      packageItem.daysPerInterval ||
+      packageItem.DaysPerInterval ||
+      packageItem.times ||
+      packageItem.Times ||
+      "",
     categorySlug: getPackageCategorySlug(packageItem),
+    image: getPackageCardImage(packageItem, fallbackImage),
     location: [neighborhoodName, governorateName].filter(Boolean).join(", "),
     raw: packageItem,
   };
+};
+
+const doesCardMatchSelectedService = (
+  card,
+  selectedServiceName,
+  fallbackServiceName,
+  fallbackServiceNameId
+) => {
+  const selectedIds = normalizeIdValues(
+    selectedServiceName?.id,
+    fallbackServiceNameId
+  ).map(normalizeComparableText);
+  const cardServiceIds = normalizeIdValues(card.serviceNameIds).map(
+    normalizeComparableText
+  );
+
+  if (
+    selectedIds.length > 0 &&
+    cardServiceIds.some((serviceId) => selectedIds.includes(serviceId))
+  ) {
+    return true;
+  }
+
+  const cardServiceNames = (card.serviceNames || [])
+    .map(normalizeComparableText)
+    .filter(Boolean);
+
+  if (!cardServiceIds.length && !cardServiceNames.length) return true;
+
+  const selectedLabel = normalizeComparableText(
+    selectedServiceName?.label || fallbackServiceName
+  );
+
+  if (!selectedLabel) return true;
+
+  return cardServiceNames.some(
+    (serviceName) =>
+      serviceName === selectedLabel ||
+      serviceName.includes(selectedLabel) ||
+      selectedLabel.includes(serviceName)
+  );
 };
 
 const doesCardMatchSearch = (card, searchQuery) => {
@@ -181,9 +634,13 @@ const doesCardMatchProviderType = (card, providerType) => {
 
   if (!card.providerRole) return true;
 
-  return normalizeText(card.providerRole).includes(
-    providerType === "individual" ? "provider" : providerType
-  );
+  const providerRole = normalizeText(card.providerRole);
+
+  if (providerType === "individual") {
+    return providerRole.includes("provider") || providerRole.includes("individual");
+  }
+
+  return providerRole.includes(providerType);
 };
 
 function FilterSegment({ options, value, onChange }) {
@@ -211,14 +668,30 @@ function FilterSegment({ options, value, onChange }) {
   );
 }
 
-function ProviderResultCard({ card, categorySlug }) {
+function ProviderResultCard({ card, categorySlug, returnTo = "" }) {
   const detailPath =
     card.type === "package"
       ? `/services/package/${card.id}`
       : `/services/${categorySlug}/${card.id}?mode=one-time`;
+  const cardImage = card.image || noServicesImage;
+  const packageInterval = [card.recurrence, card.daysPerInterval]
+    .filter(Boolean)
+    .join(" / ");
 
   return (
-    <article className="flex min-h-[300px] flex-col rounded-2xl border border-[#D8DDEB] bg-white p-5 shadow-[0px_10px_26px_rgba(1,28,96,0.08)] transition hover:-translate-y-1 hover:border-[#011C60] hover:shadow-[0px_18px_36px_rgba(1,28,96,0.12)]">
+    <article className="flex min-h-[430px] flex-col overflow-hidden rounded-2xl border border-[#D8DDEB] bg-white shadow-[0px_10px_26px_rgba(1,28,96,0.08)] transition hover:-translate-y-1 hover:border-[#011C60] hover:shadow-[0px_18px_36px_rgba(1,28,96,0.12)]">
+      <div className="h-40 bg-[#F3F5FA]">
+        <img
+          src={cardImage}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={(event) => {
+            event.currentTarget.src = noServicesImage;
+          }}
+        />
+      </div>
+
+      <div className="flex flex-1 flex-col p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-['Roboto'] text-[13px] font-semibold uppercase text-[#808DAF]">
@@ -234,9 +707,21 @@ function ProviderResultCard({ card, categorySlug }) {
       </div>
 
       <div className="mt-5 space-y-3">
-        <p className="font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60]">
-          {card.serviceName || card.name}
-        </p>
+        <div>
+          <p className="font-['Roboto'] text-[16px] font-semibold leading-6 text-[#011C60]">
+            {card.name || card.serviceName}
+          </p>
+          {card.type === "package" && card.serviceName && card.serviceName !== card.name && (
+            <p className="mt-1 font-['Roboto'] text-[13px] font-semibold uppercase text-[#808DAF]">
+              {card.serviceName}
+            </p>
+          )}
+          {card.type === "package" && packageInterval && (
+            <p className="mt-2 inline-flex rounded-full bg-[#F3F5FA] px-3 py-1 font-['Roboto'] text-[12px] font-semibold text-[#4D6090]">
+              {packageInterval}
+            </p>
+          )}
+        </div>
         <p className="line-clamp-3 min-h-[72px] font-['Roboto'] text-[15px] leading-6 text-[#6777A0]">
           {card.description || "Details are available on the next screen."}
         </p>
@@ -252,10 +737,19 @@ function ProviderResultCard({ card, categorySlug }) {
         </span>
         <Link
           to={detailPath}
+          state={
+            card.type === "package"
+              ? {
+                  returnTo,
+                  packageItem: card.raw,
+                }
+              : undefined
+          }
           className="flex min-h-11 items-center justify-center rounded-xl bg-[#011C60] px-4 font-['Roboto'] text-[15px] font-semibold text-white transition hover:bg-[#02237a]"
         >
           {card.type === "package" ? "Package Details" : "Service Details"}
         </Link>
+      </div>
       </div>
     </article>
   );
@@ -263,10 +757,14 @@ function ProviderResultCard({ card, categorySlug }) {
 
 export default function ServiceProvidersPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { categorySlug, serviceNameId } = useParams();
   const decodedServiceNameId = decodeURIComponent(serviceNameId || "");
+  const serviceTypeFromSearch = getServiceTypeFromSearch(location.search);
   const [activeProviderType, setActiveProviderType] = useState("all");
-  const [activeServiceType, setActiveServiceType] = useState("one-time");
+  const [activeServiceType, setActiveServiceType] = useState(
+    serviceTypeFromSearch || "one-time"
+  );
   const [selectedGovernorateId, setSelectedGovernorateId] = useState("");
   const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -294,6 +792,13 @@ export default function ServiceProvidersPage() {
   );
   const selectedServiceLabel =
     selectedServiceName?.label || decodedServiceNameId.replace(/[-_]+/g, " ");
+  const packageReturnTo = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+
+    params.set("serviceType", "packages");
+
+    return `${location.pathname}?${params.toString()}`;
+  }, [location.pathname, location.search]);
 
   const governorateOptions = useMemo(
     () => [
@@ -346,6 +851,14 @@ export default function ServiceProvidersPage() {
       isMounted = false;
     };
   }, [categorySlug]);
+
+  useEffect(() => {
+    if (!serviceTypeFromSearch || serviceTypeFromSearch === activeServiceType) {
+      return;
+    }
+
+    setActiveServiceType(serviceTypeFromSearch);
+  }, [activeServiceType, serviceTypeFromSearch]);
 
   useEffect(() => {
     let isMounted = true;
@@ -464,9 +977,21 @@ export default function ServiceProvidersPage() {
           activeServiceType === "packages"
             ? rawItems
                 .map((packageItem) =>
-                  normalizePackageCard(packageItem, selectedServiceLabel)
+                  normalizePackageCard(
+                    packageItem,
+                    selectedServiceLabel,
+                    category?.image
+                  )
                 )
                 .filter((card) => card.id)
+                .filter((card) =>
+                  doesCardMatchSelectedService(
+                    card,
+                    selectedServiceName,
+                    selectedServiceLabel,
+                    decodedServiceNameId
+                  )
+                )
                 .filter(
                   (card) => !card.categorySlug || card.categorySlug === categorySlug
                 )
@@ -497,7 +1022,17 @@ export default function ServiceProvidersPage() {
 
         setCards(nextCards);
         setTotalPages(nextTotalPages);
-        setTotalItems(Number(responseMeta.total ?? nextCards.length) || 0);
+        setTotalItems(
+          activeServiceType === "packages" && nextCards.length !== rawItems.length
+            ? nextCards.length
+            : Number(
+                responseMeta.total ??
+                  responseMeta.totalCount ??
+                  responseMeta.totalItems ??
+                  responseMeta.count ??
+                  nextCards.length
+              ) || 0
+        );
       } catch (error) {
         if (!isMounted) return;
 
@@ -524,6 +1059,7 @@ export default function ServiceProvidersPage() {
     categorySlug,
     currentPage,
     debouncedSearchQuery,
+    decodedServiceNameId,
     isLoadingServiceNames,
     selectedGovernorateId,
     selectedNeighborhoodId,
@@ -670,6 +1206,7 @@ export default function ServiceProvidersPage() {
                   key={`${card.type}-${card.id}`}
                   card={card}
                   categorySlug={categorySlug}
+                  returnTo={packageReturnTo}
                 />
               ))}
             </div>

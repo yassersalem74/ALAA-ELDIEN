@@ -4,7 +4,6 @@ import { useAuth } from "../../context/useAuth";
 import {
   bookServiceAppointment,
   getServiceAppointmentAvailabilities,
-  getPackageDetails,
   getServiceDetails,
 } from "../../api/services/service.api";
 import oneTimeServiceImage from "../../assets/images/service/add-service/add-service-flow.png";
@@ -356,7 +355,16 @@ const normalizePackage = (packageItem) => {
       1,
       Number(packageItem.daysPerInterval ?? packageItem.times ?? 1) || 1
     ),
-    price: Number(packageItem.price ?? packageItem.packagePrice ?? 0) || 0,
+    price:
+      Number(
+        packageItem.servicePrice ??
+          packageItem.ServicePrice ??
+          packageItem.price ??
+          packageItem.Price ??
+          packageItem.packagePrice ??
+          packageItem.PackagePrice ??
+          0
+      ) || 0,
     currency: packageItem.currency || packageItem.packageCurrency || "EGP",
     serviceIds: serviceIds.map(String),
     serviceName:
@@ -376,21 +384,6 @@ const normalizePackage = (packageItem) => {
     raw: packageItem,
   };
 };
-
-const mergePackageDetails = (basePackage, detailedPackage) => ({
-  ...basePackage,
-  ...detailedPackage,
-  id: detailedPackage.id || basePackage.id,
-  serviceIds: detailedPackage.serviceIds.length
-    ? detailedPackage.serviceIds
-    : basePackage.serviceIds,
-  includedItems: detailedPackage.includedItems.length
-    ? detailedPackage.includedItems
-    : basePackage.includedItems,
-  selectedServices: detailedPackage.selectedServices?.length
-    ? detailedPackage.selectedServices
-    : basePackage.selectedServices,
-});
 
 const getPackageIntervalLabel = (packageItem) => {
   const recurrence = String(packageItem.recurrence || "").toLowerCase();
@@ -2099,7 +2092,7 @@ export default function ServiceProviderDetailPage() {
   const handleBack = () => {
     if (bookingMode === "package-details") {
       if (queryMode === "package" && queryPackageId) {
-        navigate("/services/package");
+        navigate("/services/service-categories");
         return;
       }
 
@@ -2124,15 +2117,6 @@ export default function ServiceProviderDetailPage() {
   const handleSelectPackage = async (packageItem) => {
     setSelectedPackage(packageItem);
     setBookingMode("package-details");
-
-    try {
-      const response = await getPackageDetails(packageItem.id, SERVICE_LANGUAGE);
-      const detailedPackage = normalizePackage(extractPayloadData(response));
-
-      setSelectedPackage(mergePackageDetails(packageItem, detailedPackage));
-    } catch {
-      setSelectedPackage(packageItem);
-    }
   };
 
   const getBookableAppointment = async (body, availabilityResponse) => {
@@ -2255,7 +2239,7 @@ export default function ServiceProviderDetailPage() {
               {bookingMode === "choice" && (
                 <BookingChoice
                   onSelectOneTime={() => setBookingMode("one-time")}
-                  onSelectPackage={() => navigate("/services/package")}
+                  onSelectPackage={() => setBookingMode("packages")}
                 />
               )}
 
