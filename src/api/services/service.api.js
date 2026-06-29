@@ -201,22 +201,6 @@ const normalizeAppointmentBookingPayload = (data = {}) => {
   };
 };
 
-const assertAppointmentConcurrencyStamp = (payload) => {
-  if (String(payload.concurrencyStamp || "").trim()) return;
-
-  const error = new Error(
-    "Missing appointment concurrency stamp. Please refresh available times and select a slot again."
-  );
-
-  error.response = {
-    data: {
-      message: error.message,
-    },
-  };
-
-  throw error;
-};
-
 export const addService = async (data) => {
   logApiPayload("POST /api/v1/services request", data);
 
@@ -473,7 +457,6 @@ export const getMyAppointments = async (params = {}) => {
 export const bookServiceAppointment = async (id, data, { didRetry = false } = {}) => {
   const payload = normalizeAppointmentBookingPayload(data);
 
-  assertAppointmentConcurrencyStamp(payload);
   logApiPayload(`POST /api/v1/appointments/book/service/${id} request`, payload);
 
   try {

@@ -3,8 +3,8 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 import { useAuth } from "../../context/useAuth";
 import {
   bookServiceAppointment,
-  getServiceAppointmentAvailabilities,
   getPackages,
+  getServices,
   getServiceDetails,
 } from "../../api/services/service.api";
 import { serviceCategories } from "../../components/Service-Page/servicePageData";
@@ -28,7 +28,6 @@ import {
   normalizeService,
 } from "./serviceApiMappers";
 import {
-  applyAvailabilitySecurityStamp,
   extractAppointmentConcurrencyStamp,
   extractAppointmentStatus,
   formatTimeForApi,
@@ -237,6 +236,58 @@ const OWNER_NESTED_KEYS = ["provider", "partner", "signatory", "owner", "created
 const normalizeComparableId = (value) =>
   String(value || "").trim().toLowerCase();
 
+const normalizeComparableText = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const normalizeIdValues = (...values) => [
+  ...new Set(
+    values
+      .flatMap((value) => {
+        if (Array.isArray(value)) return normalizeIdValues(...value);
+        if (value && typeof value === "object") {
+          return [
+            value.id,
+            value.Id,
+            value.value,
+            value.Value,
+            value.serviceNameId,
+            value.ServiceNameId,
+            value.serviceNameID,
+            value.ServiceNameID,
+          ];
+        }
+
+        return value;
+      })
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  ),
+];
+
+const getNamedValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value).trim();
+  }
+  if (typeof value !== "object") return "";
+
+  return String(
+    value.name ||
+      value.Name ||
+      value.serviceName ||
+      value.ServiceName ||
+      value.title ||
+      value.Title ||
+      value.label ||
+      value.Label ||
+      ""
+  ).trim();
+};
+
 const collectIdsFromKeys = (source, directKeys, nestedKeys = []) => {
   if (!source || typeof source !== "object") return [];
 
@@ -270,6 +321,68 @@ const isOwnedByCurrentUser = (user, ...entities) => {
     .some((ownerId) => currentUserIds.has(ownerId));
 };
 
+const getPackageBookingErrorMessage = (error) => {
+  const errorCode = getApiErrorCode(error);
+
+  if (errorCode === "invalidday") {
+    return "This package day is not accepted by the booking endpoint. Please choose another package day.";
+  }
+
+  if (errorCode === "invalidtime") {
+    return "This package time is not accepted by the booking endpoint. Please choose another hour.";
+  }
+
+  if (errorCode === "notsupportedneighborhood") {
+    return "This package coverage area is not accepted by the booking endpoint. Please choose another area.";
+  }
+
+  return getApiErrorMessage(
+    error,
+    "Unable to confirm package booking. Please try again."
+  );
+};
+
+const getApiErrorCode = (error) =>
+  String(
+    error?.response?.data?.error?.code ||
+      error?.response?.data?.code ||
+      error?.response?.data?.error?.message ||
+      error?.response?.data?.message ||
+      ""
+  ).toLowerCase();
+
+const getEntityOwnerNames = (entity) => {
+  const source = entity?.raw || entity || {};
+
+  return [
+    source.providerName,
+    source.ProviderName,
+    source.partnerName,
+    source.PartnerName,
+    source.signatoryName,
+    source.SignatoryName,
+    source.companyName,
+    source.CompanyName,
+    source.provider,
+    source.Provider,
+    source.partner,
+    source.Partner,
+    source.signatory,
+    source.Signatory,
+    source.company,
+    source.Company,
+  ]
+    .map(getNamedValue)
+    .map(normalizeComparableText)
+    .filter(Boolean);
+};
+
+const hasSharedValue = (firstValues, secondValues, normalizer = normalizeComparableId) => {
+  const firstSet = new Set(firstValues.map(normalizer).filter(Boolean));
+
+  return secondValues.map(normalizer).some((value) => firstSet.has(value));
+};
+
 const buildAppointmentBody = ({
   date,
   timeSlot,
@@ -290,7 +403,8 @@ const buildAppointmentBody = ({
     extractAppointmentConcurrencyStamp(packageItem?.raw) ||
     null,
   itemIds: [],
-  neighborhoodId: neighborhoodId || service?.neighborhoodId || null,
+  neighborhoodId:
+    neighborhoodId || packageItem?.neighborhoodId || service?.neighborhoodId || null,
 });
 
 const getAppointmentId = (packageId, serviceId, body) =>
@@ -308,6 +422,8 @@ const getScheduleSelectionDate = (selection, fallbackDate = "") => {
 
 const DAILY_WEEKDAY_INDEXES = [0, 1, 2, 3, 4, 5, 6];
 const PACKAGE_LOOKUP_PAGE_SIZE = 50;
+const SERVICE_LOOKUP_PAGE_SIZE = 50;
+const MAX_SERVICE_LOOKUP_PAGES = 10;
 const DEFAULT_PACKAGE_SLOT_DURATION_IN_MIN = 60;
 const DAY_END_MINUTES = 24 * 60;
 
@@ -416,6 +532,37 @@ const getPackageServices = (packageItem) => [
   ...(Array.isArray(packageItem.services) ? packageItem.services : []),
   ...(Array.isArray(packageItem.Services) ? packageItem.Services : []),
 ];
+
+const getPackageServiceNameIds = (packageItem) => {
+  const services = getPackageServices(packageItem);
+
+  return normalizeIdValues(
+    packageItem.serviceNameId,
+    packageItem.ServiceNameId,
+    packageItem.serviceNameID,
+    packageItem.ServiceNameID,
+    packageItem.serviceName,
+    packageItem.ServiceName,
+    packageItem.serviceNameDto,
+    packageItem.ServiceNameDto,
+    packageItem.serviceNameDTO,
+    packageItem.ServiceNameDTO,
+    packageItem.service?.serviceNameId,
+    packageItem.service?.ServiceNameId,
+    packageItem.service?.serviceName,
+    packageItem.service?.ServiceName,
+    services.map((service) => [
+      service?.serviceNameId,
+      service?.ServiceNameId,
+      service?.serviceName,
+      service?.ServiceName,
+      service?.serviceNameDto,
+      service?.ServiceNameDto,
+      service?.serviceNameDTO,
+      service?.ServiceNameDTO,
+    ])
+  );
+};
 
 const getPackageServiceIds = (packageItem) => [
   ...(Array.isArray(packageItem.serviceIds) ? packageItem.serviceIds : []),
@@ -564,6 +711,7 @@ const getPackageGovernorateName = (packageItem, neighborhoods) =>
 const normalizePackage = (packageItem) => {
   packageItem = normalizePackagePayload(packageItem || {});
   const serviceIds = getPackageServiceIds(packageItem);
+  const serviceNameIds = getPackageServiceNameIds(packageItem);
   const neighborhoods = normalizePackageNeighborhoods(packageItem);
   const governorateName = getPackageGovernorateName(packageItem, neighborhoods);
   const neighborhoodName = neighborhoods
@@ -634,6 +782,26 @@ const normalizePackage = (packageItem) => {
       packageItem.PackageCurrency ||
       "EGP",
     serviceIds: serviceIds.map(String),
+    serviceNameIds,
+    serviceNameId: serviceNameIds[0] || "",
+    categoryName:
+      packageItem.categoryName ||
+      packageItem.CategoryName ||
+      packageItem.serviceCategory ||
+      packageItem.ServiceCategory ||
+      packageItem.category ||
+      packageItem.Category ||
+      "",
+    governorateId:
+      packageItem.governorateId ||
+      packageItem.GovernorateId ||
+      packageItem.governorate?.id ||
+      packageItem.governorate?.Id ||
+      packageItem.Governorate?.id ||
+      packageItem.Governorate?.Id ||
+      "",
+    providerIds: getEntityOwnerIds(packageItem),
+    providerNames: getEntityOwnerNames(packageItem),
     neighborhoodId: neighborhoods[0]?.id || "",
     neighborhoodName,
     neighborhoods,
@@ -737,6 +905,230 @@ const createFallbackService = (packageItem) => ({
   concurrencyStamp: packageItem.concurrencyStamp || "",
   rate: 0,
 });
+
+const getCategoryImageForValue = (categoryValue) => {
+  const normalizedCategory = normalizeComparableText(categoryValue);
+  const category = serviceCategories.find((item) =>
+    [
+      item.apiName,
+      item.title,
+      item.slug,
+      item.id,
+    ]
+      .map(normalizeComparableText)
+      .includes(normalizedCategory)
+  );
+
+  return category?.image || serviceCategories[0]?.image || "";
+};
+
+const getPackageApiCategoryName = (packageItem) => {
+  const normalizedCategory = normalizeComparableText(packageItem.categoryName);
+  const category = serviceCategories.find((item) =>
+    [
+      item.apiName,
+      item.title,
+      item.slug,
+      item.id,
+    ]
+      .map(normalizeComparableText)
+      .includes(normalizedCategory)
+  );
+
+  return category?.apiName || packageItem.categoryName || "";
+};
+
+const getServiceLookupId = (service) =>
+  String(
+    service?.serviceId ||
+      service?.ServiceId ||
+      service?.serviceID ||
+      service?.ServiceID ||
+      service?.id ||
+      service?.Id ||
+      service?.providerServiceId ||
+      service?.ProviderServiceId ||
+      ""
+  ).trim();
+
+const getServiceNameIds = (service) =>
+  normalizeIdValues(
+    service?.serviceNameId,
+    service?.ServiceNameId,
+    service?.serviceNameID,
+    service?.ServiceNameID,
+    service?.serviceName,
+    service?.ServiceName,
+    service?.serviceNameDto,
+    service?.ServiceNameDto,
+    service?.serviceNameDTO,
+    service?.ServiceNameDTO
+  );
+
+const getServiceNames = (service) => [
+  service?.serviceName,
+  service?.ServiceName,
+  service?.name,
+  service?.Name,
+  service?.title,
+  service?.Title,
+  service?.serviceNameDto,
+  service?.ServiceNameDto,
+  service?.serviceNameDTO,
+  service?.ServiceNameDTO,
+]
+  .map(getNamedValue)
+  .map(normalizeComparableText)
+  .filter(Boolean);
+
+const getServiceCategoryName = (service) =>
+  String(
+    service?.serviceCategory ||
+      service?.ServiceCategory ||
+      service?.categoryName ||
+      service?.CategoryName ||
+      service?.category ||
+      service?.Category ||
+      ""
+  ).trim();
+
+const scoreServiceForPackage = (service, packageItem) => {
+  const serviceId = normalizeComparableId(getServiceLookupId(service));
+  const packageServiceIds = (packageItem.serviceIds || []).map(normalizeComparableId);
+  const packageServiceNameIds = packageItem.serviceNameIds || [];
+  const serviceNameIds = getServiceNameIds(service);
+  const packageNames = [packageItem.serviceName, packageItem.name]
+    .map(normalizeComparableText)
+    .filter(Boolean);
+  const serviceNames = getServiceNames(service);
+  const packageProviderIds = packageItem.providerIds || [];
+  const serviceProviderIds = getEntityOwnerIds(service);
+  const packageProviderNames = packageItem.providerNames || [];
+  const serviceProviderNames = getEntityOwnerNames(service);
+  const packageCategory = normalizeComparableText(packageItem.categoryName);
+  const serviceCategory = normalizeComparableText(getServiceCategoryName(service));
+  let score = 0;
+
+  if (serviceId && packageServiceIds.includes(serviceId)) score += 1000;
+  if (hasSharedValue(packageServiceNameIds, serviceNameIds)) score += 300;
+  if (hasSharedValue(packageNames, serviceNames, normalizeComparableText)) {
+    score += 160;
+  }
+  if (hasSharedValue(packageProviderIds, serviceProviderIds)) score += 120;
+  if (hasSharedValue(packageProviderNames, serviceProviderNames, normalizeComparableText)) {
+    score += 90;
+  }
+  if (packageCategory && packageCategory === serviceCategory) score += 50;
+
+  return score;
+};
+
+const findMatchingPackageService = (services, packageItem) =>
+  services
+    .map((service) => ({
+      service,
+      score: scoreServiceForPackage(service, packageItem),
+    }))
+    .filter((item) => item.score >= 160)
+    .sort((first, second) => second.score - first.score)[0]?.service || null;
+
+const getServicesLookupAttempts = (packageItem) => {
+  const search = packageItem.serviceName || packageItem.name || "";
+  const category = getPackageApiCategoryName(packageItem);
+  const governorateId = packageItem.governorateId || "";
+  const neighborhoodId = packageItem.neighborhoodId || "";
+  const attempts = [
+    { search, category, governorateId, neighborhoodId },
+    { search, category },
+    { search },
+    { category },
+    {},
+  ];
+  const seen = new Set();
+
+  return attempts
+    .map((attempt) =>
+      Object.fromEntries(
+        Object.entries(attempt).filter(([, value]) => Boolean(value))
+      )
+    )
+    .filter((attempt) => {
+      const key = JSON.stringify(attempt);
+
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const fetchMatchingPackageService = async (packageItem) => {
+  for (const attemptParams of getServicesLookupAttempts(packageItem)) {
+    const getServicesPage = (page) =>
+      getServices({
+        page,
+        pageSize: SERVICE_LOOKUP_PAGE_SIZE,
+        language: SERVICE_LANGUAGE,
+        ...attemptParams,
+      });
+    const firstResponse = await getServicesPage(1);
+    const firstItems = extractApiArray(firstResponse);
+    const firstMatch = findMatchingPackageService(firstItems, packageItem);
+
+    if (firstMatch) return firstMatch;
+
+    const totalPages = Math.min(
+      extractTotalPages(firstResponse),
+      MAX_SERVICE_LOOKUP_PAGES
+    );
+
+    for (let page = 2; page <= totalPages; page += 1) {
+      const response = await getServicesPage(page);
+      const match = findMatchingPackageService(extractApiArray(response), packageItem);
+
+      if (match) return match;
+    }
+  }
+
+  return null;
+};
+
+const getNormalizedServiceDetails = async (serviceId, fallbackService, fallbackImage) => {
+  if (!serviceId) return null;
+
+  try {
+    const serviceResponse = await getServiceDetails(serviceId, SERVICE_LANGUAGE);
+    const serviceData = extractPayloadData(serviceResponse);
+
+    return normalizeService(serviceData, fallbackImage);
+  } catch {
+    return fallbackService
+      ? normalizeService(fallbackService, fallbackImage)
+      : null;
+  }
+};
+
+const resolvePackageBookingService = async (packageItem) => {
+  const fallbackImage = getCategoryImageForValue(packageItem.categoryName);
+  const directServiceId = packageItem.serviceIds[0] || "";
+  const directService = await getNormalizedServiceDetails(
+    directServiceId,
+    null,
+    fallbackImage
+  );
+
+  if (directService?.id) return directService;
+
+  const matchingService = await fetchMatchingPackageService(packageItem);
+  const matchingServiceId = getServiceLookupId(matchingService);
+
+  return (
+    (await getNormalizedServiceDetails(
+      matchingServiceId,
+      matchingService,
+      fallbackImage
+    )) || createFallbackService(packageItem)
+  );
+};
 
 function SectionPanel({ title, children }) {
   return (
@@ -1005,6 +1397,14 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
     ? selectedNeighborhoodId
     : neighborhoodOptions[0]?.id || "";
   const durationInMin = getPackageSlotDurationInMin(packageItem);
+
+  useEffect(() => {
+    setSelectedWeekdays((currentWeekdays) => {
+      if (recurrence === "daily") return DAILY_WEEKDAY_INDEXES;
+
+      return currentWeekdays;
+    });
+  }, [recurrence]);
 
   const scheduleSelections = useMemo(
     () => getScheduleSelections(recurrence, selectedWeekdays, selectedMonthDays),
@@ -1659,31 +2059,10 @@ export default function PackageDetailPage() {
 
         setPackageItem(normalizedPackage);
 
-        const serviceId = normalizedPackage.serviceIds[0];
+        const resolvedService = await resolvePackageBookingService(normalizedPackage);
 
-        if (!serviceId) {
-          setService(createFallbackService(normalizedPackage));
-          return;
-        }
-
-        try {
-          const serviceResponse = await getServiceDetails(
-            serviceId,
-            SERVICE_LANGUAGE
-          );
-          const serviceData = extractPayloadData(serviceResponse);
-          const categoryImage =
-            serviceCategories.find(
-              (category) =>
-                category.apiName === serviceData?.serviceCategory ||
-                category.title === serviceData?.categoryName
-            )?.image || serviceCategories[0]?.image;
-
-          if (isMounted) {
-            setService(normalizeService(serviceData, categoryImage));
-          }
-        } catch {
-          if (isMounted) setService(createFallbackService(normalizedPackage));
+        if (isMounted) {
+          setService(resolvedService || createFallbackService(normalizedPackage));
         }
       } catch (error) {
         if (!isMounted) return;
@@ -1713,24 +2092,55 @@ export default function PackageDetailPage() {
     navigate(returnTo || "/services/service-categories");
   };
 
-  const getBookableAppointment = async (body) => {
-    const response = await getServiceAppointmentAvailabilities(
-      bookingDraft.service.id,
-      body.date
-    );
+  const getPackageBookingTargetIds = (draft) => [
+    draft?.packageItem?.serviceNameId,
+    ...(Array.isArray(draft?.packageItem?.serviceNameIds)
+      ? draft.packageItem.serviceNameIds
+      : []),
+    draft?.service?.raw?.serviceNameId,
+    draft?.service?.raw?.ServiceNameId,
+    draft?.service?.id,
+    ...(Array.isArray(draft?.packageItem?.serviceIds)
+      ? draft.packageItem.serviceIds
+      : []),
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index);
 
-    return {
-      body: applyAvailabilitySecurityStamp(body, response),
-      availabilityResponse: response,
-    };
+  const getBookableAppointment = (body) => ({
+    body,
+    availabilityResponse: null,
+  });
+
+  const bookPackageAppointment = async (targetIds, body) => {
+    let lastError = null;
+
+    for (const targetId of targetIds) {
+      try {
+        return {
+          targetId,
+          response: await bookServiceAppointment(targetId, body),
+          request: body,
+        };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError;
   };
 
   const handleConfirmBooking = async () => {
     if (!bookingDraft) return;
-    if (!bookingDraft.service.id) {
-      setBookingErrorMessage("This package is missing a service id for booking.");
+
+    const packageBookingTargetIds = getPackageBookingTargetIds(bookingDraft);
+
+    if (packageBookingTargetIds.length === 0) {
+      setBookingErrorMessage("This package is missing a matching service id for booking.");
       return;
     }
+
     if (isOwnedByCurrentUser(user, bookingDraft.service, bookingDraft.packageItem)) {
       setBookingErrorMessage(OWN_PACKAGE_BOOKING_ERROR);
       return;
@@ -1757,7 +2167,7 @@ export default function PackageDetailPage() {
       const appointmentResults = [];
 
       for (const selection of appointmentSelections) {
-        const appointment = await getBookableAppointment(
+        const appointment = getBookableAppointment(
           buildAppointmentBody({
             date: getScheduleSelectionDate(
               selection,
@@ -1770,31 +2180,34 @@ export default function PackageDetailPage() {
           })
         );
         const appointmentBody = appointment.body;
-        const appointmentResponse = await bookServiceAppointment(
-          bookingDraft.service.id,
+        const appointmentBooking = await bookPackageAppointment(
+          packageBookingTargetIds,
           appointmentBody
         );
 
         appointmentResults.push({
           selection,
           request: appointmentBody,
-          response: appointmentResponse,
+          response: appointmentBooking.response,
+          bookingTargetId: appointmentBooking.targetId,
           availabilityResponse: appointment.availabilityResponse,
         });
       }
 
       const firstResult = appointmentResults[0];
+      const bookedTargetId = firstResult.bookingTargetId || packageBookingTargetIds[0];
       const bookingPayload = {
         id: getAppointmentId(
           bookingDraft.packageItem.id,
-          bookingDraft.service.id,
+          bookedTargetId,
           firstResult.request
         ),
         mode: "package",
-        serviceId: bookingDraft.service.id,
+        serviceId: bookedTargetId,
         serviceName: bookingDraft.service.name,
         packageId: bookingDraft.packageItem.id,
         packageName: bookingDraft.packageItem.name,
+        bookingTargetId: bookedTargetId,
         providerId: bookingDraft.service.providerId,
         providerName: bookingDraft.service.providerName,
         date: firstResult.request.date,
@@ -1830,9 +2243,7 @@ export default function PackageDetailPage() {
       setBookingDraft(null);
       setIsSuccessOpen(true);
     } catch (error) {
-      setBookingErrorMessage(
-        getApiErrorMessage(error, "Unable to confirm booking. Please try again.")
-      );
+      setBookingErrorMessage(getPackageBookingErrorMessage(error));
     } finally {
       setIsBookingSubmitting(false);
     }
