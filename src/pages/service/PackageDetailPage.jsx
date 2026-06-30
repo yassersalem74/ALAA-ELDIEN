@@ -4,6 +4,7 @@ import { useAuth } from "../../context/useAuth";
 import {
   bookServiceAppointment,
   getPackages,
+  getServiceNames as fetchServiceNames,
   getServices,
   getServiceDetails,
 } from "../../api/services/service.api";
@@ -27,6 +28,7 @@ import {
   getApiErrorMessage,
   normalizeService,
 } from "./serviceApiMappers";
+import { normalizeServiceNameList } from "./serviceNameMappers";
 import {
   extractAppointmentConcurrencyStamp,
   extractAppointmentStatus,
@@ -243,6 +245,17 @@ const normalizeComparableText = (value) =>
     .replace(/\s+/g, " ")
     .toLowerCase();
 
+const BACKEND_ENTITY_ID_PATTERNS = [
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  /^[0-9a-f]{24}$/i,
+];
+
+const isLikelyBackendId = (value) => {
+  const text = String(value || "").trim();
+
+  return BACKEND_ENTITY_ID_PATTERNS.some((pattern) => pattern.test(text));
+};
+
 const normalizeIdValues = (...values) => [
   ...new Set(
     values
@@ -267,6 +280,9 @@ const normalizeIdValues = (...values) => [
       .filter(Boolean)
   ),
 ];
+
+const normalizeBackendIdValues = (...values) =>
+  normalizeIdValues(...values).filter(isLikelyBackendId);
 
 const getNamedValue = (value) => {
   if (!value) return "";
@@ -336,6 +352,10 @@ const getPackageBookingErrorMessage = (error) => {
     return "This package coverage area is not accepted by the booking endpoint. Please choose another area.";
   }
 
+  if (errorCode === "servicenotexist") {
+    return "This package is not accepted by the booking endpoint yet. Please try another package or contact support.";
+  }
+
   return getApiErrorMessage(
     error,
     "Unable to confirm package booking. Please try again."
@@ -402,7 +422,9 @@ const buildAppointmentBody = ({
     packageItem?.concurrencyStamp ||
     extractAppointmentConcurrencyStamp(packageItem?.raw) ||
     null,
-  itemIds: [],
+  itemIds: Array.isArray(packageItem?.includedItemIds)
+    ? packageItem.includedItemIds
+    : [],
   neighborhoodId:
     neighborhoodId || packageItem?.neighborhoodId || service?.neighborhoodId || null,
 });
@@ -420,7 +442,6 @@ const getScheduleSelectionDate = (selection, fallbackDate = "") => {
   return fallbackDate || getTodayKey();
 };
 
-const DAILY_WEEKDAY_INDEXES = [0, 1, 2, 3, 4, 5, 6];
 const PACKAGE_LOOKUP_PAGE_SIZE = 50;
 const SERVICE_LOOKUP_PAGE_SIZE = 50;
 const MAX_SERVICE_LOOKUP_PAGES = 10;
@@ -429,33 +450,14 @@ const DAY_END_MINUTES = 24 * 60;
 
 const getScheduleKey = (type, value) => `${type}-${value}`;
 
-const createWeekdayScheduleSelection = (dayIndex) => ({
-  key: getScheduleKey("weekday", dayIndex),
-  type: "weekday",
-  dayIndex,
-  label: WEEKDAY_NAMES[dayIndex],
+const createDateScheduleSelection = (day, recurrence) => ({
+  key: getScheduleKey(recurrence === "monthly" ? "month-day" : "date", day.key),
+  type: recurrence === "monthly" ? "month-day" : "date",
+  dayIndex: day.dayIndex,
+  monthDay: day.dayNumber,
+  label: formatShortSelectedDate(day.key),
+  dateKey: day.key,
 });
-
-const getScheduleSelections = (
-  recurrence,
-  selectedWeekdays,
-  selectedMonthDays
-) => {
-  if (recurrence === "daily") {
-    return DAILY_WEEKDAY_INDEXES.map(createWeekdayScheduleSelection);
-  }
-
-  if (recurrence === "monthly") {
-    return selectedMonthDays.map((monthDay) => ({
-      key: getScheduleKey("month-day", monthDay),
-      type: "month-day",
-      monthDay,
-      label: `Day ${monthDay}`,
-    }));
-  }
-
-  return selectedWeekdays.map(createWeekdayScheduleSelection);
-};
 
 const getPackageSlotDurationInMin = (packageItem) => {
   const duration = Number(
@@ -536,7 +538,7 @@ const getPackageServices = (packageItem) => [
 const getPackageServiceNameIds = (packageItem) => {
   const services = getPackageServices(packageItem);
 
-  return normalizeIdValues(
+  return normalizeBackendIdValues(
     packageItem.serviceNameId,
     packageItem.ServiceNameId,
     packageItem.serviceNameID,
@@ -582,7 +584,7 @@ const getPackageServiceIds = (packageItem) => [
   packageItem.Service?.Id,
   packageItem.Service?.serviceId,
   packageItem.Service?.ServiceId,
-].filter(Boolean);
+].filter(isLikelyBackendId);
 
 const normalizePackageFeature = (item) => {
   if (typeof item === "string") return item;
@@ -601,6 +603,31 @@ const normalizePackageFeature = (item) => {
     ""
   );
 };
+
+const getPackageIncludedItemIds = (items) =>
+  normalizeBackendIdValues(
+    (Array.isArray(items) ? items : []).map((item) => {
+      if (!item || typeof item !== "object") return "";
+
+      return (
+        item.id ||
+        item.Id ||
+        item.itemId ||
+        item.ItemId ||
+        item.itemID ||
+        item.ItemID ||
+        item.serviceItemId ||
+        item.ServiceItemId ||
+        item.serviceItemID ||
+        item.ServiceItemID ||
+        item.packageItemId ||
+        item.PackageItemId ||
+        item.value ||
+        item.Value ||
+        ""
+      );
+    })
+  );
 
 const normalizePackageNeighborhoodOption = (item, index) => {
   if (!item) return null;
@@ -829,6 +856,7 @@ const normalizePackage = (packageItem) => {
       extractAppointmentConcurrencyStamp(packageItem) ||
       "",
     includedItems: includedItems.map(normalizePackageFeature).filter(Boolean),
+    includedItemIds: getPackageIncludedItemIds(includedItems),
     raw: packageItem,
   };
 };
@@ -873,17 +901,6 @@ const getPackageIntervalLabel = (packageItem) => {
 
 const getPackageRecurrence = (packageItem) =>
   String(packageItem.recurrence || "").trim().toLowerCase();
-
-const getPackageSelectionLimit = (packageItem) => {
-  const recurrence = getPackageRecurrence(packageItem);
-  const value = Math.max(1, Number(packageItem.daysPerInterval) || 1);
-
-  if (recurrence === "daily") return 7;
-  if (recurrence === "weekly") return Math.min(7, value);
-  if (recurrence === "monthly") return Math.min(30, value);
-
-  return value;
-};
 
 const createFallbackService = (packageItem) => ({
   id: packageItem.serviceIds[0] || "",
@@ -938,8 +955,8 @@ const getPackageApiCategoryName = (packageItem) => {
   return category?.apiName || packageItem.categoryName || "";
 };
 
-const getServiceLookupId = (service) =>
-  String(
+const getServiceLookupId = (service) => {
+  const id = String(
     service?.serviceId ||
       service?.ServiceId ||
       service?.serviceID ||
@@ -951,8 +968,84 @@ const getServiceLookupId = (service) =>
       ""
   ).trim();
 
+  return isLikelyBackendId(id) ? id : "";
+};
+
+const getBookablePackageIds = (packageItem) =>
+  [
+    packageItem?.serviceNameId,
+    ...(Array.isArray(packageItem?.serviceNameIds)
+      ? packageItem.serviceNameIds
+      : []),
+    packageItem?.raw?.serviceNameId,
+    packageItem?.raw?.ServiceNameId,
+    packageItem?.raw?.serviceNameID,
+    packageItem?.raw?.ServiceNameID,
+    packageItem?.raw?.serviceName?.id,
+    packageItem?.raw?.serviceName?.Id,
+    packageItem?.raw?.ServiceName?.id,
+    packageItem?.raw?.ServiceName?.Id,
+    packageItem?.raw?.serviceNameDto?.id,
+    packageItem?.raw?.serviceNameDto?.Id,
+    packageItem?.raw?.ServiceNameDto?.id,
+    packageItem?.raw?.ServiceNameDto?.Id,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(isLikelyBackendId)
+    .filter((value, index, values) => values.indexOf(value) === index);
+
+const getPackageServiceNameCandidates = (packageItem) =>
+  [
+    packageItem?.serviceName,
+    packageItem?.name,
+    packageItem?.description,
+    packageItem?.raw?.serviceName,
+    packageItem?.raw?.ServiceName,
+    packageItem?.raw?.description,
+    packageItem?.raw?.Description,
+    packageItem?.raw?.serviceName?.name,
+    packageItem?.raw?.serviceName?.Name,
+    packageItem?.raw?.ServiceName?.name,
+    packageItem?.raw?.ServiceName?.Name,
+    packageItem?.raw?.serviceNameDto?.name,
+    packageItem?.raw?.serviceNameDto?.Name,
+    packageItem?.raw?.ServiceNameDto?.name,
+    packageItem?.raw?.ServiceNameDto?.Name,
+  ]
+    .map(getNamedValue)
+    .map(normalizeComparableText)
+    .filter(Boolean);
+
+const resolvePackageServiceNameIds = async (packageItem) => {
+  const existingIds = getBookablePackageIds(packageItem);
+
+  if (existingIds.length > 0) return existingIds;
+
+  const response = await fetchServiceNames({ language: SERVICE_LANGUAGE });
+  const serviceNames = normalizeServiceNameList(extractApiArray(response));
+  const packageNames = getPackageServiceNameCandidates(packageItem);
+  const packageCategory = normalizeComparableText(packageItem?.categoryName);
+  const exactMatch = serviceNames.find((item) =>
+    packageNames.includes(normalizeComparableText(item.label))
+  );
+  const categoryMatch = serviceNames.find((item) => {
+    const itemLabel = normalizeComparableText(item.label);
+    const itemCategory = normalizeComparableText(item.categoryName);
+
+    return (
+      packageNames.some(
+        (name) => name && (itemLabel === name || itemLabel.includes(name) || name.includes(itemLabel))
+      ) &&
+      (!packageCategory || !itemCategory || itemCategory === packageCategory)
+    );
+  });
+  const matchedId = exactMatch?.id || categoryMatch?.id || "";
+
+  return isLikelyBackendId(matchedId) ? [matchedId] : [];
+};
+
 const getServiceNameIds = (service) =>
-  normalizeIdValues(
+  normalizeBackendIdValues(
     service?.serviceNameId,
     service?.ServiceNameId,
     service?.serviceNameID,
@@ -965,7 +1058,7 @@ const getServiceNameIds = (service) =>
     service?.ServiceNameDTO
   );
 
-const getServiceNames = (service) => [
+const getServiceDisplayNames = (service) => [
   service?.serviceName,
   service?.ServiceName,
   service?.name,
@@ -1000,7 +1093,7 @@ const scoreServiceForPackage = (service, packageItem) => {
   const packageNames = [packageItem.serviceName, packageItem.name]
     .map(normalizeComparableText)
     .filter(Boolean);
-  const serviceNames = getServiceNames(service);
+  const serviceNames = getServiceDisplayNames(service);
   const packageProviderIds = packageItem.providerIds || [];
   const serviceProviderIds = getEntityOwnerIds(service);
   const packageProviderNames = packageItem.providerNames || [];
@@ -1145,32 +1238,32 @@ function SectionPanel({ title, children }) {
 
 function PackageScheduleSelector({
   packageItem,
-  selectedWeekdays,
-  selectedMonthDays,
+  selectedSchedule,
 }) {
   const recurrence = getPackageRecurrence(packageItem);
-  const limit = getPackageSelectionLimit(packageItem);
-  const selectedCount =
-    recurrence === "daily"
-      ? DAILY_WEEKDAY_INDEXES.length
-      : recurrence === "monthly"
-        ? selectedMonthDays.length
-        : selectedWeekdays.length;
+  const times = Math.max(1, Number(packageItem.daysPerInterval) || 1);
   const intervalLabel =
     recurrence === "daily"
       ? "Daily package"
       : recurrence === "monthly"
         ? "Monthly package"
         : "Weekly package";
-  const statusLabel =
+  const frequencyLabel =
     recurrence === "daily"
-      ? "7 days / week selected"
-      : `${selectedCount} / ${limit} ${limit === 1 ? "day" : "days"} selected`;
+      ? "1 time / day"
+      : `${times} ${times === 1 ? "time" : "times"} / ${recurrence || "package"}`;
+  const statusLabel =
+    selectedSchedule?.label
+      ? `Starts ${selectedSchedule.label}`
+      : "Choose one start day";
 
   return (
     <div className="rounded-[12px] bg-[#F8F9FC] px-4 py-3 text-center">
       <p className="font-['Roboto'] text-[13px] font-semibold text-[#011C60]">
         {intervalLabel}
+      </p>
+      <p className="mt-1 font-['Roboto'] text-[12px] font-semibold text-[#4D6090]">
+        {frequencyLabel}
       </p>
       <p className="mt-1 font-['Roboto'] text-[12px] leading-5 text-[#6777A0]">
         {statusLabel}
@@ -1181,42 +1274,32 @@ function PackageScheduleSelector({
 
 function PackageCalendar({
   packageItem,
-  selectedWeekdays,
-  selectedMonthDays,
-  onToggleWeekday,
-  onToggleMonthDay,
+  selectedSchedule,
+  onSelectSchedule,
 }) {
   const [visibleMonth, setVisibleMonth] = useState(() => new Date());
   const todayKey = getTodayKey();
   const recurrence = getPackageRecurrence(packageItem);
-  const limit = getPackageSelectionLimit(packageItem);
   const calendarDays = useMemo(() => buildMonthDays(visibleMonth), [visibleMonth]);
 
   const isDateSelectable = (day) => {
     if (!day.isCurrentMonth || day.key < todayKey) return false;
-    if (recurrence === "monthly" && day.dayNumber > 30) return false;
 
     return true;
   };
 
   const isDateSelected = (day) => {
     if (!isDateSelectable(day)) return false;
-    if (recurrence === "daily") return true;
-    if (recurrence === "monthly") return selectedMonthDays.includes(day.dayNumber);
-
-    return selectedWeekdays.includes(day.dayIndex);
+    return selectedSchedule?.dateKey === day.key;
   };
 
   const handleSelectDay = (day) => {
-    if (recurrence === "daily") return;
+    if (!isDateSelectable(day)) return;
 
-    if (recurrence === "monthly") {
-      onToggleMonthDay(day.dayNumber);
-      return;
-    }
-
-    onToggleWeekday(day.dayIndex);
+    onSelectSchedule(createDateScheduleSelection(day, recurrence));
   };
+
+  const calendarTitle = formatMonthTitle(visibleMonth);
 
   return (
     <div className="mx-auto w-full max-w-[320px] rounded-[10px] bg-white p-4 shadow-[0px_14px_32px_rgba(1,28,96,0.12)]">
@@ -1235,7 +1318,7 @@ function PackageCalendar({
           &lt;
         </button>
         <p className="font-['Roboto'] text-[15px] font-semibold text-[#808DAF]">
-          {formatMonthTitle(visibleMonth)}
+          {calendarTitle}
         </p>
         <button
           type="button"
@@ -1265,13 +1348,7 @@ function PackageCalendar({
         {calendarDays.map((day) => {
           const isSelectable = isDateSelectable(day);
           const isSelected = isDateSelected(day);
-          const hasReachedLimit =
-            recurrence === "monthly"
-              ? selectedMonthDays.length >= limit
-              : selectedWeekdays.length >= limit;
-          const isDisabled =
-            !isSelectable ||
-            (recurrence !== "daily" && !isSelected && hasReachedLimit);
+          const isDisabled = !isSelectable;
 
           return (
             <button
@@ -1329,26 +1406,32 @@ function ScheduleTimeSelections({
               </p>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {timeSlots.map((slot) => {
-                const isSelected = selectedTime?.id === slot.id;
+            {timeSlots.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {timeSlots.map((slot) => {
+                  const isSelected = selectedTime?.id === slot.id;
 
-                return (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() => onSelectTime(selection.key, slot)}
-                    className={`min-w-[82px] rounded-xl border px-3 py-2.5 font-['Roboto'] text-[12px] font-semibold transition ${
-                      isSelected
-                        ? "border-[#011C60] bg-[#011C60] text-white"
-                        : "border-[#CCD2DF] bg-white text-[#011C60] hover:border-[#EECE42]"
-                    }`}
-                  >
-                    {getTimeButtonLabel(slot)}
-                  </button>
-                );
-              })}
-            </div>
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => onSelectTime(selection.key, slot)}
+                      className={`min-w-[82px] rounded-xl border px-3 py-2.5 font-['Roboto'] text-[12px] font-semibold transition ${
+                        isSelected
+                          ? "border-[#011C60] bg-[#011C60] text-white"
+                          : "border-[#CCD2DF] bg-white text-[#011C60] hover:border-[#EECE42]"
+                      }`}
+                    >
+                      {getTimeButtonLabel(slot)}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-xl bg-[#F8F9FC] px-3 py-3 text-center font-['Roboto'] text-[12px] font-semibold text-[#6777A0]">
+                No available package time for this day.
+              </p>
+            )}
           </div>
         );
       })}
@@ -1378,16 +1461,12 @@ function ScheduleTimeSelections({
 
 function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   const recurrence = getPackageRecurrence(packageItem);
-  const limit = getPackageSelectionLimit(packageItem);
   const neighborhoodOptions = useMemo(
     () => getPackageNeighborhoodOptions(packageItem, service),
     [packageItem, service]
   );
-  const [selectedWeekdays, setSelectedWeekdays] = useState(() =>
-    recurrence === "daily" ? DAILY_WEEKDAY_INDEXES : []
-  );
-  const [selectedMonthDays, setSelectedMonthDays] = useState([]);
-  const [selectedTimes, setSelectedTimes] = useState({});
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState(
     () => neighborhoodOptions[0]?.id || ""
   );
@@ -1399,72 +1478,32 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
   const durationInMin = getPackageSlotDurationInMin(packageItem);
 
   useEffect(() => {
-    setSelectedWeekdays((currentWeekdays) => {
-      if (recurrence === "daily") return DAILY_WEEKDAY_INDEXES;
-
-      return currentWeekdays;
-    });
-  }, [recurrence]);
+    setSelectedSchedule(null);
+    setSelectedTimeSlot(null);
+  }, [packageItem.id, recurrence]);
 
   const scheduleSelections = useMemo(
-    () => getScheduleSelections(recurrence, selectedWeekdays, selectedMonthDays),
-    [recurrence, selectedMonthDays, selectedWeekdays]
+    () => (selectedSchedule ? [selectedSchedule] : []),
+    [selectedSchedule]
+  );
+  const selectedTimes = useMemo(
+    () =>
+      selectedSchedule && selectedTimeSlot
+        ? { [selectedSchedule.key]: selectedTimeSlot }
+        : {},
+    [selectedSchedule, selectedTimeSlot]
   );
 
-  const hasScheduleSelection =
-    recurrence === "daily" ? true : scheduleSelections.length === limit;
-  const hasTimeSelection =
-    hasScheduleSelection &&
-    scheduleSelections.every((selection) => selectedTimes[selection.key]);
+  const hasScheduleSelection = Boolean(selectedSchedule);
+  const hasTimeSelection = Boolean(selectedTimeSlot);
 
-  const removeSelectedTime = (key) => {
-    setSelectedTimes((currentTimes) => {
-      if (!currentTimes[key]) return currentTimes;
-
-      const nextTimes = { ...currentTimes };
-      delete nextTimes[key];
-
-      return nextTimes;
-    });
+  const handleSelectSchedule = (schedule) => {
+    setSelectedSchedule(schedule);
+    setSelectedTimeSlot(null);
   };
 
-  const toggleWeekday = (dayIndex) => {
-    if (selectedWeekdays.includes(dayIndex)) {
-      removeSelectedTime(getScheduleKey("weekday", dayIndex));
-      setSelectedWeekdays((currentDays) =>
-        currentDays.filter((day) => day !== dayIndex)
-      );
-      return;
-    }
-
-    if (selectedWeekdays.length >= limit) return;
-
-    setSelectedWeekdays((currentDays) =>
-      [...currentDays, dayIndex].sort((first, second) => first - second)
-    );
-  };
-
-  const toggleMonthDay = (monthDay) => {
-    if (selectedMonthDays.includes(monthDay)) {
-      removeSelectedTime(getScheduleKey("month-day", monthDay));
-      setSelectedMonthDays((currentDays) =>
-        currentDays.filter((day) => day !== monthDay)
-      );
-      return;
-    }
-
-    if (selectedMonthDays.length >= limit) return;
-
-    setSelectedMonthDays((currentDays) =>
-      [...currentDays, monthDay].sort((first, second) => first - second)
-    );
-  };
-
-  const handleSelectTime = (scheduleKey, slot) => {
-    setSelectedTimes((currentTimes) => ({
-      ...currentTimes,
-      [scheduleKey]: slot,
-    }));
+  const handleSelectTime = (_scheduleKey, slot) => {
+    setSelectedTimeSlot(slot);
   };
 
   const handleBookNow = () => {
@@ -1476,10 +1515,14 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
       return;
     }
 
-    const bookedScheduleSelections = scheduleSelections.map((selection) => ({
-      ...selection,
-      timeSlot: selectedTimes[selection.key],
-    }));
+    const bookedScheduleSelections = [
+      {
+        ...selectedSchedule,
+        recurrence: packageItem.recurrence,
+        daysPerInterval: packageItem.daysPerInterval,
+        timeSlot: selectedTimeSlot,
+      },
+    ];
 
     onConfirmBooking({
       mode: "package",
@@ -1506,21 +1549,18 @@ function PackageBookingPanel({ service, packageItem, onConfirmBooking }) {
         <div className="space-y-4">
           <PackageScheduleSelector
             packageItem={packageItem}
-            selectedWeekdays={selectedWeekdays}
-            selectedMonthDays={selectedMonthDays}
+            selectedSchedule={selectedSchedule}
           />
 
           <PackageCalendar
             packageItem={packageItem}
-            selectedWeekdays={selectedWeekdays}
-            selectedMonthDays={selectedMonthDays}
-            onToggleWeekday={toggleWeekday}
-            onToggleMonthDay={toggleMonthDay}
+            selectedSchedule={selectedSchedule}
+            onSelectSchedule={handleSelectSchedule}
           />
 
           <ScheduleTimeSelections
             durationInMin={durationInMin}
-            selectionLimit={limit}
+            selectionLimit={1}
             scheduleSelections={scheduleSelections}
             selectedTimes={selectedTimes}
             onSelectTime={handleSelectTime}
@@ -2092,21 +2132,8 @@ export default function PackageDetailPage() {
     navigate(returnTo || "/services/service-categories");
   };
 
-  const getPackageBookingTargetIds = (draft) => [
-    draft?.packageItem?.serviceNameId,
-    ...(Array.isArray(draft?.packageItem?.serviceNameIds)
-      ? draft.packageItem.serviceNameIds
-      : []),
-    draft?.service?.raw?.serviceNameId,
-    draft?.service?.raw?.ServiceNameId,
-    draft?.service?.id,
-    ...(Array.isArray(draft?.packageItem?.serviceIds)
-      ? draft.packageItem.serviceIds
-      : []),
-  ]
-    .map((value) => String(value || "").trim())
-    .filter(Boolean)
-    .filter((value, index, values) => values.indexOf(value) === index);
+  const getPackageBookingTargetIds = (draft) =>
+    getBookablePackageIds(draft?.packageItem);
 
   const getBookableAppointment = (body) => ({
     body,
@@ -2134,13 +2161,6 @@ export default function PackageDetailPage() {
   const handleConfirmBooking = async () => {
     if (!bookingDraft) return;
 
-    const packageBookingTargetIds = getPackageBookingTargetIds(bookingDraft);
-
-    if (packageBookingTargetIds.length === 0) {
-      setBookingErrorMessage("This package is missing a matching service id for booking.");
-      return;
-    }
-
     if (isOwnedByCurrentUser(user, bookingDraft.service, bookingDraft.packageItem)) {
       setBookingErrorMessage(OWN_PACKAGE_BOOKING_ERROR);
       return;
@@ -2149,21 +2169,36 @@ export default function PackageDetailPage() {
     const scheduleSelections = Array.isArray(bookingDraft.scheduleSelections)
       ? bookingDraft.scheduleSelections
       : [];
-    const appointmentSelections = scheduleSelections.length
-      ? scheduleSelections
-      : [
-          {
-            key: bookingDraft.selectedDateKey || "selected-date",
-            label: bookingDraft.selectedDateKey || "Selected date",
-            dateKey: bookingDraft.selectedDateKey,
-            timeSlot: bookingDraft.selectedTimeSlot,
-          },
-        ];
+    const appointmentSelections = (
+      scheduleSelections.length
+        ? scheduleSelections
+        : [
+            {
+              key: bookingDraft.selectedDateKey || "selected-date",
+              label: bookingDraft.selectedDateKey || "Selected date",
+              dateKey: bookingDraft.selectedDateKey,
+              timeSlot: bookingDraft.selectedTimeSlot,
+            },
+          ]
+    ).slice(0, 1);
 
     setIsBookingSubmitting(true);
     setBookingErrorMessage("");
 
     try {
+      const bookingService = bookingDraft.service;
+      const packageBookingTargetIds =
+        getPackageBookingTargetIds(bookingDraft).length > 0
+          ? getPackageBookingTargetIds(bookingDraft)
+          : await resolvePackageServiceNameIds(bookingDraft.packageItem);
+
+      if (packageBookingTargetIds.length === 0) {
+        setBookingErrorMessage(
+          "This package is missing a service name id for booking."
+        );
+        return;
+      }
+
       const appointmentResults = [];
 
       for (const selection of appointmentSelections) {
@@ -2174,7 +2209,7 @@ export default function PackageDetailPage() {
               bookingDraft.selectedDateKey
             ),
             timeSlot: selection.timeSlot,
-            service: bookingDraft.service,
+            service: bookingService,
             packageItem: bookingDraft.packageItem,
             neighborhoodId: bookingDraft.selectedNeighborhoodId,
           })
@@ -2204,12 +2239,12 @@ export default function PackageDetailPage() {
         ),
         mode: "package",
         serviceId: bookedTargetId,
-        serviceName: bookingDraft.service.name,
+        serviceName: bookingService.name,
         packageId: bookingDraft.packageItem.id,
         packageName: bookingDraft.packageItem.name,
         bookingTargetId: bookedTargetId,
-        providerId: bookingDraft.service.providerId,
-        providerName: bookingDraft.service.providerName,
+        providerId: bookingService.providerId,
+        providerName: bookingService.providerName,
         date: firstResult.request.date,
         from: firstResult.request.from,
         to: firstResult.request.to,
@@ -2222,6 +2257,12 @@ export default function PackageDetailPage() {
           label: selection.label,
           dayIndex: selection.dayIndex,
           monthDay: selection.monthDay,
+          recurrence:
+            selection.recurrence || bookingDraft.packageItem.recurrence || "",
+          daysPerInterval:
+            selection.daysPerInterval ||
+            bookingDraft.packageItem.daysPerInterval ||
+            1,
           date: request.date,
           from: request.from,
           to: request.to,
